@@ -15,6 +15,7 @@ import About from "./pages/About/About";
 import Contact from "./pages/Contact/Contact";
 import DietPlan from "./pages/DietPlan/DietPlan";
 import FoodAnalyzer from "./pages/FoodAnalyzer/FoodAnalyzer";
+import Profile from "./pages/Profile/Profile";
 
 function App() {
   return (
@@ -36,6 +37,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
             </ProtectedRoute>
           }
         />

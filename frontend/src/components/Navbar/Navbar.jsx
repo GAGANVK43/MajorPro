@@ -2,7 +2,7 @@ import "./Navbar.css";
 import { useState, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FaHeartbeat, FaUser, FaSignOutAlt, FaBars, FaTimes, FaCircle } from "react-icons/fa";
+import { FaHeartbeat, FaUser, FaSignOutAlt, FaBars, FaTimes, FaCircle, FaCog } from "react-icons/fa";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -89,6 +89,11 @@ function Navbar() {
             </NavLink>
           </li>
           <li>
+            <NavLink to="/profile" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+              Profile
+            </NavLink>
+          </li>
+          <li>
             <NavLink to="/about" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
               About
             </NavLink>
@@ -122,7 +127,7 @@ function Navbar() {
               <div
                 className="user-avatar"
                 onClick={() => setUserDropdown(!userDropdown)}
-                title="Account Settings"
+                title="Account & Profile Settings"
               >
                 {getInitials(currentUser.full_name)}
               </div>
@@ -134,8 +139,11 @@ function Navbar() {
                     <p className="user-email">{currentUser.email}</p>
                   </div>
                   <hr className="dropdown-divider" />
+                  <NavLink to="/profile" className="dropdown-item" onClick={() => setUserDropdown(false)}>
+                    <FaUser /> Profile & Password
+                  </NavLink>
                   <NavLink to="/dashboard" className="dropdown-item" onClick={() => setUserDropdown(false)}>
-                    <FaUser /> Health Dashboard
+                    <FaHeartbeat /> Health Dashboard
                   </NavLink>
                   <button className="dropdown-item logout" onClick={handleLogout}>
                     <FaSignOutAlt /> Sign Out

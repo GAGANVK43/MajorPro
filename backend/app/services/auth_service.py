@@ -1,10 +1,18 @@
+from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.user import User
+from app.models.assessment import Assessment
+from app.models.prediction import Prediction
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth_schema import UserRegisterRequest, UserLoginRequest, TokenResponse
-from app.schemas.user_schema import UserProfileResponse, UserProfileUpdateRequest
+from app.schemas.user_schema import (
+    UserProfileResponse, 
+    UserProfileUpdateRequest, 
+    UserPasswordChangeRequest,
+    UserProfileStatsResponse
+)
 from app.config.security import hash_password, verify_password, create_access_token, create_refresh_token
 
 
@@ -29,7 +37,7 @@ class AuthService:
             email=request.email.lower().strip(),
             password=hash_password(request.password),
             age=request.age,
-            gender=request.gender,
+            gender=request.gender or "Male",
         )
         saved_user = self.user_repo.create(new_user)
 
@@ -70,13 +78,68 @@ class AuthService:
     def get_profile(self, user: User) -> UserProfileResponse:
         return UserProfileResponse.model_validate(user)
 
+    def get_profile_with_stats(self, user: User) -> UserProfileStatsResponse:
+        # Query total assessments
+        assessments = (
+            self.db.query(Assessment)
+            .filter(Assessment.user_id == user.id)
+            .order_by(Assessment.id.desc())
+            .all()
+        )
+        total_count = len(assessments)
+
+        latest_pred_str = None
+        latest_risk = None
+        latest_conf = None
+        latest_date = None
+
+        if assessments:
+            latest_assessment = assessments[0]
+            latest_date = latest_assessment.created_at
+            pred_record = (
+                self.db.query(Prediction)
+                .filter(Prediction.assessment_id == latest_assessment.id)
+                .first()
+            )
+            if pred_record:
+                latest_pred_str = pred_record.prediction
+                latest_risk = pred_record.risk_percentage
+                latest_conf = pred_record.confidence
+
+        return UserProfileStatsResponse(
+            user=UserProfileResponse.model_validate(user),
+            total_assessments=total_count,
+            latest_prediction=latest_pred_str,
+            latest_risk_score=latest_risk,
+            latest_confidence=latest_conf,
+            latest_assessment_date=latest_date,
+        )
+
     def update_profile(self, user: User, request: UserProfileUpdateRequest) -> UserProfileResponse:
-        if request.full_name is not None:
-            user.full_name = request.full_name
+        if request.full_name is not None and request.full_name.strip():
+            user.full_name = request.full_name.strip()
         if request.age is not None:
             user.age = request.age
-        if request.gender is not None:
-            user.gender = request.gender
+        if request.gender is not None and request.gender.strip():
+            user.gender = request.gender.strip()
 
+        user.updated_at = datetime.utcnow()
         updated_user = self.user_repo.update(user)
         return UserProfileResponse.model_validate(updated_user)
+
+    def change_password(self, user: User, request: UserPasswordChangeRequest) -> None:
+        if not verify_password(request.current_password, user.password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect. Please check and try again.",
+            )
+
+        if len(request.new_password) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be at least 6 characters long.",
+            )
+
+        user.password = hash_password(request.new_password)
+        user.updated_at = datetime.utcnow()
+        self.user_repo.update(user)
