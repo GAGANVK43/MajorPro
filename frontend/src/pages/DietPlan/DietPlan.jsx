@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import Navbar from "../../components/Navbar/Navbar";
 import BackButton from "../../components/BackButton/BackButton";
 import Footer from "../../components/Footer/Footer";
-import { FaUtensils, FaCheckCircle, FaRunning, FaLeaf, FaDrumstickBite, FaBullseye, FaTint, FaWalking, FaAppleAlt, FaHeartbeat, FaBrain, FaExclamationTriangle, FaFire, FaTrophy, FaArrowRight } from "react-icons/fa";
+import { FaUtensils, FaCheckCircle, FaRunning, FaLeaf, FaDrumstickBite, FaBullseye, FaTint, FaWalking, FaAppleAlt, FaHeartbeat, FaBrain, FaExclamationTriangle, FaFire, FaTrophy, FaArrowRight, FaLock } from "react-icons/fa";
 import { dietService, predictionService } from "../../services/api";
 
 function DietPlan() {
@@ -20,8 +20,23 @@ function DietPlan() {
 
   const todayKey = new Date().toISOString().split("T")[0];
 
-  // Persistent Goal State
+  // Persistent Streak Counter State
+  const [streakCount, setStreakCount] = useState(() => {
+    const savedStreak = localStorage.getItem("diasense_health_streak");
+    return savedStreak ? parseInt(savedStreak, 10) : 1;
+  });
+
+  // Has streak/tasks already been completed and claimed today?
+  const [streakClaimed, setStreakClaimed] = useState(() => {
+    return localStorage.getItem(`diasense_streak_claimed_${todayKey}`) === "true";
+  });
+
+  // Persistent Goal State for Today
   const [dailyGoals, setDailyGoals] = useState(() => {
+    const isClaimedToday = localStorage.getItem(`diasense_streak_claimed_${todayKey}`) === "true";
+    if (isClaimedToday) {
+      return { water: true, steps: true, fiber: true, glucose: true };
+    }
     const saved = localStorage.getItem(`diasense_goals_${todayKey}`);
     if (saved) {
       try {
@@ -31,20 +46,12 @@ function DietPlan() {
     return { water: false, steps: false, fiber: false, glucose: false };
   });
 
-  // Persistent Streak Counter State
-  const [streakCount, setStreakCount] = useState(() => {
-    const savedStreak = localStorage.getItem("diasense_health_streak");
-    return savedStreak ? parseInt(savedStreak, 10) : 1;
-  });
-
-  const [streakClaimed, setStreakClaimed] = useState(() => {
-    return localStorage.getItem(`diasense_streak_claimed_${todayKey}`) === "true";
-  });
-
   // Save Goals to localStorage whenever updated
   useEffect(() => {
-    localStorage.setItem(`diasense_goals_${todayKey}`, JSON.stringify(dailyGoals));
-  }, [dailyGoals, todayKey]);
+    if (!streakClaimed) {
+      localStorage.setItem(`diasense_goals_${todayKey}`, JSON.stringify(dailyGoals));
+    }
+  }, [dailyGoals, todayKey, streakClaimed]);
 
   useEffect(() => {
     // 1. Read stored prediction from localStorage
@@ -80,17 +87,26 @@ function DietPlan() {
   }, []);
 
   const toggleGoal = (key) => {
+    if (streakClaimed) {
+      toast.info("✅ You have already completed today's daily tasks! New targets unlock tomorrow.");
+      return;
+    }
     setDailyGoals((prev) => {
       const updated = { ...prev, [key]: !prev[key] };
       return updated;
     });
   };
 
-  const completedGoalsCount = Object.values(dailyGoals).filter(Boolean).length;
+  const completedGoalsCount = streakClaimed ? 4 : Object.values(dailyGoals).filter(Boolean).length;
   const goalProgressPercentage = (completedGoalsCount / 4) * 100;
   const isAllGoalsCompleted = completedGoalsCount === 4;
 
   const handleClaimStreakAndNextDay = () => {
+    if (streakClaimed) {
+      toast.info("You have already claimed today's streak! Come back tomorrow for the next day's tasks.");
+      return;
+    }
+
     const newStreak = streakCount + 1;
     setStreakCount(newStreak);
     localStorage.setItem("diasense_health_streak", newStreak.toString());
@@ -98,17 +114,12 @@ function DietPlan() {
     setStreakClaimed(true);
     localStorage.setItem(`diasense_streak_claimed_${todayKey}`, "true");
 
-    // Advance to next day's meal plan tab
-    const currentIndex = days.indexOf(activeDay);
-    const nextIndex = (currentIndex + 1) % days.length;
-    setActiveDay(days[nextIndex]);
+    // Lock all goals as completed for today
+    const completedAll = { water: true, steps: true, fiber: true, glucose: true };
+    setDailyGoals(completedAll);
+    localStorage.setItem(`diasense_goals_${todayKey}`, JSON.stringify(completedAll));
 
-    // Reset daily goals for the next task cycle
-    const resetGoals = { water: false, steps: false, fiber: false, glucose: false };
-    setDailyGoals(resetGoals);
-    localStorage.setItem(`diasense_goals_${todayKey}`, JSON.stringify(resetGoals));
-
-    toast.success(`🔥 Streak Upgraded to ${newStreak} Days! Next day's tasks unlocked! 🎉`);
+    toast.success(`🔥 Streak Upgraded to ${newStreak} Days! You have completed today's daily tasks! 🎉`);
   };
 
   const isHighRisk = patientStatus.prediction === "Diabetic" || patientStatus.risk_percentage >= 50.0;
@@ -297,25 +308,39 @@ function DietPlan() {
               />
             </div>
 
-            {/* 100% Completion Congratulation Banner */}
-            {isAllGoalsCompleted && (
+            {/* 1. Already Claimed For Today -> Show 'Completed Daily Tasks' Banner */}
+            {streakClaimed ? (
+              <div className="goals-complete-congratulations claimed-today">
+                <div className="congratulations-left">
+                  <FaCheckCircle className="trophy-icon claimed-icon" />
+                  <div>
+                    <h3>✅ You Have Completed Today's Daily Tasks!</h3>
+                    <p>Great job! You achieved all 4 metabolic health goals today and saved your streak. Come back tomorrow for your next day targets!</p>
+                  </div>
+                </div>
+                <div className="streak-locked-pill">
+                  <FaFire /> 🔥 Today's Streak Claimed ({streakCount} Days)
+                </div>
+              </div>
+            ) : isAllGoalsCompleted ? (
+              /* 2. All 4 Goals Just Checked -> Show 'Claim Streak' Button (1 time only) */
               <div className="goals-complete-congratulations">
                 <div className="congratulations-left">
                   <FaTrophy className="trophy-icon" />
                   <div>
                     <h3>🎉 All Daily Health Goals Completed Today!</h3>
-                    <p>Your insulin sensitivity & metabolic markers are optimized for today. Save your streak to unlock tomorrow's tasks!</p>
+                    <p>Your insulin sensitivity & metabolic markers are optimized for today. Save your streak for today!</p>
                   </div>
                 </div>
                 <button className="claim-streak-btn" onClick={handleClaimStreakAndNextDay}>
-                  <FaFire /> 🔥 Claim Today's Streak & Unlock Next Day Tasks <FaArrowRight />
+                  <FaFire /> 🔥 Claim Today's Streak ({streakCount + 1} Days) <FaArrowRight />
                 </button>
               </div>
-            )}
+            ) : null}
 
             <div className="goals-grid">
               <div
-                className={`goal-item-card ${dailyGoals.water ? "completed" : ""}`}
+                className={`goal-item-card ${dailyGoals.water ? "completed" : ""} ${streakClaimed ? "locked" : ""}`}
                 onClick={() => toggleGoal("water")}
               >
                 <div className="goal-icon cyan"><FaTint /></div>
@@ -327,7 +352,7 @@ function DietPlan() {
               </div>
 
               <div
-                className={`goal-item-card ${dailyGoals.steps ? "completed" : ""}`}
+                className={`goal-item-card ${dailyGoals.steps ? "completed" : ""} ${streakClaimed ? "locked" : ""}`}
                 onClick={() => toggleGoal("steps")}
               >
                 <div className="goal-icon emerald"><FaWalking /></div>
@@ -339,7 +364,7 @@ function DietPlan() {
               </div>
 
               <div
-                className={`goal-item-card ${dailyGoals.fiber ? "completed" : ""}`}
+                className={`goal-item-card ${dailyGoals.fiber ? "completed" : ""} ${streakClaimed ? "locked" : ""}`}
                 onClick={() => toggleGoal("fiber")}
               >
                 <div className="goal-icon amber"><FaAppleAlt /></div>
@@ -351,7 +376,7 @@ function DietPlan() {
               </div>
 
               <div
-                className={`goal-item-card ${dailyGoals.glucose ? "completed" : ""}`}
+                className={`goal-item-card ${dailyGoals.glucose ? "completed" : ""} ${streakClaimed ? "locked" : ""}`}
                 onClick={() => toggleGoal("glucose")}
               >
                 <div className="goal-icon indigo"><FaHeartbeat /></div>

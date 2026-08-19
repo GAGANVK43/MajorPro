@@ -182,6 +182,30 @@
   animation: fadeIn 0.3s ease;
 }
 
+.goals-complete-congratulations.claimed-today {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%), #1e293b;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.trophy-icon.claimed-icon {
+  color: #34d399;
+}
+
+.streak-locked-pill {
+  padding: 0.65rem 1.25rem;
+  border-radius: 14px;
+  background: rgba(14, 165, 233, 0.18);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  font-weight: 700;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.2);
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -260,6 +284,10 @@
 .goal-item-card.completed {
   border-color: #10b981;
   background: rgba(16, 185, 129, 0.08);
+}
+
+.goal-item-card.locked {
+  cursor: default;
 }
 
 .goal-icon {
