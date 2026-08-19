@@ -2,8 +2,9 @@ import "./Login.css";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FaEnvelope, FaLock, FaHeartbeat, FaEye, FaEyeSlash, FaShieldAlt, FaCheckCircle, FaArrowLeft } from "react-icons/fa";
+import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowLeft } from "react-icons/fa";
 import { authService } from "../../services/api";
+import authBanner from "../../assets/auth-banner.png";
 
 function Login() {
   const navigate = useNavigate();
@@ -40,44 +41,23 @@ function Login() {
 
   return (
     <div className="auth-split-page">
-      {/* Background Decorative Elements */}
+      {/* Background Decorative Glow Elements */}
       <div className="auth-bg-glow-1" />
       <div className="auth-bg-glow-2" />
 
       <div className="auth-split-container">
-        {/* Back Button Floating Header */}
+        {/* Floating Back Button */}
         <button className="auth-back-floating-btn" onClick={() => navigate("/")}>
           <FaArrowLeft /> Go Back to Home
         </button>
 
-        {/* Left Side Brand Showcase */}
+        {/* Left Side Medical AI Showcase */}
         <div className="auth-left-showcase">
-          <div className="showcase-content-wrapper">
-            <div className="showcase-logo">
-              <FaHeartbeat className="logo-icon" />
-              <span>DiaSense <strong>AI</strong></span>
-            </div>
-
-            <h2>Enterprise Medical AI Platform</h2>
-            <p>
-              Access your secure, isolated diabetes risk prediction dashboard powered by machine learning algorithms.
-            </p>
-
-            <div className="showcase-features">
-              <div className="sc-feature">
-                <FaCheckCircle className="sc-icon" />
-                <span>XGBoost Clinical Risk Screening</span>
-              </div>
-              <div className="sc-feature">
-                <FaCheckCircle className="sc-icon" />
-                <span>Tailored Low-GI Diet Prescriptions</span>
-              </div>
-              <div className="sc-feature">
-                <FaCheckCircle className="sc-icon" />
-                <span>Protected JWT Encrypted Sessions</span>
-              </div>
-            </div>
-          </div>
+          <img
+            src={authBanner}
+            alt="DiaSense AI Medical Diabetes Prediction"
+            className="auth-showcase-poster"
+          />
         </div>
 
         {/* Right Side Form Card */}

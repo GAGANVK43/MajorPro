@@ -2,8 +2,9 @@ import "../Login/Login.css";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FaUser, FaEnvelope, FaLock, FaHeartbeat, FaEye, FaEyeSlash, FaCheckCircle, FaTimesCircle, FaArrowLeft, FaShieldAlt } from "react-icons/fa";
+import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaCheckCircle, FaTimesCircle, FaArrowLeft, FaShieldAlt } from "react-icons/fa";
 import { authService } from "../../services/api";
+import authBanner from "../../assets/auth-banner.png";
 
 function Register() {
   const navigate = useNavigate();
@@ -77,34 +78,13 @@ function Register() {
           <FaArrowLeft /> Go Back to Home
         </button>
 
-        {/* Left Side Brand Showcase */}
+        {/* Left Side Medical AI Showcase */}
         <div className="auth-left-showcase">
-          <div className="showcase-content-wrapper">
-            <div className="showcase-logo">
-              <FaHeartbeat className="logo-icon" />
-              <span>DiaSense <strong>AI</strong></span>
-            </div>
-
-            <h2>Join DiaSense AI Platform</h2>
-            <p>
-              Create an account to access your secure diabetes risk screening dashboard, track historical assessments, and download clinical PDF reports.
-            </p>
-
-            <div className="showcase-features">
-              <div className="sc-feature">
-                <FaCheckCircle className="sc-icon" />
-                <span>Full Historical Assessment Tracking</span>
-              </div>
-              <div className="sc-feature">
-                <FaCheckCircle className="sc-icon" />
-                <span>Tailored Low-GI Diet Prescriptions</span>
-              </div>
-              <div className="sc-feature">
-                <FaCheckCircle className="sc-icon" />
-                <span>Encrypted Account Security & JWT Protection</span>
-              </div>
-            </div>
-          </div>
+          <img
+            src={authBanner}
+            alt="DiaSense AI Medical Diabetes Prediction"
+            className="auth-showcase-poster"
+          />
         </div>
 
         {/* Right Side Registration Form */}
