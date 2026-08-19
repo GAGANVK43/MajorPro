@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaCheckCircle, FaTimesCircle, FaArrowLeft, FaShieldAlt } from "react-icons/fa";
 import { authService } from "../../services/api";
-import authBanner from "../../assets/auth-banner.png";
+import AuthShowcase from "../../components/AuthShowcase/AuthShowcase";
 
 function Register() {
   const navigate = useNavigate();
@@ -78,14 +78,8 @@ function Register() {
           <FaArrowLeft /> Go Back to Home
         </button>
 
-        {/* Left Side Medical AI Showcase */}
-        <div className="auth-left-showcase">
-          <img
-            src={authBanner}
-            alt="DiaSense AI Medical Diabetes Prediction"
-            className="auth-showcase-poster"
-          />
-        </div>
+        {/* Left Side Designed Medical AI Showcase */}
+        <AuthShowcase />
 
         {/* Right Side Registration Form */}
         <div className="auth-right-form">
