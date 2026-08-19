@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
 
+    # Generative AI Key
+    GEMINI_API_KEY: str = ""
+
     # CORS Settings (Allow local Vite ports & wildcards in development)
     CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:5173",

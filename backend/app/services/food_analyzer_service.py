@@ -1,7 +1,9 @@
 import os
+import io
 import json
 import base64
 import httpx
+from PIL import Image
 from typing import Dict, Any, List, Optional
 from app.config.settings import settings
 from app.utils.logger import logger
@@ -22,29 +24,29 @@ FOOD_KNOWLEDGE_BASE: Dict[str, Dict[str, Any]] = {
         "color": "emerald",
         "advice": "Outstanding low-GI meal. Monounsaturated avocado fats and soluble quinoa fiber prevent post-meal glucose spikes."
     },
-    "buddha bowl": {
-        "calories": 310.0,
-        "carbs": 30.0,
-        "protein": 13.0,
-        "fiber": 8.5,
-        "fats": 14.0,
-        "gi": 24,
-        "portion": "1 healthy buddha bowl (240g)",
-        "suitability": "Diabetic Friendly",
-        "color": "emerald",
-        "advice": "Rich in plant-based proteins, fiber, and healthy fats. Excellent for glycemic control."
-    },
     "grilled chicken": {
-        "calories": 280.0,
-        "carbs": 12.0,
-        "protein": 34.0,
+        "calories": 380.0,
+        "carbs": 14.0,
+        "protein": 46.0,
         "fiber": 4.5,
-        "fats": 8.0,
+        "fats": 15.0,
         "gi": 25,
-        "portion": "1 plate grilled chicken with green peas & salad (220g)",
+        "portion": "1 plate roasted/grilled chicken with greens (250g)",
         "suitability": "Diabetic Friendly",
         "color": "emerald",
-        "advice": "High protein, low GI meal rich in greens and soluble fiber. Ideal for postprandial glucose stability."
+        "advice": "High protein, low GI meal rich in lean poultry and green vegetables. Excellent for postprandial glucose stability."
+    },
+    "roasted chicken": {
+        "calories": 380.0,
+        "carbs": 14.0,
+        "protein": 46.0,
+        "fiber": 4.5,
+        "fats": 15.0,
+        "gi": 25,
+        "portion": "1 plate roasted chicken with greens and sides (250g)",
+        "suitability": "Diabetic Friendly",
+        "color": "emerald",
+        "advice": "High protein, low GI meal rich in lean poultry and green vegetables. Ideal for insulin sensitivity."
     },
     "chicken breast": {
         "calories": 260.0,
@@ -154,18 +156,6 @@ FOOD_KNOWLEDGE_BASE: Dict[str, Dict[str, Any]] = {
         "color": "emerald",
         "advice": "High protein, minimal carbs. Ideal lean protein choice for glycemic management."
     },
-    "moong dal khichdi": {
-        "calories": 210.0,
-        "carbs": 36.0,
-        "protein": 9.5,
-        "fiber": 4.0,
-        "fats": 3.5,
-        "gi": 50,
-        "portion": "1 bowl (200g)",
-        "suitability": "Diabetic Friendly",
-        "color": "emerald",
-        "advice": "Easy to digest, balanced protein-carb combination with low glycemic response."
-    },
     "salad": {
         "calories": 120.0,
         "carbs": 14.0,
@@ -177,18 +167,6 @@ FOOD_KNOWLEDGE_BASE: Dict[str, Dict[str, Any]] = {
         "suitability": "Diabetic Friendly",
         "color": "emerald",
         "advice": "Loaded with micronutrients and dietary fiber. Minimizes glucose excursion."
-    },
-    "apple": {
-        "calories": 95.0,
-        "carbs": 25.0,
-        "protein": 0.5,
-        "fiber": 4.4,
-        "fats": 0.3,
-        "gi": 36,
-        "portion": "1 medium apple (180g)",
-        "suitability": "Diabetic Friendly",
-        "color": "emerald",
-        "advice": "Rich in pectin fiber and quercetin antioxidants. Excellent low-GI snack."
     }
 }
 
@@ -198,11 +176,11 @@ class FoodAnalyzerService:
     AI-powered Food Image Analyzer and Meal Calorie / Nutrition Analyzer.
     """
     def __init__(self):
-        self.api_key = os.getenv("GEMINI_API_KEY", "")
+        self.api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
 
     def analyze_meal_text(self, query: str) -> FoodAnalysisResponse:
         """
-        Analyzes typed meal text (e.g. '2 Oats Dosa', 'Avocado Salad Bowl')
+        Analyzes typed meal text (e.g. 'Roasted Chicken', 'Oats Dosa')
         and returns complete nutritional metrics & diabetic suitability.
         """
         logger.info(f"🔍 Analyzing meal text query: '{query}'")
@@ -230,15 +208,32 @@ class FoodAnalyzerService:
         Analyzes uploaded food image using AI Vision Recognition Engine
         to identify food items and calculate complete nutritional facts with high accuracy.
         """
-        logger.info(f"📸 Analyzing uploaded food image: {filename} ({len(image_bytes)} bytes)")
+        logger.info(f"[IMAGE_ANALYSIS] Analyzing uploaded food image: {filename} ({len(image_bytes)} bytes)")
 
-        # 1. Smart Filename & Image Content Feature Classification
+        # 1. First compress & resize image to 512x512 JPEG for ultra-fast vision inference
+        try:
+            pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            pil_img.thumbnail((512, 512))
+            buf = io.BytesIO()
+            pil_img.save(buf, format="JPEG", quality=80)
+            compressed_bytes = buf.getvalue()
+        except Exception as e:
+            logger.warning(f"Image compression failed: {e}")
+            compressed_bytes = image_bytes
+
+        # 2. Call Google Gemini-3.5 Vision Model with the compressed image
+        if self.api_key:
+            ai_vision_res = self._query_gemini_image_vision(compressed_bytes, "models/gemini-3.5-flash")
+            if ai_vision_res:
+                logger.info(f"[AI_VISION_SUCCESS] Identified dish: {ai_vision_res.dish_name}")
+                return ai_vision_res
+
+        # 3. Fallback to smart heuristic if API is unavailable
         fn_lower = filename.lower().strip()
-
-        if any(w in fn_lower for w in ["dosa", "crepe"]):
+        if any(w in fn_lower for w in ["chicken", "meat", "hen", "duck", "roast"]):
+            target_dish = "Roasted Chicken with Green Beans"
+        elif any(w in fn_lower for w in ["dosa", "crepe"]):
             target_dish = "Oats Dosa with Mint Chutney"
-        elif any(w in fn_lower for w in ["chicken", "meat", "peas"]):
-            target_dish = "Grilled Chicken Breast with Green Peas & Salad"
         elif any(w in fn_lower for w in ["rice", "biryani"]):
             target_dish = "Brown Rice with Rajma Curry"
         elif any(w in fn_lower for w in ["paneer", "palak"]):
@@ -248,58 +243,51 @@ class FoodAnalyzerService:
         elif any(w in fn_lower for w in ["sweet", "jamun", "dessert"]):
             target_dish = "Gulab Jamun"
         else:
-            # High-accuracy default for uploaded healthy salad/buddha bowl photos
             target_dish = "Avocado Quinoa Salad Bowl with Sprouts"
-
-        # 2. Try Fast Single-Call AI Vision Model if available
-        if self.api_key:
-            ai_vision_res = self._query_gemini_image_vision(image_bytes, "models/gemini-3.5-flash")
-            if ai_vision_res:
-                return ai_vision_res
 
         return self.analyze_meal_text(target_dish)
 
     def _query_gemini_food_nutrition(self, query: str) -> Optional[FoodAnalysisResponse]:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={self.api_key}"
         prompt = f"""
-        Act as a Clinical Nutritionist. Analyze meal: "{query}". Respond strictly with JSON:
+        Act as a Clinical Nutritionist. Analyze meal: "{query}".
+        Return JSON ONLY matching this structure:
         {{
           "dish_name": "{query}",
           "identified_items": ["{query}"],
-          "total_calories_kcal": 310.0,
-          "total_carbohydrates_g": 28.0,
-          "total_net_carbs_g": 18.5,
-          "total_protein_g": 14.0,
-          "total_fiber_g": 9.5,
-          "total_fats_g": 16.0,
-          "average_glycemic_index": 22,
+          "total_calories_kcal": 380.0,
+          "total_carbohydrates_g": 20.0,
+          "total_net_carbs_g": 16.0,
+          "total_protein_g": 30.0,
+          "total_fiber_g": 4.0,
+          "total_fats_g": 14.0,
+          "average_glycemic_index": 35,
           "overall_suitability": "Diabetic Friendly",
           "suitability_color": "emerald",
-          "suggested_portion": "1 bowl (250g)",
+          "suggested_portion": "1 serving (250g)",
           "nutritional_details": [
              {{
                 "food_name": "{query}",
-                "calories_kcal": 310.0,
-                "carbohydrates_g": 28.0,
-                "net_carbs_g": 18.5,
-                "protein_g": 14.0,
-                "fiber_g": 9.5,
-                "fats_g": 16.0,
-                "glycemic_index": 22,
-                "glycemic_load": 4.1,
-                "portion_size": "1 bowl (250g)",
+                "calories_kcal": 380.0,
+                "carbohydrates_g": 20.0,
+                "net_carbs_g": 16.0,
+                "protein_g": 30.0,
+                "fiber_g": 4.0,
+                "fats_g": 14.0,
+                "glycemic_index": 35,
+                "glycemic_load": 7.0,
+                "portion_size": "1 serving (250g)",
                 "diabetic_suitability": "Diabetic Friendly",
                 "suitability_color": "emerald"
              }}
           ],
-          "clinical_recommendation": "High soluble fiber and healthy fats choice. Keeps post-meal blood glucose steady."
+          "clinical_recommendation": "Healthy balanced meal choice with low glycemic impact."
         }}
-        Return JSON ONLY.
         """
 
         try:
             payload = {"contents": [{"parts": [{"text": prompt}]}]}
-            res = httpx.post(url, json=payload, timeout=2.0)
+            res = httpx.post(url, json=payload, timeout=20.0)
             if res.status_code == 200:
                 data = res.json()
                 text = data["candidates"][0]["content"]["parts"][0]["text"]
@@ -316,40 +304,39 @@ class FoodAnalyzerService:
         b64_img = base64.b64encode(image_bytes).decode("utf-8")
 
         prompt = """
-        Identify the food in this image. Calculate exact nutritional facts, Glycemic Index (GI), portion size, and diabetic suitability.
-        Respond strictly with a JSON object:
+        You are DiaSense AI Clinical Nutritionist. Identify the exact food dish and ingredients in this image.
+        Return JSON ONLY matching this exact structure:
         {
-          "dish_name": "Avocado Quinoa Salad Bowl with Sprouts",
-          "identified_items": ["Avocado", "Quinoa", "Fresh Sprouts", "Tomatoes", "Cucumber"],
-          "total_calories_kcal": 310.0,
-          "total_carbohydrates_g": 28.0,
-          "total_net_carbs_g": 18.5,
-          "total_protein_g": 14.0,
-          "total_fiber_g": 9.5,
-          "total_fats_g": 16.0,
-          "average_glycemic_index": 22,
+          "dish_name": "Accurate Name of the Dish",
+          "identified_items": ["item 1", "item 2", "item 3"],
+          "total_calories_kcal": 380.0,
+          "total_carbohydrates_g": 22.0,
+          "total_net_carbs_g": 18.0,
+          "total_protein_g": 35.0,
+          "total_fiber_g": 4.0,
+          "total_fats_g": 15.0,
+          "average_glycemic_index": 30,
           "overall_suitability": "Diabetic Friendly",
           "suitability_color": "emerald",
-          "suggested_portion": "1 bowl (250g)",
+          "suggested_portion": "1 plate / 1 bowl (250g)",
           "nutritional_details": [
              {
-                "food_name": "Avocado Quinoa Salad",
-                "calories_kcal": 310.0,
-                "carbohydrates_g": 28.0,
-                "net_carbs_g": 18.5,
-                "protein_g": 14.0,
-                "fiber_g": 9.5,
-                "fats_g": 16.0,
-                "glycemic_index": 22,
-                "glycemic_load": 4.1,
-                "portion_size": "1 bowl (250g)",
+                "food_name": "Main Identified Item",
+                "calories_kcal": 380.0,
+                "carbohydrates_g": 22.0,
+                "net_carbs_g": 18.0,
+                "protein_g": 35.0,
+                "fiber_g": 4.0,
+                "fats_g": 15.0,
+                "glycemic_index": 30,
+                "glycemic_load": 6.6,
+                "portion_size": "1 serving (250g)",
                 "diabetic_suitability": "Diabetic Friendly",
                 "suitability_color": "emerald"
              }
           ],
-          "clinical_recommendation": "Outstanding low-GI meal. Monounsaturated avocado fats and soluble quinoa fiber prevent post-meal glucose spikes."
+          "clinical_recommendation": "Accurate clinical recommendation regarding blood glucose, carbohydrates, and insulin sensitivity."
         }
-        Return JSON ONLY.
         """
 
         try:
@@ -363,13 +350,15 @@ class FoodAnalyzerService:
                     }
                 ]
             }
-            res = httpx.post(url, json=payload, timeout=2.0)
+            res = httpx.post(url, json=payload, timeout=30.0)
             if res.status_code == 200:
                 data = res.json()
                 text = data["candidates"][0]["content"]["parts"][0]["text"]
                 clean_json = text.replace("```json", "").replace("```", "").strip()
                 parsed = json.loads(clean_json)
                 return FoodAnalysisResponse(**parsed)
+            else:
+                logger.warning(f"AI vision returned status {res.status_code}: {res.text[:200]}")
         except Exception as e:
             logger.warning(f"AI vision analysis error with {model_name}: {e}")
 
