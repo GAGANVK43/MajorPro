@@ -17,6 +17,7 @@ class AssessmentService:
         self.assessment_repo = AssessmentRepository(db)
 
     def create_assessment(self, user: User, request: AssessmentCreateRequest) -> AssessmentResponse:
+        # Create Assessment Record
         assessment = Assessment(
             user_id=user.id,
             pregnancies=request.pregnancies,
@@ -29,6 +30,19 @@ class AssessmentService:
             age=request.age,
         )
         saved = self.assessment_repo.create(assessment)
+
+        # Auto-update User Profile Age and Gender if changed or not set
+        try:
+            user.age = request.age
+            if request.pregnancies > 0:
+                user.gender = "Female"
+            elif not user.gender:
+                user.gender = "Male"
+            self.db.add(user)
+            self.db.commit()
+        except Exception:
+            pass
+
         return AssessmentResponse.model_validate(saved)
 
     def get_assessment_history(self, user: User) -> AssessmentListResponse:

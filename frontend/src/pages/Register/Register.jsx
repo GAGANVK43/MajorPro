@@ -2,7 +2,7 @@ import "../Login/Login.css";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaCheckCircle, FaTimesCircle, FaArrowLeft, FaShieldAlt } from "react-icons/fa";
+import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaCheckCircle, FaTimesCircle, FaArrowLeft, FaShieldAlt, FaCalendarAlt, FaVenusMars } from "react-icons/fa";
 import { authService } from "../../services/api";
 import AuthShowcase from "../../components/AuthShowcase/AuthShowcase";
 
@@ -10,6 +10,8 @@ function Register() {
   const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState("Male");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -49,6 +51,8 @@ function Register() {
         full_name: fullName,
         email: email,
         password: password,
+        age: age ? parseInt(age, 10) : undefined,
+        gender: gender || "Male",
       });
 
       const authData = response.data;
@@ -110,6 +114,42 @@ function Register() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
+              </div>
+
+              {/* Age and Gender Inputs */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
+                <div className="form-input-group">
+                  <label><FaCalendarAlt /> Age (Years)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="120"
+                    placeholder="e.g. 35"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-input-group">
+                  <label><FaVenusMars /> Gender</label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "0.85rem 1rem",
+                      borderRadius: "12px",
+                      background: "#0f172a",
+                      border: "1px solid rgba(255, 255, 255, 0.12)",
+                      color: "#f8fafc",
+                      fontSize: "0.95rem"
+                    }}
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
               </div>
 
               <div className="form-input-group">
