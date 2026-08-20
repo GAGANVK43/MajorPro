@@ -3,11 +3,6 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-
 from app.models.user import User
 from app.models.prediction import Prediction
 from app.ml.prediction import analyze_contributing_factors
@@ -18,6 +13,17 @@ class ReportService:
         self.db = db
 
     def generate_pdf_report(self, user: User, prediction_id: int) -> bytes:
+        try:
+            from reportlab.lib.pagesizes import letter
+            from reportlab.lib import colors
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        except ImportError:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="PDF report generator dependency (reportlab) is not installed in the active environment.",
+            )
+
         prediction = self.db.query(Prediction).filter(Prediction.id == prediction_id).first()
         if not prediction:
             raise HTTPException(
