@@ -1,0 +1,673 @@
+.diet-page {
+  padding: 3rem 1.5rem 5rem 1.5rem;
+}
+
+.diet-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.diet-header h1 {
+  font-size: 2.3rem;
+  font-weight: 800;
+  color: #f8fafc;
+  margin-bottom: 0.5rem;
+}
+
+.diet-header p {
+  color: #94a3b8;
+  font-size: 1.05rem;
+  max-width: 750px;
+  margin: 0 auto;
+}
+
+.header-top-badges {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
+.fire-streak-badge {
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(239, 68, 68, 0.2) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  font-size: 0.88rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2);
+}
+
+/* Patient Status Banner */
+.diet-patient-status-banner {
+  margin-top: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 20px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  gap: 1rem;
+}
+
+.diet-patient-status-banner.high-risk {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(30, 41, 59, 0.8) 100%);
+}
+
+.diet-patient-status-banner.mod-risk {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(30, 41, 59, 0.8) 100%);
+}
+
+.diet-patient-status-banner.low-risk {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(30, 41, 59, 0.8) 100%);
+}
+
+.status-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.status-banner-left svg {
+  font-size: 1.8rem;
+  color: #38bdf8;
+}
+
+.high-risk .status-banner-left svg { color: #f87171; }
+.mod-risk .status-banner-left svg { color: #fbbf24; }
+.low-risk .status-banner-left svg { color: #34d399; }
+
+.status-banner-left h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin-bottom: 0.2rem;
+}
+
+.status-banner-left p {
+  font-size: 0.88rem;
+  color: #cbd5e1;
+}
+
+.status-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Daily Health Goals Widget */
+.daily-goals-card {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 2rem;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+}
+
+.goals-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.goals-header h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.goals-header p {
+  font-size: 0.88rem;
+  color: #94a3b8;
+}
+
+.goal-progress-badge {
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  color: #38bdf8;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.goals-progress-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: #0f172a;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.goals-progress-fill {
+  height: 100%;
+  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 100% Completion Congratulation Banner */
+.goals-complete-congratulations {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%), #1e293b;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  animation: fadeIn 0.3s ease;
+}
+
+.goals-complete-congratulations.claimed-today {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%), #1e293b;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.trophy-icon.claimed-icon {
+  color: #34d399;
+}
+
+.streak-locked-pill {
+  padding: 0.65rem 1.25rem;
+  border-radius: 14px;
+  background: rgba(14, 165, 233, 0.18);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  font-weight: 700;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.2);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.congratulations-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.trophy-icon {
+  font-size: 2.2rem;
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+.congratulations-left h3 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #f8fafc;
+  margin-bottom: 0.2rem;
+}
+
+.congratulations-left p {
+  font-size: 0.88rem;
+  color: #a7f3d0;
+}
+
+.claim-streak-btn {
+  padding: 0.75rem 1.4rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+
+.claim-streak-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.6);
+}
+
+.goals-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+}
+
+.goal-item-card {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.25rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.goal-item-card:hover {
+  transform: translateY(-2px);
+  border-color: #0ea5e9;
+}
+
+.goal-item-card.completed {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.goal-item-card.locked {
+  cursor: default;
+}
+
+.goal-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.goal-icon.cyan { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
+.goal-icon.emerald { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+.goal-icon.amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.goal-icon.indigo { background: rgba(99, 102, 241, 0.15); color: #818cf8; }
+
+.goal-info h4 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin-bottom: 0.2rem;
+}
+
+.goal-info p {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.3;
+}
+
+.goal-item-card .checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-left: auto;
+}
+
+.goal-item-card.completed .checkbox {
+  background: #10b981;
+  border-color: #10b981;
+}
+
+/* Controls */
+.diet-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  align-items: center;
+}
+
+.diet-type-toggle {
+  display: flex;
+  gap: 0.75rem;
+  background: #0f172a;
+  padding: 0.4rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.type-btn {
+  padding: 0.65rem 1.4rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.25s ease;
+}
+
+.type-btn.active {
+  background: #0ea5e9;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
+}
+
+.days-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.day-tab {
+  padding: 0.55rem 1.1rem;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.day-tab.active {
+  border-color: #0ea5e9;
+  color: #38bdf8;
+  background: rgba(14, 165, 233, 0.15);
+}
+
+.day-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin-bottom: 1.25rem;
+}
+
+.meals-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.meal-card {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.meal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.meal-time-icon {
+  font-size: 1.4rem;
+}
+
+.meal-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.meal-text {
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.meal-cal-badge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 10px;
+  background: rgba(14, 165, 233, 0.12);
+  color: #38bdf8;
+  font-size: 0.8rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.diet-extra-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.extra-card {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 2rem;
+}
+
+.extra-card.highlight {
+  border-color: rgba(14, 165, 233, 0.3);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(30, 41, 59, 0.7) 100%);
+}
+
+.extra-card h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+
+.extra-card ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  list-style: none;
+}
+
+.extra-card li {
+  font-size: 0.92rem;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.extra-card svg {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1024px) {
+  .goals-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 850px) {
+  .meals-grid,
+  .diet-extra-grid {
+    grid-template-columns: 1fr;
+  }
+  .goals-grid {
+    grid-template-columns: 1fr;
+  }
+  .goals-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .diet-patient-status-banner,
+  .goals-complete-congratulations {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Empty Assessment State */
+.diet-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  min-height: 400px;
+  color: #94a3b8;
+  font-size: 1.1rem;
+}
+
+.diet-spinner {
+  font-size: 2.5rem;
+  color: #0ea5e9;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.diet-empty-state-card {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  padding: 3.5rem 2rem;
+  max-width: 850px;
+  margin: 0 auto;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.diet-empty-icon-wrap {
+  width: 80px;
+  height: 80px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%);
+  border: 1px solid rgba(14, 165, 233, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  color: #38bdf8;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 10px 25px rgba(14, 165, 233, 0.25);
+}
+
+.diet-empty-state-card h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #f8fafc;
+  margin-bottom: 1rem;
+}
+
+.diet-empty-desc {
+  font-size: 1.05rem;
+  color: #cbd5e1;
+  max-width: 680px;
+  line-height: 1.6;
+  margin-bottom: 0.75rem;
+}
+
+.diet-empty-subtext {
+  font-size: 0.92rem;
+  color: #94a3b8;
+  max-width: 620px;
+  line-height: 1.5;
+  margin-bottom: 2rem;
+}
+
+.start-assessment-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2.25rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.05rem;
+  text-decoration: none;
+  box-shadow: 0 10px 30px rgba(14, 165, 233, 0.4);
+  transition: all 0.25s ease;
+  margin-bottom: 2.5rem;
+}
+
+.start-assessment-cta-btn:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 15px 40px rgba(14, 165, 233, 0.6);
+  color: #ffffff;
+}
+
+.diet-preview-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  width: 100%;
+  text-align: left;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 2rem;
+}
+
+.preview-pill-card {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.25rem;
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+
+.preview-pill-card .pill-check {
+  color: #10b981;
+  font-size: 1.2rem;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+.preview-pill-card h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin-bottom: 0.25rem;
+}
+
+.preview-pill-card p {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .diet-preview-features-grid {
+    grid-template-columns: 1fr;
+  }
+}
