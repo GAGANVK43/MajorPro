@@ -22,7 +22,9 @@ class Settings(BaseSettings):
     # Security & JWT Settings
     SECRET_KEY: str = "diasense_super_secret_jwt_key_change_in_production_2026_x99!"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    # FIX H4: Was 60 minutes — mobile users were kicked out after 1 hour.
+    # Extended to 1440 minutes (24 hours) for mobile-friendly sessions.
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Contact Admin Email Notification Target
