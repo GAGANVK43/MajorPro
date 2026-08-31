@@ -1,38 +1,43 @@
 {
-    "model_name": "High-Accuracy XGBoost Diabetes Classifier",
+    "model_name": "High-Accuracy XGBoost Diabetes Classifier (Expanded Clinical Dataset)",
     "dataset": "Expanded Clinical Diabetes Dataset (2,500 records)",
     "dataset_samples": 2500,
-    "accuracy": 0.992,
-    "accuracy_percentage": "99.20%",
+    "accuracy_target_note": "High-Accuracy Target >=90% ACHIEVED: 99.47%",
+    "accuracy": 0.9947,
+    "accuracy_percentage": "99.47%",
     "precision": 1.0,
     "precision_percentage": "100.00%",
-    "recall": 0.9770992366412213,
-    "recall_percentage": "97.71%",
-    "f1_score": 0.9884,
+    "recall": 0.9847,
+    "recall_percentage": "98.47%",
+    "specificity": 1.0,
+    "f1_score": 0.9923,
     "roc_auc": 0.9993,
+    "pr_auc": 0.9989,
     "confusion_matrix": [
         [
             244,
             0
         ],
         [
-            3,
-            128
+            2,
+            129
         ]
     ],
+    "cv_accuracy_mean": 0.9958,
+    "cv_accuracy_std": 0.0035,
     "feature_importances": {
-        "Pregnancies": 0.0082,
-        "Glucose": 0.2711,
-        "BloodPressure": 0.0167,
-        "SkinThickness": 0.015,
-        "Insulin": 0.1153,
-        "BMI": 0.0243,
-        "DiabetesPedigreeFunction": 0.0246,
-        "Age": 0.0497,
-        "Glucose_BMI": 0.4256,
-        "Glucose_Age": 0.0101,
-        "High_Glucose": 0.0394,
-        "High_BMI": 0.0
+        "Pregnancies": 0.0073,
+        "Glucose": 0.2929,
+        "BloodPressure": 0.0146,
+        "SkinThickness": 0.0153,
+        "Insulin": 0.0935,
+        "BMI": 0.0234,
+        "DiabetesPedigreeFunction": 0.0252,
+        "Age": 0.0516,
+        "Glucose_BMI": 0.4292,
+        "Glucose_Age": 0.0091,
+        "High_Glucose": 0.034,
+        "High_BMI": 0.0038
     },
     "train_samples": 2125,
     "test_samples": 375
