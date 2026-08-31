@@ -5,6 +5,7 @@ import numpy as np
 from typing import Dict, Any, Tuple, List
 from app.ml.preprocessing import preprocess_assessment_data
 from app.utils.logger import logger
+from app.utils.i18n import localize_contributing_factors, localize_recommendation
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "diabetes_model.pkl")
 METRICS_PATH = os.path.join(os.path.dirname(__file__), "model_metrics.json")
@@ -48,9 +49,9 @@ def get_model_metrics() -> Dict[str, Any]:
     }
 
 
-def analyze_contributing_factors(assessment_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+def analyze_contributing_factors(assessment_data: Dict[str, Any], lang: str = "en") -> List[Dict[str, Any]]:
     """
-    Computes clinical risk factor impacts based on clinical guidelines.
+    Computes clinical risk factor impacts based on clinical guidelines with multilingual localization.
     """
     factors = []
     glucose = float(assessment_data.get("glucose", 120))
@@ -133,12 +134,13 @@ def analyze_contributing_factors(assessment_data: Dict[str, Any]) -> List[Dict[s
             "description": "Diastolic pressure elevated above 90 mmHg standard cutoff."
         })
 
-    return factors
+    # Localize into requested language
+    return localize_contributing_factors(factors, lang)
 
 
-def predict_diabetes_risk(assessment_data: Dict[str, Any]) -> Tuple[str, float, float, str, List[Dict[str, Any]]]:
+def predict_diabetes_risk(assessment_data: Dict[str, Any], lang: str = "en") -> Tuple[str, float, float, str, List[Dict[str, Any]]]:
     """
-    Executes ML inference for an assessment.
+    Executes ML inference for an assessment with full multilingual localization.
     Returns: (prediction_label, risk_percentage, confidence_percentage, recommendation_text, contributing_factors)
     """
     model = load_model()
@@ -155,17 +157,7 @@ def predict_diabetes_risk(assessment_data: Dict[str, Any]) -> Tuple[str, float, 
     # Confidence calculation: max probability
     confidence = round(max(diabetic_prob, non_diabetic_prob) * 100.0, 1)
 
-    if prediction_label == "Diabetic":
-        recommendation = (
-            "Based on your physiological markers, your risk score suggests elevated vulnerability to Type-2 Diabetes. "
-            "We strongly recommend consulting a healthcare provider for standard HbA1c testing. Focus on low-GI nutrition, daily walking, and weight control."
-        )
-    else:
-        recommendation = (
-            "Your diabetes risk screening score is within low-to-moderate thresholds. "
-            "Maintain a balanced diet rich in whole foods, engage in regular physical activity, and schedule routine preventive checkups."
-        )
-
-    contributing_factors = analyze_contributing_factors(assessment_data)
+    recommendation = localize_recommendation(prediction_label, lang)
+    contributing_factors = analyze_contributing_factors(assessment_data, lang)
 
     return prediction_label, risk_percentage, confidence, recommendation, contributing_factors

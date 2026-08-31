@@ -2,9 +2,12 @@ import "./About.css";
 import Navbar from "../../components/Navbar/Navbar";
 import BackButton from "../../components/BackButton/BackButton";
 import Footer from "../../components/Footer/Footer";
-import { FaBrain, FaDatabase, FaShieldAlt, FaChartLine, FaCheckCircle } from "react-icons/fa";
+import { FaBrain, FaDatabase, FaShieldAlt } from "react-icons/fa";
+import { useTranslation } from "../../context/LanguageContext";
 
 function About() {
+  const { t } = useTranslation();
+
   return (
     <>
       <Navbar />
@@ -15,54 +18,49 @@ function About() {
 
           {/* Hero */}
           <section className="about-hero text-center">
-            <span className="badge-pill">Academic & Engineering Documentation</span>
-            <h1>About DiaSense AI</h1>
-            <p>
-              An AI-assisted diabetes risk screening and personalized health guidance platform engineered with machine learning classification models.
-            </p>
+            <span className="badge-pill">{t("about.badge")}</span>
+            <h1>{t("about.title")}</h1>
+            <p>{t("about.desc")}</p>
           </section>
 
           {/* Mission Card */}
           <section className="about-card">
-            <h2><FaBrain /> System Purpose & Academic Scope</h2>
-            <p>
-              DiaSense AI was developed as an enterprise-grade full-stack computer science project demonstrating practical artificial intelligence applications in healthcare risk screening. 
-              The application utilizes supervised machine learning (XGBoost) trained on physiological parameters to classify diabetes vulnerability, calculate risk probabilities, and provide clinical factor explainability.
-            </p>
+            <h2><FaBrain /> {t("about.missionTitle")}</h2>
+            <p>{t("about.missionDesc")}</p>
           </section>
 
           {/* Tech Stack Specs */}
           <section className="about-grid">
             <div className="spec-card">
               <div className="spec-icon"><FaBrain /></div>
-              <h3>Machine Learning Architecture</h3>
+              <h3>{t("about.mlArchTitle")}</h3>
               <p>
-                <strong>Algorithm:</strong> XGBoost (Extreme Gradient Boosting)<br />
-                <strong>Dataset:</strong> Expanded Diabetes Clinical Dataset (2,500 records)<br />
-                <strong>Model Accuracy:</strong> 99.20% | ROC-AUC: 0.999<br />
-                <strong>Evaluation:</strong> Stratified Train-Test Split with Feature Engineering & Sensitivity Metrics
+                <strong>{t("about.algorithm")}</strong> {t("about.algorithmDesc")}<br />
+                <strong>{t("about.dataset")}</strong> {t("about.datasetDesc")}<br />
+                <strong>{t("about.modelAccuracy")}</strong> {t("about.modelAccuracyDesc")}<br />
+                <strong>{t("about.evaluation")}</strong> {t("about.evaluationDesc")}
               </p>
             </div>
 
             <div className="spec-card">
               <div className="spec-icon cyan"><FaDatabase /></div>
-              <h3>Full-Stack Tech Architecture</h3>
+              <h3>{t("about.techArchTitle")}</h3>
               <p>
-                <strong>Backend:</strong> FastAPI, Python 3.14, SQLAlchemy ORM, Pydantic<br />
-                <strong>Frontend:</strong> React 19, Vite, Tailwind CSS, Framer Motion, Recharts<br />
-                <strong>PDF Engine:</strong> ReportLab PDF Generation Service<br />
-                <strong>Database:</strong> SQLite / MySQL ready schemas
+                <strong>{t("about.backend")}</strong> {t("about.backendDesc")}<br />
+                <strong>{t("about.frontend")}</strong> {t("about.frontendDesc")}<br />
+                <strong>{t("about.multilingual")}</strong> {t("about.multilingualDesc")}<br />
+                <strong>{t("about.database")}</strong> {t("about.databaseDesc")}
               </p>
             </div>
 
             <div className="spec-card">
               <div className="spec-icon emerald"><FaShieldAlt /></div>
-              <h3>Security & Data Protection</h3>
+              <h3>{t("about.securityTitle")}</h3>
               <p>
-                <strong>Authentication:</strong> OAuth2 Bearer Tokens (JWT)<br />
-                <strong>Hashing:</strong> Bcrypt password hashing via Passlib<br />
-                <strong>Authorization:</strong> Strict token-derived identity checks (IDOR security)<br />
-                <strong>Validation:</strong> Pydantic input range enforcement
+                <strong>{t("about.auth")}</strong> {t("about.authDesc")}<br />
+                <strong>{t("about.hashing")}</strong> {t("about.hashingDesc")}<br />
+                <strong>{t("about.authorization")}</strong> {t("about.authorizationDesc")}<br />
+                <strong>{t("about.validation")}</strong> {t("about.validationDesc")}
               </p>
             </div>
           </section>

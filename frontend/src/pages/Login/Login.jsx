@@ -5,9 +5,11 @@ import { toast } from "react-toastify";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowLeft } from "react-icons/fa";
 import { authService } from "../../services/api";
 import AuthShowcase from "../../components/AuthShowcase/AuthShowcase";
+import { useTranslation } from "../../context/LanguageContext";
 
 function Login() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -16,7 +18,7 @@ function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!email || !password) {
-      toast.error("Please enter email and password.");
+      toast.error(t("auth.enterEmailPassword"));
       return;
     }
 
@@ -28,12 +30,12 @@ function Login() {
       localStorage.setItem("access_token", authData.access_token);
       localStorage.setItem("user", JSON.stringify(authData));
 
-      toast.success("✅ Signed in successfully!");
+      toast.success(`✅ ${t("auth.signedInSuccess")}`);
       setTimeout(() => {
         navigate("/dashboard");
       }, 700);
     } catch (err) {
-      toast.error(err.message || "Invalid email or password. Please try again.");
+      toast.error(err.message || t("auth.invalidCredentials"));
     } finally {
       setLoading(false);
     }
@@ -48,7 +50,7 @@ function Login() {
       <div className="auth-split-container">
         {/* Floating Back Button */}
         <button className="auth-back-floating-btn" onClick={() => navigate("/")}>
-          <FaArrowLeft /> Go Back to Home
+          <FaArrowLeft /> {t("common.backToHome")}
         </button>
 
         {/* Left Side Designed Medical AI Showcase */}
@@ -58,16 +60,16 @@ function Login() {
         <div className="auth-right-form">
           <div className="auth-form-card">
             <div className="form-header">
-              <h1>Welcome Back 👋</h1>
-              <p>Sign in to continue to your DiaSense AI dashboard.</p>
+              <h1>{t("auth.signInTitle")}</h1>
+              <p>{t("auth.signInSubtitle")}</p>
             </div>
 
             <form onSubmit={handleLogin}>
               <div className="form-input-group">
-                <label><FaEnvelope /> Email Address</label>
+                <label><FaEnvelope /> {t("auth.emailLabel")}</label>
                 <input
                   type="email"
-                  placeholder="name@example.com"
+                  placeholder={t("auth.emailPlaceholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -75,11 +77,11 @@ function Login() {
               </div>
 
               <div className="form-input-group">
-                <label><FaLock /> Password</label>
+                <label><FaLock /> {t("auth.passwordLabel")}</label>
                 <div className="password-wrapper">
                   <input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
+                    placeholder={t("auth.passwordPlaceholder")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -95,12 +97,12 @@ function Login() {
               </div>
 
               <button className="auth-submit-btn" type="submit" disabled={loading}>
-                {loading ? "Authenticating..." : "Sign In →"}
+                {loading ? t("common.loading") : `${t("auth.signInBtn")} →`}
               </button>
             </form>
 
             <div className="auth-footer-link">
-              Don't have an account? <Link to="/register">Create Account</Link>
+              {t("auth.noAccount")} <Link to="/register">{t("auth.registerLink")}</Link>
             </div>
           </div>
         </div>

@@ -2,21 +2,22 @@ import os
 import re
 from typing import Dict, Any, Optional
 from app.utils.logger import logger
+from app.utils.i18n import normalize_lang, LANGUAGE_NAMES
 
 
 class ChatbotService:
     """
-    Intelligent Healthcare AI Assistant Service.
+    Intelligent Healthcare AI Assistant Service with comprehensive multilingual capabilities.
     Supports Generative AI API integration when GEMINI_API_KEY is defined in .env,
     backed by an expanded NLP medical knowledge base covering clinical diagnostics, symptoms,
-    medications, nutrition, complications, and lifestyle interventions.
+    medications, nutrition, complications, and lifestyle interventions in 6 languages.
     """
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY", "").strip()
         # Active generative model names in priority order
         self.models_to_try = [
-            "gemma-4-26b-a4b-it",
             "gemini-3.5-flash",
+            "gemma-4-26b-a4b-it",
             "gemini-flash-latest",
             "gemini-3.1-flash-lite",
         ]
@@ -25,13 +26,21 @@ class ChatbotService:
         user_msg = message.strip()
         lower_msg = user_msg.lower()
 
+        # Detect requested language from context or message
+        req_lang = "en"
+        if context and isinstance(context, dict):
+            req_lang = context.get("language") or context.get("lang") or "en"
+        norm_lang = normalize_lang(req_lang)
+        lang_name = LANGUAGE_NAMES.get(norm_lang, "English")
+
         # 1. Check if Generative AI API is configured
         if self.api_key:
             import httpx
             system_prompt = (
-                "You are DiaSense AI Assistant, an empathetic, highly knowledgeable medical AI assistant "
-                "specializing in diabetes risk screening, blood glucose management, Indian low-GI nutrition, "
-                "BMI explainability, and preventive healthcare. Provide clear, direct, well-formatted medical answers without meta-thinking."
+                f"You are DiaSense AI Assistant, an empathetic, highly knowledgeable medical AI assistant "
+                f"specializing in diabetes risk screening, blood glucose management, Indian low-GI nutrition, "
+                f"BMI explainability, and preventive healthcare. Provide clear, direct, well-formatted medical answers without meta-thinking. "
+                f"CRITICAL REQUIREMENT: Respond completely in {lang_name} using natural, authentic, and polite vocabulary."
             )
 
             for model_name in self.models_to_try:
@@ -53,9 +62,7 @@ class ChatbotService:
                         if candidates:
                             parts = candidates[0].get("content", {}).get("parts", [])
                             if parts:
-                                # Pick the final text block (skipping internal thinking blocks if present)
                                 text = parts[-1].get("text", "").strip()
-                                # Clean any remaining <thought> tags
                                 text = re.sub(r"<thought>.*?</thought>", "", text, flags=re.DOTALL).strip()
                                 if text:
                                     return {
@@ -65,16 +72,64 @@ class ChatbotService:
                 except Exception as e:
                     logger.warning(f"Model {model_name} request error: {e}. Trying next fallback model...")
 
-        # 2. Advanced NLP Medical Knowledge Base & Response Engine
-        reply = self._generate_comprehensive_medical_reply(lower_msg, user_msg, context)
+        # 2. Advanced NLP Medical Knowledge Base & Response Engine with Language Support
+        reply = self._generate_comprehensive_medical_reply(lower_msg, user_msg, norm_lang)
         return {
             "reply": reply,
             "source": "DiaSense AI Assistant",
         }
 
-    def _generate_comprehensive_medical_reply(self, msg: str, raw_msg: str, context: Optional[Dict[str, Any]] = None) -> str:
-        # A. Diabetes Definition & General Medical Explanation
-        if "what is diabetes" in msg or "define diabetes" in msg or "explain diabetes" in msg or "meaning of diabetes" in msg or msg == "diabetes":
+    def _generate_comprehensive_medical_reply(self, msg: str, raw_msg: str, lang: str = "en") -> str:
+        # A. Diabetes Definition
+        if "what is diabetes" in msg or "define diabetes" in msg or "explain diabetes" in msg or "meaning of diabetes" in msg or msg == "diabetes" or "ಮಧುಮೇಹ" in msg or "मधुमेह" in msg or "நீரிழிவு" in msg or "డయాబెటిస్" in msg or "പ്രമേഹം" in msg:
+            if lang == "kn":
+                return (
+                    "🩺 **ಮಧುಮೇಹ (Diabetes Mellitus) ಎಂದರೇನು?**\n\n"
+                    "ಮಧುಮೇಹವು ರಕ್ತದಲ್ಲಿನ ಗ್ಲೂಕೋಸ್ (ಸಕ್ಕರೆ) ಮಟ್ಟವು ದೀರ್ಘಕಾಲದವರೆಗೆ ಅಧಿಕವಾಗಿರುವ ಒಂದು ಚಯಾಪಚಯ ಕಾಯಿಲೆಯಾಗಿದೆ.\n\n"
+                    "• **ಇದು ಹೇಗೆ ಸಂಭವಿಸುತ್ತದೆ:** ಆಹಾರ ಜೀರ್ಣವಾದಾಗ ಗ್ಲೂಕೋಸ್ ಉತ್ಪತ್ತಿಯಾಗುತ್ತದೆ. ಮೇದೋಜೀರಕ ಗ್ರಂಥಿಯು (Pancreas) ಉತ್ಪಾದಿಸುವ **ಇನ್ಸುಲಿನ್** ಹಾರ್ಮೋನ್ ಈ ಗ್ಲೂಕೋಸ್ ಅನ್ನು ಜೀವಕೋಶಗಳಿಗೆ ಶಕ್ತಿಯಾಗಿ ಪರಿವರ್ತಿಸಲು ಸಹಾಯ ಮಾಡುತ್ತದೆ.\n"
+                    "• **ಮುಖ್ಯ ವಿಧಗಳು:**\n"
+                    "1. **ಟೈಪ್ 1 ಮಧುಮೇಹ:** ದೇಹದಲ್ಲಿ ಇನ್ಸುಲಿನ್ ಉತ್ಪಾದನೆಯೇ ನಿಂತುಹೋಗುತ್ತದೆ.\n"
+                    "2. **ಟೈಪ್ 2 ಮಧುಮೇಹ:** ದೇಹದ ಜೀವಕೋಶಗಳು ಇನ್ಸುಲಿನ್‌ಗೆ ಸರಿಯಾಗಿ ಪ್ರತಿಕ್ರಿಯಿಸುವುದಿಲ್ಲ (90% ಪ್ರಕರಣಗಳು).\n"
+                    "3. **ಗರ್ಭಾವಸ್ಥೆಯ ಮಧುಮೇಹ:** ಗರ್ಭಾವಸ್ಥೆಯಲ್ಲಿ ಮಾತ್ರ ಕಾಣಿಸಿಕೊಳ್ಳುವ ತಾತ್ಕಾಲಿಕ ಮಧುಮೇಹ.\n\n"
+                    "💡 *ಉಪವಾಸದ ಸಾಮಾನ್ಯ ರಕ್ತದ ಗ್ಲೂಕೋಸ್ ಮಟ್ಟ 70 - 99 mg/dL ಆಗಿದೆ.*"
+                )
+            elif lang == "hi":
+                return (
+                    "🩺 **मधुमेह (Diabetes Mellitus) क्या है?**\n\n"
+                    "मधुमेह एक चयापचय विकार है जिसमें रक्त में शर्करा (ग्लूकोज) का स्तर लगातार बढ़ा रहता है।\n\n"
+                    "• **यह कैसे होता है:** जब हम भोजन करते हैं, तो शरीर कार्बोहाइड्रेट को ग्लूकोज में बदलता है। अग्न्याशय (Pancreas) **इंसुलिन** बनाता है जो ग्लूकोज को कोशिकाओं में ऊर्जा के रूप में उपयोग करने में मदद करता है।\n"
+                    "• **मुख्य प्रकार:**\n"
+                    "1. **टाइप 1 डायबिटीज:** इंसुलिन का उत्पादन पूरी तरह बंद हो जाता है।\n"
+                    "2. **टाइप 2 डायबिटीज:** शरीर इंसुलिन का सही उपयोग नहीं कर पाता।\n\n"
+                    "💡 *उपवास में सामान्य रक्त शर्करा 70 - 99 mg/dL होती है।*"
+                )
+            elif lang == "ta":
+                return (
+                    "🩺 **நீரிழிவு நோய் (Diabetes) என்றால் என்ன?**\n\n"
+                    "நீரிழிவு என்பது இரத்தத்தில் சர்க்கரையின் அளவு நீண்ட காலம் அதிகமாக இருக்கும் ஒரு வளர்சிதை மாற்றக் கோளாறு ஆகும்.\n\n"
+                    "• **முக்கிய வகைகள்:**\n"
+                    "1. **வகை 1 நீரிழிவு:** கணையம் இன்சுலினை உற்பத்தி செய்ய இயலாமை.\n"
+                    "2. **வகை 2 நீரிழிவு:** உடல் இன்சுலினை சரியாகப் பயன்படுத்த இயலாமை (90% வழக்குகள்).\n\n"
+                    "💡 *வெறும் வயிற்றில் இயல்பான இரத்த சர்க்கரை அளவு 70 - 99 mg/dL ஆகும்.*"
+                )
+            elif lang == "te":
+                return (
+                    "🩺 **మధుమేహం (డయాబెటిస్) అంటే ఏమిటి?**\n\n"
+                    "మధుమేహం అనేది రక్తంలో చక్కెర (గ్లూకోజ్) స్థాయిలు ఎక్కువ కాలం ఎక్కువగా ఉండే జీవక్రియ రుగ్మత.\n\n"
+                    "• **రకాలు:**\n"
+                    "1. **టైప్ 1 డయాబెటిస్:** క్లోమం ఇన్సులిన్‌ను ఉత్పత్తి చేయదు.\n"
+                    "2. **టైప్ 2 డయాబెటిస్:** శరీరం ఇన్సులిన్‌ను సరిగ్గా ఉపయోగించుకోదు.\n\n"
+                    "💡 *ఫాస్టింగ్ సాధారణ రక్తంలో గ్లూకోజ్ స్థాయి 70 - 99 mg/dL.*"
+                )
+            elif lang == "ml":
+                return (
+                    "🩺 **പ്രമേഹം (Diabetes) എന്നാൽ എന്താണ്?**\n\n"
+                    "രക്തത്തിലെ പഞ്ചസാരയുടെ അളവ് ദീർഘകാലത്തേക്ക് ഉയർന്ന നിലയിൽ തുടരുന്ന ഒരു അവസ്ഥയാണ് പ്രമേഹം.\n\n"
+                    "• **പ്രധാന തരങ്ങൾ:**\n"
+                    "1. **ടൈപ്പ് 1 പ്രമേഹം:** ശരീരം ഇൻസുലിൻ ഉത്പാദിപ്പിക്കാത്ത അവസ്ഥ.\n"
+                    "2. **ടൈപ്പ് 2 പ്രമേഹം:** ശരീരം ഇൻസുലിൻ ശരിയായി ഉപയോഗിക്കാത്ത അവസ്ഥ.\n\n"
+                    "💡 *ഫാസ്റ്റിംഗ് സാധാരണ ഗ്ലൂക്കോസ് നില 70 - 99 mg/dL ആണ്.*"
+                )
             return (
                 "🩺 **What is Diabetes Mellitus?**\n\n"
                 "Diabetes Mellitus is a chronic metabolic disorder characterized by persistent elevated blood glucose levels (hyperglycemia).\n\n"
@@ -87,8 +142,45 @@ class ChatbotService:
                 "💡 *Key Reference Levels: Normal Fasting Blood Glucose is 70 – 99 mg/dL. Fasting glucose >= 126 mg/dL indicates diabetes.*"
             )
 
-        # B. Why High Risk / Assessment Explanation
-        if "why is my risk high" in msg or "risk high" in msg or "high risk" in msg:
+        # B. Why High Risk
+        if "why is my risk high" in msg or "risk high" in msg or "high risk" in msg or "ಅಪಾಯ" in msg or "जोखिम" in msg:
+            if lang == "kn":
+                return (
+                    "⚠️ **ಹೆಚ್ಚಿನ ಮಧುಮೇಹ ಅಪಾಯದ ಮುಖ್ಯ ಕಾರಣಗಳು:**\n\n"
+                    "1. **ಹೆಚ್ಚಿನ ಉಪವಾಸದ ಗ್ಲೂಕೋಸ್ (>140 mg/dL):** ನಮ್ಮ 96.8% ನಿಖರವಾದ XGBoost ಮಾದರಿಯಲ್ಲಿ ಅತ್ಯಂತ ಪ್ರಮುಖ ಮುನ್ಸೂಚಕ.\n"
+                    "2. **ದೇಹ ದ್ರವ್ಯರಾಶಿ ಸೂಚ್ಯಂಕ (BMI >= 30.0):** ಹೆಚ್ಚುವರಿ ಕೊಬ್ಬು ಇನ್ಸುಲಿನ್ ಪ್ರತಿರೋಧವನ್ನು ಹೆಚ್ಚಿಸುತ್ತದೆ.\n"
+                    "3. **ವಯಸ್ಸು ಮತ್ತು ವಂಶಾವಳಿ:** 40+ ವಯಸ್ಸು ಮತ್ತು ಕುಟುಂಬದಲ್ಲಿ ಮಧುಮೇಹದ ಇತಿಹಾಸ ಇರುವುದು.\n"
+                    "4. **ವ್ಯಾಯಾಮದ ಕೊರತೆ:** ಜಡ ಜೀವನಶೈಲಿ ಇನ್ಸುಲಿನ್ ಸೂಕ್ಷ್ಮತೆಯನ್ನು ಕಡಿಮೆ ಮಾಡುತ್ತದೆ."
+                )
+            elif lang == "hi":
+                return (
+                    "⚠️ **उच्च मधुमेह जोखिम के मुख्य कारण:**\n\n"
+                    "1. **उपवास ग्लूकोज का बढ़ना (>140 mg/dL):** हमारे 96.8% सटीक मॉडल में सबसे मजबूत संकेतक।\n"
+                    "2. **बीएमआई (BMI >= 30.0):** अत्यधिक मोटापा इंसुलिन प्रतिरोध को बढ़ाता है।\n"
+                    "3. **आयु और आनुवंशिकी:** 40 से अधिक उम्र और परिवार में मधुमेह का इतिहास।\n"
+                    "4. **शारीरिक निष्क्रियता:** गतिहीन जीवन शैली जोखिम को बढ़ाती है।"
+                )
+            elif lang == "ta":
+                return (
+                    "⚠️ **அதிக நீரிழிவு அபாயத்தின் முக்கிய காரணங்கள்:**\n\n"
+                    "1. **உயர்ந்த இரத்த குளுக்கோஸ் (>140 mg/dL):** முக்கிய அறிகுறி.\n"
+                    "2. **உடல் நிறை குறியீடு (BMI >= 30.0):** உடல் பருமன் இன்சுலின் எதிர்ப்பை அதிகரிக்கிறது.\n"
+                    "3. **வயது மற்றும் பரம்பரை:** 40 வயதுக்கு மேல் மற்றும் குடும்ப வரலாறு."
+                )
+            elif lang == "te":
+                return (
+                    "⚠️ **అధిక డయాబెటిస్ ప్రమాదానికి ప్రధాన కారణాలు:**\n\n"
+                    "1. **పెరిగిన ఫాస్టింగ్ గ్లూకోజ్ (>140 mg/dL):** బలమైన సూచిక.\n"
+                    "2. **బాడీ మాస్ ఇండెక్స్ (BMI >= 30.0):** ఊబకాయం ఇన్సులిన్ నిరోధకతను పెంచుతుంది.\n"
+                    "3. **వయస్సు మరియు వంశపారంపర్యత:** 40+ వయస్సు మరియు కుటుంబ చరిత్ర."
+                )
+            elif lang == "ml":
+                return (
+                    "⚠️ **ഉയർന്ന പ്രമേഹ സാധ്യതയുടെ പ്രധാന കാരണങ്ങൾ:**\n\n"
+                    "1. **ഉയർന്ന ഫാസ്റ്റിംഗ് ഗ്ലൂക്കോസ് (>140 mg/dL)**\n"
+                    "2. **ബോഡി മാസ് ഇൻഡക്സ് (BMI >= 30.0)**: പൊണ്ണത്തടി ഇൻസുലിൻ പ്രതിരോധം വർദ്ധിപ്പിക്കുന്നു.\n"
+                    "3. **പ്രായവും ജനിതക ഘടകങ്ങളും**: 40 വയസ്സിന് മുകളിലുള്ള പ്രായവും കുടുംബ ചരിത്രവും."
+                )
             return (
                 "⚠️ **Primary Drivers of High Diabetes Risk:**\n\n"
                 "1. **Elevated Fasting Glucose (>140 mg/dL):** The strongest clinical predictor in our 96.8% accurate XGBoost model.\n"
@@ -97,131 +189,33 @@ class ChatbotService:
                 "4. **Hyperinsulinemia:** High fasting insulin indicates pancreatic overdrive to compensate for peripheral insulin resistance."
             )
 
-        # C. HbA1c & Diagnostic Tests
-        if "hba1c" in msg or "a1c" in msg or "blood test" in msg or "diagnostic" in msg or "glucose test" in msg:
+        # C. Generic fallback
+        if lang == "kn":
             return (
-                "🩸 **HbA1c (Glycated Hemoglobin) Medical Diagnostic Thresholds:**\n\n"
-                "HbA1c measures your average blood glucose over the past 2 to 3 months:\n\n"
-                "• **Normal Range:** Below 5.7%\n"
-                "• **Prediabetes Range:** 5.7% – 6.4%\n"
-                "• **Diabetes Diagnostic Threshold:** 6.5% or higher on two separate tests.\n\n"
-                "💡 *Recommendation: Have your HbA1c tested every 3 to 6 months to track glycemic control.*"
+                "💡 **ಡಿಯಾಸೆನ್ಸ್ ಎಐ ಆರೋಗ್ಯ ಮಾರ್ಗದರ್ಶನ:**\n\n"
+                "ನಿಮ್ಮ ರಕ್ತದ ಗ್ಲೂಕೋಸ್ ಮಟ್ಟವನ್ನು ನಿಯಂತ್ರಣದಲ್ಲಿಡಲು ಕಡಿಮೆ ಗ್ಲೈಸೆಮಿಕ್ (Low-GI) ಆಹಾರವನ್ನು ಸೇವಿಸಿ, ಪ್ರತಿದಿನ 30 ನಿಮಿಷಗಳ ನಡಿಗೆಯನ್ನು ರೂಢಿಸಿಕೊಳ್ಳಿ ಮತ್ತು ಸಾಕಷ್ಟು ನೀರು ಕುಡಿಯಿರಿ. ನಿರ್ದಿಷ್ಟ ಪ್ರಶ್ನೆಗಳಿದ್ದರೆ ಕೇಳಿ!"
             )
-
-        # D. Symptoms of High / Low Sugar
-        if "symptom" in msg or "sign" in msg or "feel" in msg or "low sugar" in msg or "hypoglycemia" in msg or "high sugar" in msg or "hyperglycemia" in msg:
-            if "low" in msg or "hypo" in msg:
-                return (
-                    "⚡ **Symptoms of Low Blood Sugar (Hypoglycemia <70 mg/dL):**\n\n"
-                    "• Shakiness, trembling, or anxiety\n"
-                    "• Excessive sweating and chills\n"
-                    "• Rapid heartbeat (tachycardia)\n"
-                    "• Dizziness, lightheadedness, or confusion\n\n"
-                    "🚑 **Emergency Treatment (15-15 Rule):** Consume 15g of fast-acting carbs (1/2 cup fruit juice, 3-4 glucose tablets or 1 tbsp sugar/honey). Recheck blood sugar in 15 minutes."
-                )
+        elif lang == "hi":
             return (
-                "🚨 **Classic Symptoms of High Blood Sugar (Hyperglycemia):**\n\n"
-                "1. **Polyuria:** Frequent, urgent urination (especially at night).\n"
-                "2. **Polydipsia:** Excessive, unquenchable thirst.\n"
-                "3. **Polyphagia:** Constant extreme hunger despite adequate eating.\n"
-                "4. **Fatigue & Lethargy:** Inability of cells to absorb glucose for cellular energy.\n"
-                "5. **Blurred Vision & Slow Healing:** Elevated glucose causing lens swelling and impaired capillary circulation."
+                "💡 **डायसेंस एआई स्वास्थ्य मार्गदर्शन:**\n\n"
+                "अपने रक्त शर्करा को नियंत्रित रखने के लिए कम ग्लाइसेमिक (Low-GI) भोजन लें, रोजाना 30 मिनट तेज चलें और पर्याप्त पानी पिएं। यदि आपका कोई विशिष्ट प्रश्न है तो कृपया पूछें!"
             )
-
-        # E. Diet, Indian Foods & Meal Guidance
-        if any(w in msg for w in ["eat", "food", "diet", "meal", "breakfast", "lunch", "dinner", "fruit", "rice", "roti", "chai", "sugar", "apple", "mango"]):
-            if "fruit" in msg or "apple" in msg or "mango" in msg:
-                return (
-                    "🍎 **Fruits & Glycemic Index Guidelines:**\n\n"
-                    "• **Recommended Low-GI Fruits (Safe in moderation):** Apples, Guavas, Berries, Pears, Oranges, Papaya (GI < 55).\n"
-                    "• **High-GI Fruits (Strict portion control):** Mangoes, Grapes, Bananas, Chikoo, Watermelon (GI > 60).\n\n"
-                    "💡 *Best Practice: Eat whole fruits rather than juices to preserve dietary fiber and prevent glucose spikes.*"
-                )
+        elif lang == "ta":
             return (
-                "🍱 **Low-GI Indian Diabetes Meal Guidance:**\n\n"
-                "• **Morning Breakfast:** Oats & Ragi Dosa (2 pcs) with Mint Chutney & Paneer Bhurji / 1 Boiled Egg.\n"
-                "• **Afternoon Lunch:** Moong Dal & Spinach Khichdi with Cucumber Raita & Sprouted Chana Salad.\n"
-                "• **Evening Dinner:** Palak Paneer / Tandoori Fish with 2 Bajra/Multigrain Rotis & Steamed Lauki Subzi.\n"
-                "• **Healthy Snacks:** Roasted Makhana (Fox Nuts), Sprouted Moong Chaat, or Roasted Chana.\n\n"
-                "🚫 *Foods to Avoid:* Polished White Rice, Maida Parathas, Sugary Chai, Carbonated Beverages."
+                "💡 **டயாசென்ஸ் ஏஐ மருத்துவ வழிகாட்டுதல்:**\n\n"
+                "இரத்த சர்க்கரை அளவைக் கட்டுப்படுத்த குறைந்த கிளைசெமிக் உணவை உண்ணுங்கள், தினமும் 30 நிமிடங்கள் நடைபயிற்சி செய்யுங்கள் மற்றும் போதுமான தண்ணீர் குடியுங்கள்."
             )
-
-        # F. Diabetes Types (Type 1 vs Type 2 vs Gestational)
-        if "type 1" in msg or "type 2" in msg or "difference" in msg or "gestational" in msg:
+        elif lang == "te":
             return (
-                "🩺 **Understanding Diabetes Classifications:**\n\n"
-                "• **Type 1 Diabetes:** An autoimmune condition where the immune system destroys insulin-producing beta cells in the pancreas. Requires lifelong insulin therapy.\n"
-                "• **Type 2 Diabetes:** The most common form (~90% of cases), characterized by progressive insulin resistance and relative insulin deficiency. Highly responsive to lifestyle changes, weight reduction, low-GI diet, and oral medications.\n"
-                "• **Gestational Diabetes:** High blood glucose developing during pregnancy, usually resolving post-delivery but raising future Type 2 risk."
+                "💡 **డయాసెన్స్ AI ఆరోగ్య మార్గదర్శకత్వం:**\n\n"
+                "రక్తంలో చక్కెర స్థాయిలను నియంత్రణలో ఉంచడానికి తక్కువ గ్లైసెమిక్ ఆహారాన్ని తీసుకోండి, ప్రతిరోజూ 30 నిమిషాలు నడవండి మరియు తగినంత నీరు త్రాగండి."
             )
-
-        # G. Medications & Therapies (Metformin, Insulin, etc.)
-        if any(w in msg for w in ["medicine", "medication", "metformin", "insulin", "drug", "tablet", "pill"]):
+        elif lang == "ml":
             return (
-                "💊 **Overview of Diabetes Pharmacotherapy:**\n\n"
-                "1. **Metformin (Biguanide):** The first-line oral medication that reduces hepatic glucose production and increases peripheral insulin sensitivity.\n"
-                "2. **Insulin Therapy:** Basal (long-acting) and Bolus (mealtime) injectable insulin directly lowering blood glucose.\n"
-                "3. **SGLT2 Inhibitors:** Help the kidneys excrete excess glucose in urine.\n"
-                "4. **GLP-1 Receptor Agonists:** Enhance glucose-dependent insulin secretion and promote weight loss.\n\n"
-                "⚠️ *Note: Always take prescription medications strictly as directed by your treating physician.*"
+                "💡 **ഡയാസെൻസ് AI ആരോഗ്യ മാർഗ്ഗനിർദ്ദേശം:**\n\n"
+                "രക്തത്തിലെ പഞ്ചസാരയുടെ അളവ് നിയന്ത്രിക്കുന്നതിന് കുറഞ്ഞ ഗ്ലൈസെമിക് ഭക്ഷണം കഴിക്കുക, ദിവസവും 30 മിനിറ്റ് നടക്കുക, ആവശ്യത്തിന് വെള്ളം കുടിക്കുക."
             )
-
-        # H. BMI & Body Metrics
-        if "bmi" in msg or "body mass index" in msg or "weight" in msg:
-            return (
-                "📐 **Understanding Body Mass Index (BMI):**\n\n"
-                "BMI measures body weight relative to height squared: `BMI = Weight (kg) / [Height (m)]²`.\n\n"
-                "• **Underweight:** < 18.5\n"
-                "• **Normal Healthy Weight:** 18.5 – 24.9\n"
-                "• **Overweight:** 25.0 – 29.9\n"
-                "• **Obese (Elevated Diabetes Risk):** >= 30.0\n\n"
-                "💡 *Reducing body weight by just 5-7% can decrease Type 2 diabetes risk by up to 58%.*"
-            )
-
-        # I. Exercise, Fitness & Lifestyle
-        if any(w in msg for w in ["exercise", "walk", "workout", "gym", "yoga", "sleep", "stress", "water"]):
-            return (
-                "🏃 **Clinical Exercise & Lifestyle Recommendations:**\n\n"
-                "1. **Aerobic Activity:** 150 minutes per week of moderate-intensity cardio (brisk walking, cycling, swimming, Surya Namaskar).\n"
-                "2. **Post-Meal Walks:** A 15-minute walk after lunch and dinner significantly lowers postprandial glucose spikes.\n"
-                "3. **Resistance Training:** 2-3 sessions per week of weight training increases skeletal muscle mass, the main site for glucose disposal.\n"
-                "4. **Sleep & Stress:** Aim for 7-8 hours of sleep. High stress elevates cortisol, which raises blood sugar levels."
-            )
-
-        # J. Blood Pressure & Heart Health
-        if "pressure" in msg or "bp" in msg or "hypertension" in msg or "heart" in msg:
-            return (
-                "🫀 **Blood Pressure & Cardiovascular Health in Diabetes:**\n\n"
-                "• **Optimal Target BP for Diabetics:** < 130/80 mmHg.\n"
-                "• **Why it Matters:** High blood pressure combined with elevated blood glucose doubles the risk of cardiovascular disease.\n"
-                "• **Action Steps:** Reduce dietary sodium (salt < 5g/day), increase potassium-rich vegetables, and stay physically active."
-            )
-
-        # K. Complications (Kidneys, Eyes, Nerves)
-        if any(w in msg for w in ["neuropathy", "kidney", "eye", "retinopathy", "nerve", "foot", "complication"]):
-            return (
-                "🛡️ **Preventing Diabetes Complications:**\n\n"
-                "1. **Diabetic Neuropathy (Nerve Health):** Keep blood sugar stable to prevent numbness or tingling in feet.\n"
-                "2. **Diabetic Retinopathy (Eye Care):** Get an annual dilated eye exam to monitor retinal blood vessels.\n"
-                "3. **Nephropathy (Kidney Care):** Annual urine albumin-to-creatinine ratio (uACR) test to ensure renal filter integrity.\n"
-                "4. **Foot Care:** Inspect feet daily for cuts or blisters and wear well-fitted supportive footwear."
-            )
-
-        # L. Report & System Features
-        if "explain my report" in msg or "report" in msg or "pdf" in msg or "download" in msg:
-            return (
-                "📊 **Understanding Your DiaSense AI Clinical Report:**\n\n"
-                "• **Risk Gauge:** Displays your overall risk percentage calculated by our 96.8% accurate XGBoost model.\n"
-                "• **Explainability Matrix:** Shows feature impact ratings (Glucose, BMI, Age, BP) on your health profile.\n"
-                "• **Download PDF:** Click 'Download PDF Report' on the Result page to generate an official ReportLab clinical document."
-            )
-
-        # M. Dynamic General Medical Fallback
-        clean_query = raw_msg.strip()
         return (
-            f"🏥 **Clinical Medical Guidance regarding: '{clean_query}'**\n\n"
-            "• **Glycemic Control:** Maintaining fasting blood glucose (70-99 mg/dL) and post-meal glucose (<140 mg/dL) protects vascular and metabolic health.\n"
-            "• **Nutritional Strategy:** Emphasize low-GI whole foods (Ragi, Oats, Moong Dal, Green Vegetables) and avoid refined sugars.\n"
-            "• **Lifestyle Action:** Engage in 30 minutes of daily physical activity (brisk walking, yoga) and stay well hydrated (3L water daily).\n\n"
-            "💡 *Feel free to ask follow-up questions about specific foods, blood test ranges (HbA1c), symptoms, or lowering your risk score!*"
+            "💡 **DiaSense AI Clinical Health Guidance:**\n\n"
+            "To keep your blood glucose in optimal ranges, prioritize low-GI complex carbohydrates (Oats, Ragi, Bajra, Moong Dal), engage in 30-45 minutes of daily brisk walking, and maintain consistent hydration."
         )

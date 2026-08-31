@@ -3,7 +3,7 @@
 }
 
 .about-container {
-  max-width: 1050px;
+  max-width: 1150px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -11,18 +11,19 @@
 }
 
 .about-hero h1 {
-  font-size: 2.3rem;
+  font-size: clamp(1.8rem, 2.8vw, 2.3rem);
   font-weight: 800;
   color: #f8fafc;
   margin-bottom: 0.5rem;
+  line-height: 1.3;
 }
 
 .about-hero p {
   color: #94a3b8;
   font-size: 1.05rem;
-  max-width: 750px;
+  max-width: 800px;
   margin: 0 auto;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .about-card {
@@ -30,7 +31,7 @@
   backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 24px;
-  padding: 2.5rem;
+  padding: clamp(1.5rem, 3vw, 2.5rem);
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
 }
 
@@ -42,17 +43,18 @@
   align-items: center;
   gap: 0.6rem;
   margin-bottom: 1rem;
+  line-height: 1.3;
 }
 
 .about-card p {
   color: #cbd5e1;
   font-size: 1rem;
-  line-height: 1.7;
+  line-height: 1.75;
 }
 
 .about-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
 }
 
@@ -62,6 +64,9 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .spec-icon {
@@ -75,6 +80,7 @@
   justify-content: center;
   font-size: 1.4rem;
   margin-bottom: 1.2rem;
+  flex-shrink: 0;
 }
 
 .spec-icon.cyan { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
@@ -85,12 +91,14 @@
   font-weight: 700;
   color: #f8fafc;
   margin-bottom: 0.8rem;
+  line-height: 1.35;
 }
 
 .spec-card p {
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   color: #94a3b8;
-  line-height: 1.6;
+  line-height: 1.65;
+  margin-top: auto;
 }
 
 .spec-card strong {
@@ -98,26 +106,11 @@
 }
 
 .about-disclaimer {
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: 20px;
-  padding: 1.75rem;
-  color: #fcd34d;
-}
-
-.about-disclaimer h2 {
-  font-size: 1.15rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-}
-
-.about-disclaimer p {
-  font-size: 0.9rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.5rem;
+  font-size: 0.88rem;
+  color: #94a3b8;
   line-height: 1.6;
-}
-
-@media (max-width: 900px) {
-  .about-grid {
-    grid-template-columns: 1fr;
-  }
 }

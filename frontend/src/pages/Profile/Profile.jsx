@@ -1,37 +1,42 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { toast } from "react-toastify";
-import { 
-  FaUser, 
-  FaEnvelope, 
-  FaLock, 
-  FaCalendarAlt, 
-  FaVenusMars, 
-  FaShieldAlt, 
-  FaCheckCircle, 
-  FaTimesCircle, 
-  FaEye, 
-  FaEyeSlash, 
-  FaHeartbeat, 
-  FaNotesMedical, 
-  FaUtensils, 
-  FaCamera, 
-  FaArrowRight,
-  FaKey,
-  FaIdBadge
-} from "react-icons/fa";
-import { userService } from "../../services/api";
 import "./Profile.css";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import {
+  FaUser,
+  FaEnvelope,
+  FaCalendarAlt,
+  FaVenusMars,
+  FaKey,
+  FaLock,
+  FaShieldAlt,
+  FaHeartbeat,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaIdBadge,
+  FaEye,
+  FaEyeSlash,
+  FaNotesMedical,
+  FaUtensils,
+  FaCamera,
+  FaArrowRight,
+  FaGlobe,
+  FaChartLine,
+} from "react-icons/fa";
+
+import { authService, userService } from "../../services/api";
+import { useTranslation } from "../../context/LanguageContext";
+import LanguageSelector from "../../components/LanguageSelector/LanguageSelector";
 
 function Profile() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("personal"); // "personal" | "security" | "health"
-  const [loading, setLoading] = useState(true);
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [changingPw, setChangingPw] = useState(false);
+  const { t } = useTranslation();
 
-  // Profile Form State
-  const [userId, setUserId] = useState(null);
+  // Active tab: 'personal' | 'security' | 'health'
+  const [activeTab, setActiveTab] = useState("personal");
+
+  // Profile data
+  const [userId, setUserId] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [age, setAge] = useState("");
@@ -44,50 +49,44 @@ function Profile() {
     latestDate: null,
   });
 
-  // Change Password Form State
+  // Password update form
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showCurrentPw, setShowCurrentPw] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
 
-  // Password criteria check
-  const criteria = {
-    length: newPassword.length >= 8,
-    uppercase: /[A-Z]/.test(newPassword),
-    lowercase: /[a-z]/.test(newPassword),
-    number: /[0-9]/.test(newPassword),
-    special: /[!@#$%^&*(),.?":{}|<>]/.test(newPassword),
-  };
-  const isNewPwValid = Object.values(criteria).every(Boolean);
+  // States
+  const [loading, setLoading] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [changingPw, setChangingPw] = useState(false);
 
   useEffect(() => {
-    fetchUserProfile();
+    fetchProfileData();
   }, []);
 
-  const fetchUserProfile = async () => {
+  const fetchProfileData = async () => {
     setLoading(true);
     try {
-      const res = await userService.getProfile();
-      const data = res.data;
-      if (data) {
-        const u = data.user;
-        setUserId(u.id);
-        setFullName(u.full_name || "");
-        setEmail(u.email || "");
-        setAge(u.age ? String(u.age) : "");
-        setGender(u.gender || "Male");
-        if (u.created_at) {
-          setMemberSince(new Date(u.created_at).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric"
-          }));
+      const res = await authService.getProfile();
+      if (res.data) {
+        const data = res.data;
+        setUserId(data.id || "");
+        setFullName(data.full_name || "");
+        setEmail(data.email || "");
+        setAge(data.age ? String(data.age) : "");
+        setGender(data.gender || "Male");
+        if (data.created_at) {
+          const d = new Date(data.created_at);
+          setMemberSince(
+            d.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+          );
         }
         setStats({
           totalAssessments: data.total_assessments || 0,
           latestPrediction: data.latest_prediction || null,
-          latestRiskScore: data.latest_risk_score !== null ? data.latest_risk_score : null,
+          latestRiskScore:
+            data.latest_risk_score !== null ? data.latest_risk_score : null,
           latestDate: data.latest_assessment_date || null,
         });
       }
@@ -101,7 +100,7 @@ function Profile() {
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     if (!fullName.trim()) {
-      toast.error("Full Name cannot be empty.");
+      toast.error("Full name cannot be blank.");
       return;
     }
 
@@ -110,15 +109,19 @@ function Profile() {
       await userService.updateProfile({
         full_name: fullName.trim(),
         age: age ? parseInt(age, 10) : undefined,
-        gender: gender || "Male",
+        gender: gender,
       });
 
-      // Update local storage user details
-      const localUser = JSON.parse(localStorage.getItem("user") || "{}");
-      localUser.full_name = fullName.trim();
-      localStorage.setItem("user", JSON.stringify(localUser));
+      // Update local storage user
+      try {
+        const savedUser = JSON.parse(localStorage.getItem("user") || "{}");
+        savedUser.full_name = fullName.trim();
+        savedUser.age = age ? parseInt(age, 10) : undefined;
+        savedUser.gender = gender;
+        localStorage.setItem("user", JSON.stringify(savedUser));
+      } catch (err) {}
 
-      toast.success("✅ Profile updated successfully in MySQL database!");
+      toast.success(`✅ ${t("profile.profileUpdated") || "Profile updated successfully!"}`);
     } catch (err) {
       toast.error(err.message || "Failed to update profile.");
     } finally {
@@ -128,16 +131,18 @@ function Profile() {
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    if (!currentPassword) {
-      toast.error("Please enter your current password.");
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error("Please fill in all password fields.");
       return;
     }
+
     if (!isNewPwValid) {
-      toast.error("New password does not meet all security requirements.");
+      toast.error(t("profile.passCriteriaTitle") || "Password does not meet requirements.");
       return;
     }
+
     if (newPassword !== confirmPassword) {
-      toast.error("New passwords do not match. Please re-enter.");
+      toast.error(t("auth.validationPasswordMatch") || "Passwords do not match.");
       return;
     }
 
@@ -148,331 +153,497 @@ function Profile() {
         new_password: newPassword,
       });
 
-      toast.success("🔒 Password changed successfully!");
+      toast.success(`✅ ${t("profile.passwordUpdated") || "Password updated successfully!"}`);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      toast.error(err.message || "Failed to change password. Check your current password.");
+      toast.error(
+        err.message || "Failed to update password. Verify current password."
+      );
     } finally {
       setChangingPw(false);
     }
   };
 
+  // Password criteria check
+  const criteria = {
+    length: newPassword.length >= 8,
+    uppercase: /[A-Z]/.test(newPassword),
+    lowercase: /[a-z]/.test(newPassword),
+    number: /[0-9]/.test(newPassword),
+    special: /[^A-Za-z0-9]/.test(newPassword),
+  };
+  const isNewPwValid = Object.values(criteria).every(Boolean);
+
   const getInitials = (name) => {
-    if (!name) return "U";
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .substring(0, 2);
+    if (!name) return "DS";
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.substring(0, 2).toUpperCase();
   };
 
   if (loading) {
     return (
-      <div className="profile-page-loading">
+      <div className="profile-loading-screen">
         <div className="profile-spinner" />
-        <p>Loading your DiaSense AI profile...</p>
+        <p>{t("common.loading")}</p>
       </div>
     );
   }
 
   return (
-    <div className="profile-dashboard-container">
-      {/* Background Decorative Lighting */}
+    <div className="profile-page-container">
+      {/* Background Ambience Lighting */}
       <div className="profile-ambient-glow-1" />
       <div className="profile-ambient-glow-2" />
 
-      <div className="profile-dashboard-wrapper">
-        {/* Header Hero Card */}
-        <div className="profile-header-card">
-          <div className="profile-user-identity">
-            <div className="profile-avatar-capsule">
-              <span className="avatar-initials">{getInitials(fullName)}</span>
-              <div className="avatar-online-dot" />
+      <div className="profile-content-wrapper">
+        {/* Top Floating Navigation Header */}
+        <div className="profile-top-bar">
+          <button className="profile-back-btn" onClick={() => navigate(-1)}>
+            ← {t("common.goBack")}
+          </button>
+          <div className="profile-breadcrumb">
+            <span>{t("nav.home")}</span> / <span className="current">{t("nav.profile")}</span>
+          </div>
+        </div>
+
+        {/* 1. Compact Unified Profile Header Card */}
+        <div className="profile-compact-header-card">
+          <div className="profile-header-identity">
+            <div className="profile-avatar-wrapper">
+              <span className="avatar-letters">{getInitials(fullName)}</span>
+              <span className="avatar-status-dot" title="Online" />
             </div>
 
-            <div className="profile-text-meta">
-              <div className="name-role-row">
+            <div className="profile-header-text">
+              <div className="profile-name-badge-row">
                 <h2>{fullName || "DiaSense Patient"}</h2>
-                <span className="patient-badge"><FaCheckCircle /> Verified Patient</span>
+                <span className="verified-patient-badge">
+                  <FaCheckCircle className="badge-icon" /> {t("profile.verifiedPatient")}
+                </span>
               </div>
-              <p className="profile-email-sub">{email}</p>
-              <div className="profile-pills-row">
-                <span className="info-chip"><FaIdBadge /> Patient ID: #{userId || "1"}</span>
-                <span className="info-chip"><FaCalendarAlt /> Member Since: {memberSince || "Recent"}</span>
-                <span className="info-chip"><FaVenusMars /> {gender || "Male"} • {age ? `${age} Yrs` : "Age N/A"}</span>
+              <div className="profile-meta-subrow">
+                <span className="meta-email">{email}</span>
+                <span className="meta-dot">•</span>
+                <span className="meta-chip">
+                  <FaCalendarAlt className="meta-icon" /> {t("profile.memberSince")}: {memberSince || t("profile.recent") || "Recent"}
+                </span>
+                <span className="meta-dot">•</span>
+                <span className="meta-chip">
+                  <FaVenusMars className="meta-icon" /> {gender === "Female" ? t("auth.female") : gender === "Other" ? t("auth.other") : t("auth.male")} {age ? `(${age} ${t("profile.years")})` : ""}
+                </span>
               </div>
-            </div>
-          </div>
-
-          {/* Quick Metrics Bar */}
-          <div className="profile-quick-stats">
-            <div className="stat-mini-card">
-              <span className="stat-mini-label">Total Screenings</span>
-              <span className="stat-mini-val cyan">{stats.totalAssessments}</span>
-            </div>
-            <div className="stat-mini-card">
-              <span className="stat-mini-label">Latest Risk Status</span>
-              <span className={`stat-mini-val ${stats.latestPrediction === "Diabetic" ? "red" : "emerald"}`}>
-                {stats.latestPrediction ? (stats.latestPrediction === "Diabetic" ? "Diabetic" : "Low Risk") : "Pending"}
-              </span>
-            </div>
-            <div className="stat-mini-card">
-              <span className="stat-mini-label">Risk Probability</span>
-              <span className="stat-mini-val">
-                {stats.latestRiskScore !== null ? `${stats.latestRiskScore}%` : "N/A"}
-              </span>
             </div>
           </div>
         </div>
 
-        {/* Tab Navigation Controls */}
-        <div className="profile-tab-bar">
-          <button
-            type="button"
-            className={`profile-tab-btn ${activeTab === "personal" ? "active" : ""}`}
-            onClick={() => setActiveTab("personal")}
-          >
-            <FaUser /> Personal Information
-          </button>
-          <button
-            type="button"
-            className={`profile-tab-btn ${activeTab === "security" ? "active" : ""}`}
-            onClick={() => setActiveTab("security")}
-          >
-            <FaKey /> Security & Password
-          </button>
-          <button
-            type="button"
-            className={`profile-tab-btn ${activeTab === "health" ? "active" : ""}`}
-            onClick={() => setActiveTab("health")}
-          >
-            <FaHeartbeat /> Quick Health Shortcuts
-          </button>
-        </div>
-
-        {/* Tab 1: Personal Profile Information */}
-        {activeTab === "personal" && (
-          <div className="profile-tab-pane">
-            <div className="pane-header">
-              <h3>Edit Personal Information</h3>
-              <p>Update your name, age, and gender stored in your MySQL patient record.</p>
+        {/* 2. Modern 2-Column Responsive Dashboard Layout */}
+        <div className="profile-main-grid">
+          {/* LEFT COLUMN: Clean Active Tab Form Section */}
+          <div className="profile-left-col">
+            {/* Compact Tabs Bar */}
+            <div className="profile-nav-tabs">
+              <button
+                type="button"
+                className={`tab-btn-pill ${activeTab === "personal" ? "active" : ""}`}
+                onClick={() => setActiveTab("personal")}
+              >
+                <FaUser className="tab-icon" />
+                <span>{t("profile.tabPersonal")}</span>
+              </button>
+              <button
+                type="button"
+                className={`tab-btn-pill ${activeTab === "security" ? "active" : ""}`}
+                onClick={() => setActiveTab("security")}
+              >
+                <FaKey className="tab-icon" />
+                <span>{t("profile.tabSecurity")}</span>
+              </button>
+              <button
+                type="button"
+                className={`tab-btn-pill ${activeTab === "health" ? "active" : ""}`}
+                onClick={() => setActiveTab("health")}
+              >
+                <FaHeartbeat className="tab-icon" />
+                <span>{t("profile.tabHealth")}</span>
+              </button>
             </div>
 
-            <form onSubmit={handleUpdateProfile} className="profile-form-grid">
-              <div className="form-group-card">
-                <label><FaUser className="form-lbl-icon" /> Full Name</label>
-                <input
-                  type="text"
-                  placeholder="Enter your full name"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group-card">
-                <label><FaEnvelope className="form-lbl-icon" /> Email Address</label>
-                <input
-                  type="email"
-                  value={email}
-                  disabled
-                  title="Email cannot be changed directly"
-                  className="input-disabled"
-                />
-                <span className="field-hint">Email address is permanently bound to your account.</span>
-              </div>
-
-              <div className="form-row-2col">
-                <div className="form-group-card">
-                  <label><FaCalendarAlt className="form-lbl-icon" /> Age (Years)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="120"
-                    placeholder="e.g. 35"
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                  />
+            {/* TAB 1: Personal Information Form */}
+            {activeTab === "personal" && (
+              <div className="profile-pane-card">
+                <div className="pane-title-box">
+                  <h3>{t("profile.editPersonalTitle") || t("profile.headerTitle")}</h3>
+                  <p>{t("profile.editPersonalDesc") || t("profile.headerDesc")}</p>
                 </div>
 
-                <div className="form-group-card">
-                  <label><FaVenusMars className="form-lbl-icon" /> Gender</label>
-                  <select
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
+                <form onSubmit={handleUpdateProfile} className="compact-profile-form">
+                  <div className="form-field-group">
+                    <label>
+                      <FaUser className="field-lbl-icon" /> {t("auth.fullNameLabel")}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={t("auth.fullNamePlaceholder")}
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                    />
+                  </div>
 
-              <div className="form-actions-row">
-                <button type="submit" className="save-changes-btn" disabled={savingProfile}>
-                  {savingProfile ? "Saving to MySQL..." : "💾 Save Profile Changes"}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+                  <div className="form-field-group">
+                    <label>
+                      <FaEnvelope className="field-lbl-icon" /> {t("auth.emailLabel")}
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      disabled
+                      title={t("profile.emailHint")}
+                      className="input-field-disabled"
+                    />
+                    <span className="field-sub-hint">{t("profile.emailHint")}</span>
+                  </div>
 
-        {/* Tab 2: Security & Change Password */}
-        {activeTab === "security" && (
-          <div className="profile-tab-pane">
-            <div className="pane-header">
-              <h3>Change Account Password</h3>
-              <p>Update your password to ensure secure, encrypted access to your health dashboard.</p>
-            </div>
-
-            <form onSubmit={handleChangePassword} className="security-form-container">
-              <div className="form-group-card">
-                <label><FaLock className="form-lbl-icon" /> Current Password</label>
-                <div className="pw-input-wrapper">
-                  <input
-                    type={showCurrentPw ? "text" : "password"}
-                    placeholder="Enter your current password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="pw-toggle-btn"
-                    onClick={() => setShowCurrentPw(!showCurrentPw)}
-                  >
-                    {showCurrentPw ? <FaEyeSlash /> : <FaEye />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="form-group-card">
-                <label><FaKey className="form-lbl-icon" /> New Password</label>
-                <div className="pw-input-wrapper">
-                  <input
-                    type={showNewPw ? "text" : "password"}
-                    placeholder="Enter a strong new password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="pw-toggle-btn"
-                    onClick={() => setShowNewPw(!showNewPw)}
-                  >
-                    {showNewPw ? <FaEyeSlash /> : <FaEye />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Password Strength Checklist */}
-              {newPassword.length > 0 && (
-                <div className="password-criteria-box">
-                  <div className="criteria-title"><FaShieldAlt /> Password Requirements:</div>
-                  <div className="criteria-list">
-                    <div className={`criteria-item ${criteria.length ? "valid" : "invalid"}`}>
-                      {criteria.length ? <FaCheckCircle className="crit-icon" /> : <FaTimesCircle className="crit-icon" />}
-                      At least 8 characters
+                  <div className="form-two-cols">
+                    <div className="form-field-group">
+                      <label>
+                        <FaCalendarAlt className="field-lbl-icon" /> {t("auth.ageLabel")}
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="120"
+                        placeholder="e.g. 35"
+                        value={age}
+                        onChange={(e) => setAge(e.target.value)}
+                      />
                     </div>
-                    <div className={`criteria-item ${criteria.uppercase ? "valid" : "invalid"}`}>
-                      {criteria.uppercase ? <FaCheckCircle className="crit-icon" /> : <FaTimesCircle className="crit-icon" />}
-                      At least 1 uppercase letter (A-Z)
-                    </div>
-                    <div className={`criteria-item ${criteria.lowercase ? "valid" : "invalid"}`}>
-                      {criteria.lowercase ? <FaCheckCircle className="crit-icon" /> : <FaTimesCircle className="crit-icon" />}
-                      At least 1 lowercase letter (a-z)
-                    </div>
-                    <div className={`criteria-item ${criteria.number ? "valid" : "invalid"}`}>
-                      {criteria.number ? <FaCheckCircle className="crit-icon" /> : <FaTimesCircle className="crit-icon" />}
-                      At least 1 number (0-9)
-                    </div>
-                    <div className={`criteria-item ${criteria.special ? "valid" : "invalid"}`}>
-                      {criteria.special ? <FaCheckCircle className="crit-icon" /> : <FaTimesCircle className="crit-icon" />}
-                      At least 1 special character (!@#$%^&*)
+
+                    <div className="form-field-group">
+                      <label>
+                        <FaVenusMars className="field-lbl-icon" /> {t("auth.genderLabel")}
+                      </label>
+                      <select
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value)}
+                      >
+                        <option value="Male">{t("auth.male")}</option>
+                        <option value="Female">{t("auth.female")}</option>
+                        <option value="Other">{t("auth.other")}</option>
+                      </select>
                     </div>
                   </div>
-                </div>
-              )}
 
-              <div className="form-group-card">
-                <label><FaLock className="form-lbl-icon" /> Confirm New Password</label>
-                <input
-                  type={showNewPw ? "text" : "password"}
-                  placeholder="Re-enter your new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
+                  {/* Preferred Language Selector */}
+                  <div className="form-field-group">
+                    <label>
+                      <FaGlobe className="field-lbl-icon" /> {t("profile.preferredLanguage")}
+                    </label>
+                    <div className="profile-lang-selector-box">
+                      <LanguageSelector />
+                    </div>
+                  </div>
+
+                  {/* Primary Save Action Button */}
+                  <div className="form-save-action-box">
+                    <button
+                      type="submit"
+                      className="btn-primary-save"
+                      disabled={savingProfile}
+                    >
+                      {savingProfile ? (
+                        <>
+                          <span className="btn-spinner" />
+                          <span>{t("profile.updatingBtn") || t("common.saving")}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>💾</span>
+                          <span>{t("profile.updateBtn") || t("common.save")}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* TAB 2: Security & Change Password */}
+            {activeTab === "security" && (
+              <div className="profile-pane-card">
+                <div className="pane-title-box">
+                  <h3>{t("profile.changePasswordTitle") || t("profile.changePasswordBtn")}</h3>
+                  <p>{t("profile.changePasswordDesc")}</p>
+                </div>
+
+                <form onSubmit={handleChangePassword} className="compact-profile-form">
+                  <div className="form-field-group">
+                    <label>
+                      <FaLock className="field-lbl-icon" /> {t("profile.currentPassword")}
+                    </label>
+                    <div className="input-pw-wrapper">
+                      <input
+                        type={showCurrentPw ? "text" : "password"}
+                        placeholder={t("profile.currentPassword")}
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="btn-pw-eye"
+                        onClick={() => setShowCurrentPw(!showCurrentPw)}
+                        aria-label="Toggle password visibility"
+                      >
+                        {showCurrentPw ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="form-field-group">
+                    <label>
+                      <FaKey className="field-lbl-icon" /> {t("profile.newPassword")}
+                    </label>
+                    <div className="input-pw-wrapper">
+                      <input
+                        type={showNewPw ? "text" : "password"}
+                        placeholder={t("profile.newPassword")}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="btn-pw-eye"
+                        onClick={() => setShowNewPw(!showNewPw)}
+                        aria-label="Toggle password visibility"
+                      >
+                        {showNewPw ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Compact Security Criteria Checklist */}
+                  {newPassword.length > 0 && (
+                    <div className="compact-pw-criteria">
+                      <div className="criteria-head">
+                        <FaShieldAlt className="crit-shield" />
+                        <span>{t("profile.passCriteriaTitle")}</span>
+                      </div>
+                      <div className="criteria-grid">
+                        <div className={`crit-pill ${criteria.length ? "pass" : "fail"}`}>
+                          {criteria.length ? <FaCheckCircle className="crit-chk" /> : <FaTimesCircle className="crit-chk" />}
+                          <span>{t("profile.critLength")}</span>
+                        </div>
+                        <div className={`crit-pill ${criteria.uppercase ? "pass" : "fail"}`}>
+                          {criteria.uppercase ? <FaCheckCircle className="crit-chk" /> : <FaTimesCircle className="crit-chk" />}
+                          <span>{t("profile.critUpper")}</span>
+                        </div>
+                        <div className={`crit-pill ${criteria.lowercase ? "pass" : "fail"}`}>
+                          {criteria.lowercase ? <FaCheckCircle className="crit-chk" /> : <FaTimesCircle className="crit-chk" />}
+                          <span>{t("profile.critLower")}</span>
+                        </div>
+                        <div className={`crit-pill ${criteria.number ? "pass" : "fail"}`}>
+                          {criteria.number ? <FaCheckCircle className="crit-chk" /> : <FaTimesCircle className="crit-chk" />}
+                          <span>{t("profile.critNumber")}</span>
+                        </div>
+                        <div className={`crit-pill ${criteria.special ? "pass" : "fail"}`}>
+                          {criteria.special ? <FaCheckCircle className="crit-chk" /> : <FaTimesCircle className="crit-chk" />}
+                          <span>{t("profile.critSpecial")}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="form-field-group">
+                    <label>
+                      <FaLock className="field-lbl-icon" /> {t("profile.confirmNewPassword")}
+                    </label>
+                    <input
+                      type={showNewPw ? "text" : "password"}
+                      placeholder={t("profile.confirmNewPassword")}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-save-action-box">
+                    <button
+                      type="submit"
+                      className="btn-primary-save"
+                      disabled={changingPw}
+                    >
+                      {changingPw ? (
+                        <>
+                          <span className="btn-spinner" />
+                          <span>{t("profile.updatingBtn") || t("common.saving")}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>🔒</span>
+                          <span>{t("profile.changePasswordBtn")}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* TAB 3: Quick Health Shortcuts */}
+            {activeTab === "health" && (
+              <div className="profile-pane-card">
+                <div className="pane-title-box">
+                  <h3>{t("profile.quickHealthNav")}</h3>
+                  <p>{t("profile.quickHealthDesc")}</p>
+                </div>
+
+                <div className="compact-shortcuts-grid">
+                  <div
+                    className="shortcut-tile"
+                    onClick={() => navigate("/assessment")}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className="shortcut-icon-box cyan">
+                      <FaNotesMedical />
+                    </div>
+                    <div className="shortcut-text-box">
+                      <h4>{t("dashboard.startNewAssessment")}</h4>
+                      <p>{t("nav.assessment")}</p>
+                    </div>
+                    <FaArrowRight className="tile-arrow" />
+                  </div>
+
+                  <div
+                    className="shortcut-tile"
+                    onClick={() => navigate("/diet-plan")}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className="shortcut-icon-box emerald">
+                      <FaUtensils />
+                    </div>
+                    <div className="shortcut-text-box">
+                      <h4>{t("nav.dietPlan")}</h4>
+                      <p>{t("dietPlan.headerBadge")}</p>
+                    </div>
+                    <FaArrowRight className="tile-arrow" />
+                  </div>
+
+                  <div
+                    className="shortcut-tile"
+                    onClick={() => navigate("/food-analyzer")}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className="shortcut-icon-box purple">
+                      <FaCamera />
+                    </div>
+                    <div className="shortcut-text-box">
+                      <h4>{t("nav.foodAnalyzer")}</h4>
+                      <p>{t("home.featuresSubtitle")}</p>
+                    </div>
+                    <FaArrowRight className="tile-arrow" />
+                  </div>
+
+                  <div
+                    className="shortcut-tile"
+                    onClick={() => navigate("/dashboard")}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className="shortcut-icon-box blue">
+                      <FaHeartbeat />
+                    </div>
+                    <div className="shortcut-text-box">
+                      <h4>{t("nav.healthDashboard")}</h4>
+                      <p>{t("nav.dashboard")}</p>
+                    </div>
+                    <FaArrowRight className="tile-arrow" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT COLUMN: Compact Health Summary & Quick Info Sidebar */}
+          <div className="profile-right-col">
+            <div className="health-summary-sidebar-card">
+              <div className="summary-card-header">
+                <FaHeartbeat className="header-heart-icon" />
+                <h3>{t("result.patientSummary")}</h3>
               </div>
 
-              <div className="form-actions-row">
-                <button type="submit" className="save-changes-btn" disabled={changingPw}>
-                  {changingPw ? "Updating Password..." : "🔒 Update Account Password"}
+              {/* 3 Compact Metric Tiles */}
+              <div className="compact-stats-stack">
+                <div className="compact-stat-row">
+                  <span className="stat-name">{t("profile.totalAssessments")}</span>
+                  <span className="stat-number cyan">{stats.totalAssessments}</span>
+                </div>
+
+                <div className="compact-stat-row">
+                  <span className="stat-name">{t("profile.latestRisk")}</span>
+                  <span
+                    className={`risk-status-pill ${
+                      stats.latestPrediction === "Diabetic" ? "diabetic" : "non-diabetic"
+                    }`}
+                  >
+                    {stats.latestPrediction
+                      ? stats.latestPrediction === "Diabetic"
+                        ? t("result.diabetic")
+                        : t("result.nonDiabetic")
+                      : t("profile.pending")}
+                  </span>
+                </div>
+
+                <div className="compact-stat-row">
+                  <span className="stat-name">{t("dashboard.probability")}</span>
+                  <span className="stat-number">
+                    {stats.latestRiskScore !== null
+                      ? `${stats.latestRiskScore}%`
+                      : "N/A"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Patient Quick Info List */}
+              <div className="sidebar-info-divider" />
+              <div className="sidebar-patient-details">
+                <div className="detail-item-line">
+                  <span className="item-key"><FaIdBadge /> {t("profile.patientId")}:</span>
+                  <span className="item-val">#{userId || "1"}</span>
+                </div>
+                <div className="detail-item-line">
+                  <span className="item-key"><FaCalendarAlt /> {t("profile.memberSince")}:</span>
+                  <span className="item-val">{memberSince || "Recent"}</span>
+                </div>
+              </div>
+
+              {/* Sidebar Quick Action CTAs */}
+              <div className="sidebar-action-buttons">
+                <button
+                  onClick={() => navigate("/assessment")}
+                  className="btn-sidebar-cta primary"
+                >
+                  <FaNotesMedical />
+                  <span>{t("dashboard.startNewAssessment")}</span>
+                </button>
+                <button
+                  onClick={() => navigate("/dashboard")}
+                  className="btn-sidebar-cta secondary"
+                >
+                  <FaChartLine />
+                  <span>{t("nav.healthDashboard")}</span>
                 </button>
               </div>
-            </form>
-          </div>
-        )}
-
-        {/* Tab 3: Quick Health Actions */}
-        {activeTab === "health" && (
-          <div className="profile-tab-pane">
-            <div className="pane-header">
-              <h3>Quick Health Navigation</h3>
-              <p>Direct shortcuts to all DiaSense AI diagnostic and nutritional tools.</p>
-            </div>
-
-            <div className="health-shortcuts-grid">
-              <div className="shortcut-card" onClick={() => navigate("/assessment")}>
-                <div className="shortcut-icon-circle cyan">
-                  <FaNotesMedical />
-                </div>
-                <div className="shortcut-info">
-                  <h4>Take New Assessment</h4>
-                  <p>Input clinical biomarkers for instant 99.20% accurate XGBoost risk screening.</p>
-                </div>
-                <FaArrowRight className="shortcut-arrow" />
-              </div>
-
-              <div className="shortcut-card" onClick={() => navigate("/diet-plan")}>
-                <div className="shortcut-icon-circle emerald">
-                  <FaUtensils />
-                </div>
-                <div className="shortcut-info">
-                  <h4>Daily Goals & Diet Plan</h4>
-                  <p>View tailored low-GI Indian nutrition prescriptions and maintain your daily health streak.</p>
-                </div>
-                <FaArrowRight className="shortcut-arrow" />
-              </div>
-
-              <div className="shortcut-card" onClick={() => navigate("/food-analyzer")}>
-                <div className="shortcut-icon-circle blue">
-                  <FaCamera />
-                </div>
-                <div className="shortcut-info">
-                  <h4>Food AI Vision Analyzer</h4>
-                  <p>Upload a food image or search any meal to inspect calories, carbs, protein, and GI.</p>
-                </div>
-                <FaArrowRight className="shortcut-arrow" />
-              </div>
-
-              <div className="shortcut-card" onClick={() => navigate("/dashboard")}>
-                <div className="shortcut-icon-circle indigo">
-                  <FaHeartbeat />
-                </div>
-                <div className="shortcut-info">
-                  <h4>Medical Analytics Dashboard</h4>
-                  <p>Explore your historical assessment trends, biomarker gauges, and clinical reports.</p>
-                </div>
-                <FaArrowRight className="shortcut-arrow" />
-              </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

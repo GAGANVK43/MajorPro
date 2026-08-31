@@ -7,8 +7,10 @@ import Navbar from "../../components/Navbar/Navbar";
 import BackButton from "../../components/BackButton/BackButton";
 import Footer from "../../components/Footer/Footer";
 import { contactService } from "../../services/api";
+import { useTranslation } from "../../context/LanguageContext";
 
 function Contact() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -20,7 +22,7 @@ function Contact() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
-      toast.error("Please fill in all required contact fields.");
+      toast.error(t("auth.fillRequiredFields"));
       return;
     }
 
@@ -33,10 +35,10 @@ function Contact() {
         message: formData.message,
       });
 
-      toast.success("✅ Inquiry sent successfully to gagankamati643@gmail.com!");
+      toast.success(`✅ ${t("contact.successToast")}`);
       setFormData({ name: "", email: "", subject: "", message: "" });
     } catch (err) {
-      toast.error(err.message || "Failed to submit contact request. Please try again.");
+      toast.error(err.message || t("contact.failedToast"));
     } finally {
       setLoading(false);
     }
@@ -53,26 +55,24 @@ function Contact() {
           <div className="contact-grid">
             {/* Left Info Card */}
             <div className="contact-info-card">
-              <div className="badge-pill"><FaHeadset /> Technical Support</div>
-              <h1>Get in Touch With DiaSense AI Team</h1>
-              <p>
-                Have questions regarding the machine learning model architecture, system integration, or clinical risk screening methodology? Reach out to us below.
-              </p>
+              <div className="badge-pill"><FaHeadset /> {t("contact.badge")}</div>
+              <h1>{t("contact.title")}</h1>
+              <p>{t("contact.desc")}</p>
 
               <div className="info-points">
                 <div className="info-point">
                   <FaCheckCircle className="info-icon" />
                   <div>
-                    <h4>Fast Response Time</h4>
-                    <p>Submissions are sent directly to <strong>gagankamati643@gmail.com</strong>.</p>
+                    <h4>{t("contact.fastResponseTitle")}</h4>
+                    <p>{t("contact.fastResponseDesc")}</p>
                   </div>
                 </div>
 
                 <div className="info-point">
                   <FaCheckCircle className="info-icon" />
                   <div>
-                    <h4>Academic & Project Support</h4>
-                    <p>Designed for CSE viva demonstrations and research reviews.</p>
+                    <h4>{t("contact.academicSupportTitle")}</h4>
+                    <p>{t("contact.academicSupportDesc")}</p>
                   </div>
                 </div>
               </div>
@@ -80,14 +80,14 @@ function Contact() {
 
             {/* Right Contact Form */}
             <div className="contact-form-card">
-              <h2>Send a Message</h2>
+              <h2>{t("contact.sendMessage")}</h2>
 
               <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                  <label><FaUser /> Your Full Name *</label>
+                  <label><FaUser /> {t("contact.nameLabel")} *</label>
                   <input
                     type="text"
-                    placeholder="e.g. Alex Johnson"
+                    placeholder={t("contact.namePlaceholder")}
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
@@ -95,10 +95,10 @@ function Contact() {
                 </div>
 
                 <div className="form-group">
-                  <label><FaEnvelope /> Email Address *</label>
+                  <label><FaEnvelope /> {t("contact.emailLabel")} *</label>
                   <input
                     type="email"
-                    placeholder="e.g. alex@example.com"
+                    placeholder={t("contact.emailPlaceholder")}
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required
@@ -106,28 +106,28 @@ function Contact() {
                 </div>
 
                 <div className="form-group">
-                  <label><FaCommentAlt /> Subject</label>
+                  <label><FaCommentAlt /> {t("contact.subjectLabel")}</label>
                   <input
                     type="text"
-                    placeholder="e.g. ML Model Inquiry"
+                    placeholder={t("contact.subjectPlaceholder")}
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Message *</label>
+                  <label><FaPaperPlane /> {t("contact.messageLabel")} *</label>
                   <textarea
-                    rows="4"
-                    placeholder="Enter your message details..."
+                    rows="5"
+                    placeholder={t("contact.messagePlaceholder")}
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                     required
                   />
                 </div>
 
-                <button className="contact-submit-btn" type="submit" disabled={loading}>
-                  {loading ? "Submitting..." : <><FaPaperPlane /> Submit Inquiry</>}
+                <button type="submit" className="submit-btn" disabled={loading}>
+                  {loading ? t("contact.submittingBtn") : t("contact.submitBtn")}
                 </button>
               </form>
             </div>

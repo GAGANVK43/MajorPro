@@ -9,13 +9,15 @@ const api = axios.create({
   },
 });
 
-// Request Interceptor: Attach JWT Bearer Token if present
+// Request Interceptor: Attach JWT Bearer Token & Active Language if present
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("access_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    const currentLang = localStorage.getItem("diasense_language") || "en";
+    config.headers["Accept-Language"] = currentLang;
     return config;
   },
   (error) => Promise.reject(error)

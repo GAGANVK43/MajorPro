@@ -1,9 +1,11 @@
 import "./CTA.css";
 import { useNavigate } from "react-router-dom";
 import { FaArrowRight, FaStethoscope } from "react-icons/fa";
+import { useTranslation } from "../../context/LanguageContext";
 
 function CTA() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <section className="cta-section">
@@ -12,13 +14,11 @@ function CTA() {
           <div className="cta-icon-badge">
             <FaStethoscope />
           </div>
-          <h2>Ready To Evaluate Your Diabetes Risk Profile?</h2>
-          <p>
-            Takes less than 3 minutes. Receive instant AI classification, detailed contributing factor analysis, and tailored diet recommendations.
-          </p>
+          <h2>{t("home.ctaTitle")}</h2>
+          <p>{t("home.ctaDesc")}</p>
           <div className="cta-button-group">
             <button className="cta-main-btn" onClick={() => navigate("/assessment")}>
-              Start Risk Assessment Now <FaArrowRight />
+              {t("home.ctaBtn")} <FaArrowRight />
             </button>
           </div>
         </div>

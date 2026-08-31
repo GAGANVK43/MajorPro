@@ -7,12 +7,13 @@ import {
   FaShieldAlt, 
   FaUsers, 
   FaTint, 
-  FaCheckCircle,
-  FaStethoscope,
   FaDna
 } from "react-icons/fa";
+import { useTranslation } from "../../context/LanguageContext";
 
 function AuthShowcase() {
+  const { t } = useTranslation();
+
   return (
     <div className="auth-showcase-panel">
       {/* Dynamic Background Mesh Gradients */}
@@ -27,17 +28,17 @@ function AuthShowcase() {
         </div>
         <div className="brand-text-block">
           <h3>DiaSense AI</h3>
-          <span>Diabetes Prediction</span>
+          <span>{t("home.heroBadge")}</span>
         </div>
       </div>
 
       {/* Hero Headings */}
       <div className="showcase-hero-heading">
         <h2>
-          AI-Powered <span className="text-gradient-cyan">Diabetes Prediction</span> for a Healthier Tomorrow
+          {t("auth.showcaseHeading")}
         </h2>
         <p>
-          Predict risk, take control, and live a healthier life with the power of Machine Learning.
+          {t("home.heroDesc")}
         </p>
       </div>
 
@@ -50,8 +51,8 @@ function AuthShowcase() {
               <FaBrain />
             </div>
             <div className="pill-text">
-              <h4>ML Based Prediction</h4>
-              <p>Advanced machine learning models for accurate results.</p>
+              <h4>{t("home.feat1Title")}</h4>
+              <p>{t("auth.showcaseP1")}</p>
             </div>
           </div>
 
@@ -60,8 +61,8 @@ function AuthShowcase() {
               <FaChartLine />
             </div>
             <div className="pill-text">
-              <h4>Health Insights</h4>
-              <p>Get personalized insights and tips.</p>
+              <h4>{t("home.feat2Title")}</h4>
+              <p>{t("auth.showcaseP2")}</p>
             </div>
           </div>
 
@@ -70,8 +71,8 @@ function AuthShowcase() {
               <FaShieldAlt />
             </div>
             <div className="pill-text">
-              <h4>Secure & Private</h4>
-              <p>Your data is safe with us and never shared.</p>
+              <h4>{t("home.feat6Title")}</h4>
+              <p>{t("auth.showcaseP3")}</p>
             </div>
           </div>
         </div>
@@ -87,7 +88,7 @@ function AuthShowcase() {
           <div className="pancreas-hologram-card">
             <div className="hologram-bubble">
               <FaDna className="organ-holo-icon" />
-              <span className="organ-tag">Beta Cells • Active</span>
+              <span className="organ-tag">{t("auth.betaCellsActive")}</span>
             </div>
             <div className="hologram-glow-orbit" />
           </div>
@@ -98,7 +99,7 @@ function AuthShowcase() {
               <div className="glucometer-screen">
                 <div className="screen-header">
                   <span className="blood-icon"><FaTint /></span>
-                  <span className="screen-tag">GLUCOSE</span>
+                  <span className="screen-tag">{t("dietPlan.glucoseLabel").toUpperCase().replace(":", "")}</span>
                 </div>
                 <div className="screen-reading">
                   <span className="reading-value">105</span>
@@ -106,11 +107,11 @@ function AuthShowcase() {
                 </div>
                 <div className="screen-status-bar">
                   <span className="status-dot green" />
-                  <span className="status-label">Optimal Fasting</span>
+                  <span className="status-label">{t("result.optimal")}</span>
                 </div>
               </div>
 
-              {/* Device Buttons */}
+              {/* Device Controls */}
               <div className="device-controls">
                 <button type="button" className="dev-btn btn-up" tabIndex={-1}>▲</button>
                 <button type="button" className="dev-btn btn-down" tabIndex={-1}>▼</button>
@@ -143,7 +144,7 @@ function AuthShowcase() {
               />
             </svg>
             <div className="ecg-telemetry-badge">
-              <span className="live-pulse-dot" /> 72 BPM • Normal Rhythm
+              <span className="live-pulse-dot" /> 72 BPM • {t("auth.normalRhythm")}
             </div>
           </div>
         </div>
@@ -154,12 +155,12 @@ function AuthShowcase() {
         <div className="users-icon-circle">
           <FaUsers />
         </div>
-        <span>Join thousands who are taking charge of their metabolic health.</span>
+        <span>{t("common.appName")} {t("auth.healthcareIntelPlatform")}</span>
       </div>
 
       {/* Footer Copyright */}
       <div className="showcase-footer-note">
-        © 2025 DiaSense AI. All rights reserved.
+        © {new Date().getFullYear()} DiaSense AI. {t("common.allRightsReserved")}
       </div>
     </div>
   );

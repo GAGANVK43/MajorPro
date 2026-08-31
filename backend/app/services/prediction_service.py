@@ -12,11 +12,12 @@ from app.repositories.prediction_repository import PredictionRepository
 from app.repositories.diet_repository import DietRepository
 from app.schemas.prediction_schema import PredictionRequest, PredictionResponse, PredictionListResponse
 from app.ml.prediction import predict_diabetes_risk
+from app.utils.i18n import localize_recommendation, localize_diet_plan, normalize_lang
 
 
 class PredictionService:
     """
-    Business Logic Layer for 96.8% High-Accuracy ML Prediction and Indian Diet Plan Generation.
+    Business Logic Layer for 96.8% High-Accuracy ML Prediction and Indian Diet Plan Generation with i18n.
     """
     def __init__(self, db: Session):
         self.db = db
@@ -24,7 +25,7 @@ class PredictionService:
         self.prediction_repo = PredictionRepository(db)
         self.diet_repo = DietRepository(db)
 
-    def create_prediction(self, user: Optional[User], request: PredictionRequest) -> PredictionResponse:
+    def create_prediction(self, user: Optional[User], request: PredictionRequest, lang: str = "en") -> PredictionResponse:
         # Handle Guest (Unauthenticated) Assessment Submissions
         if user is None:
             assessment_data = {
@@ -37,7 +38,7 @@ class PredictionService:
                 "diabetes_pedigree_function": request.diabetes_pedigree_function or 0.47,
                 "age": request.age or 30,
             }
-            pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_data)
+            pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_data, lang)
 
             return PredictionResponse(
                 id=1,
@@ -87,7 +88,7 @@ class PredictionService:
             "age": assessment.age,
         }
 
-        pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_data)
+        pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_data, lang)
 
         # Step 3: Save Prediction entity
         prediction_obj = Prediction(
@@ -112,7 +113,7 @@ class PredictionService:
             created_at=saved_prediction.created_at,
         )
 
-    def get_latest_prediction(self, user: User) -> PredictionResponse:
+    def get_latest_prediction(self, user: User, lang: str = "en") -> PredictionResponse:
         latest = self.prediction_repo.get_latest_by_user_id(user.id)
         if not latest:
             raise HTTPException(
@@ -134,7 +135,7 @@ class PredictionService:
                 "age": a.age,
             }
 
-        pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_data)
+        pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_data, lang)
 
         return PredictionResponse(
             id=latest.id,
@@ -147,38 +148,26 @@ class PredictionService:
             created_at=latest.created_at,
         )
 
-    def get_prediction_history(self, user: User) -> PredictionListResponse:
+    def get_prediction_history(self, user: User, lang: str = "en") -> PredictionListResponse:
         predictions = self.prediction_repo.get_history_by_user_id(user.id)
         items = []
         for p in predictions:
             item = PredictionResponse.model_validate(p)
-            item.recommendation = "Follow medical recommendations provided."
+            item.recommendation = localize_recommendation(p.prediction, lang)
             items.append(item)
         return PredictionListResponse(total=len(items), predictions=items)
 
     def _generate_and_save_diet_plan(self, prediction_id: int, label: str, risk_pct: float, glucose: float, bmi: float) -> DietPlan:
-        if label == "Diabetic" or risk_pct >= 50.0 or glucose >= 140.0:
-            breakfast = "Oats & Ragi Dosa (2 pcs) with Mint Chutney, 1 Boiled Egg / Paneer Bhurji (Low-GI Indian Breakfast)."
-            lunch = "Moong Dal & Spinach Khichdi with 1 cup Cucumber Raita and Sprouted Chana Salad."
-            dinner = "Palak Paneer with 2 Bajra/Multigrain Rotis and Steamed Lauki/Turai Subzi."
-            snacks = "1 cup Roasted Makhana (Fox Nuts) with Green Tea or Sprouted Moong Salad."
-            exercise = "30-45 mins Brisk Walking, 15 mins Surya Namaskar & Light Resistance Training 5 days/week."
-            tips = "Limit polished white rice, replace with Brown Rice/Ragi/Bajra. Drink 3L water daily and eliminate sugary chai."
-        else:
-            breakfast = "Methi Paratha (1 pc with curd) or Vegetable Oats Upma with 1 Boiled Egg."
-            lunch = "Brown Rice Bowl with Rajma/Chole, Mixed Green Salad, and Cucumber Raita."
-            dinner = "Tandoori Chicken / Paneer Tikka with Grilled Vegetables and 1 Whole Wheat Roti."
-            snacks = "Roasted Chana, Apple Slices with Peanut Butter, or Handful of Almonds & Walnuts."
-            exercise = "150 minutes of moderate-intensity activity (Brisk Walk, Jogging, Yoga) per week."
-            tips = "Maintain consistent sleep schedule, practice stress management through Pranayama, and maintain balanced portion control."
+        plan_type = "HighRisk" if (label == "Diabetic" or risk_pct >= 50.0 or glucose >= 140.0) else "LowRisk"
+        localized_en = localize_diet_plan(plan_type, "en")
 
         diet_plan = DietPlan(
             prediction_id=prediction_id,
-            breakfast=breakfast,
-            lunch=lunch,
-            dinner=dinner,
-            snacks=snacks,
-            exercise=exercise,
-            tips=tips,
+            breakfast=localized_en["breakfast"],
+            lunch=localized_en["lunch"],
+            dinner=localized_en["dinner"],
+            snacks=localized_en["snacks"],
+            exercise=localized_en["exercise"],
+            tips=localized_en["tips"],
         )
         return self.diet_repo.create(diet_plan)

@@ -7,12 +7,14 @@ import { FaUser, FaStethoscope, FaRunning, FaCheckCircle, FaBrain, FaInfoCircle,
 import Navbar from "../../components/Navbar/Navbar";
 import BackButton from "../../components/BackButton/BackButton";
 import Footer from "../../components/Footer/Footer";
-import { predictionService, assessmentService } from "../../services/api";
+import { predictionService } from "../../services/api";
+import { useTranslation } from "../../context/LanguageContext";
 
 function Assessment() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -50,25 +52,25 @@ function Assessment() {
   const validateStep = (currentStep) => {
     if (currentStep === 1) {
       if (!formData.age || parseInt(formData.age, 10) <= 0 || parseInt(formData.age, 10) > 120) {
-        toast.error("Please enter a valid age (1-120 yrs).");
+        toast.error(t("assessment.valAge"));
         return false;
       }
       if (!formData.height || parseFloat(formData.height) <= 0) {
-        toast.error("Please enter a valid height in cm.");
+        toast.error(t("assessment.valHeight"));
         return false;
       }
       if (!formData.weight || parseFloat(formData.weight) <= 0) {
-        toast.error("Please enter a valid weight in kg.");
+        toast.error(t("assessment.valWeight"));
         return false;
       }
     }
     if (currentStep === 2) {
       if (!formData.glucose || parseFloat(formData.glucose) <= 0) {
-        toast.error("Please enter a valid blood glucose level.");
+        toast.error(t("assessment.valGlucose"));
         return false;
       }
       if (!formData.bloodPressure || parseFloat(formData.bloodPressure) <= 0) {
-        toast.error("Please enter a valid diastolic blood pressure.");
+        toast.error(t("assessment.valBp"));
         return false;
       }
     }
@@ -78,7 +80,6 @@ function Assessment() {
   const handleNextStep = () => {
     if (validateStep(step)) {
       if (step === 3) {
-        // Direct prediction execution on Step 3 submit
         handleAnalysis();
       } else {
         setStep((prev) => prev + 1);
@@ -88,7 +89,7 @@ function Assessment() {
 
   const handleAnalysis = async () => {
     setLoading(true);
-    toast.info("🧠 Executing XGBoost ML Inference...");
+    toast.info(`🧠 ${t("assessment.runningModel")}`);
 
     try {
       const dpf = formData.familyHistory === "Yes" ? 0.85 : 0.15;
@@ -111,7 +112,7 @@ function Assessment() {
       // Store in localStorage for instant rendering
       localStorage.setItem("latest_prediction", JSON.stringify(resultData));
 
-      toast.success("✅ AI Risk Assessment Complete!");
+      toast.success(`✅ ${t("assessment.assessmentComplete")}`);
       setTimeout(() => {
         navigate("/result");
       }, 800);
@@ -132,24 +133,24 @@ function Assessment() {
 
           {/* Page Header */}
           <div className="assessment-header text-center">
-            <span className="badge-pill">AI Health Assessment</span>
-            <h1>Comprehensive Diabetes Risk Screening</h1>
-            <p>Fill in your clinical markers below for AI XGBoost model risk classification.</p>
+            <span className="badge-pill">{t("assessment.headerBadge")}</span>
+            <h1>{t("assessment.headerTitle")}</h1>
+            <p>{t("assessment.headerDesc")}</p>
           </div>
 
           {/* Stepper Progress Header */}
           <div className="stepper-bar">
             <div className={`step-item ${step >= 1 ? "completed" : ""} ${step === 1 ? "active" : ""}`}>
               <div className="step-circle">{step > 1 ? <FaCheckCircle /> : "1"}</div>
-              <span>Personal Profile</span>
+              <span>{t("assessment.personalVitals")}</span>
             </div>
             <div className={`step-item ${step >= 2 ? "completed" : ""} ${step === 2 ? "active" : ""}`}>
               <div className="step-circle">{step > 2 ? <FaCheckCircle /> : "2"}</div>
-              <span>Medical Vitals</span>
+              <span>{t("assessment.clinicalBiomarkers")}</span>
             </div>
             <div className={`step-item ${step >= 3 ? "completed" : ""} ${step === 3 ? "active" : ""}`}>
               <div className="step-circle">{step > 3 ? <FaCheckCircle /> : "3"}</div>
-              <span>Lifestyle & Predict</span>
+              <span>{t("assessment.lifestyleHabits")}</span>
             </div>
           </div>
 
@@ -157,12 +158,12 @@ function Assessment() {
           <div className="assessment-card">
             {step === 1 && (
               <div className="form-step-content">
-                <h2><FaUser /> Step 1: Personal Profile</h2>
-                <p className="step-subtitle">Demographics and physical metrics for BMI calculation.</p>
+                <h2><FaUser /> {t("assessment.step1Badge")}</h2>
+                <p className="step-subtitle">{t("assessment.vitalsSubtitle")}</p>
 
                 <div className="input-grid">
                   <div className="input-group">
-                    <label>Full Name</label>
+                    <label>{t("assessment.fullName")}</label>
                     <input
                       type="text"
                       placeholder="e.g. John Doe"
@@ -172,7 +173,7 @@ function Assessment() {
                   </div>
 
                   <div className="input-group">
-                    <label>Age (years) *</label>
+                    <label>{t("assessment.age")} *</label>
                     <input
                       type="number"
                       placeholder="e.g. 35"
@@ -182,15 +183,15 @@ function Assessment() {
                   </div>
 
                   <div className="input-group">
-                    <label>Gender</label>
+                    <label>{t("assessment.gender")}</label>
                     <select value={formData.gender} onChange={(e) => handleChange("gender", e.target.value)}>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
+                      <option value="Male">{t("auth.male")}</option>
+                      <option value="Female">{t("auth.female")}</option>
                     </select>
                   </div>
 
                   <div className="input-group">
-                    <label>Height (cm) *</label>
+                    <label>{t("assessment.height")} *</label>
                     <input
                       type="number"
                       placeholder="e.g. 170"
@@ -200,7 +201,7 @@ function Assessment() {
                   </div>
 
                   <div className="input-group">
-                    <label>Weight (kg) *</label>
+                    <label>{t("assessment.weight")} *</label>
                     <input
                       type="number"
                       placeholder="e.g. 70"
@@ -210,7 +211,7 @@ function Assessment() {
                   </div>
 
                   <div className="input-group bmi-auto-group">
-                    <label><FaCalculator /> Auto-Calculated BMI</label>
+                    <label><FaCalculator /> {t("assessment.bmiCalc")}</label>
                     <div className="bmi-display">
                       <span>{formData.bmi || "24.2"}</span> kg/m²
                     </div>
@@ -221,15 +222,15 @@ function Assessment() {
 
             {step === 2 && (
               <div className="form-step-content">
-                <h2><FaStethoscope /> Step 2: Clinical Vitals & Lab Measurements</h2>
-                <p className="step-subtitle">Fasting blood glucose, pressure, and insulin indicators.</p>
+                <h2><FaStethoscope /> {t("assessment.step2Badge")}</h2>
+                <p className="step-subtitle">{t("assessment.biomarkersSubtitle")}</p>
 
                 <div className="input-grid">
                   <div className="input-group">
                     <label>
-                      Fasting Glucose (mg/dL) *
+                      {t("assessment.glucose")} *
                       <span className="tooltip-badge" title="Normal fasting level: 70 - 99 mg/dL">
-                        <FaInfoCircle /> Normal: 70-99
+                        <FaInfoCircle /> 70-99
                       </span>
                     </label>
                     <input
@@ -242,9 +243,9 @@ function Assessment() {
 
                   <div className="input-group">
                     <label>
-                      Diastolic Blood Pressure (mmHg) *
+                      {t("assessment.bloodPressure")} *
                       <span className="tooltip-badge" title="Normal diastolic: 60 - 80 mmHg">
-                        <FaInfoCircle /> Normal: 60-80
+                        <FaInfoCircle /> 60-80
                       </span>
                     </label>
                     <input
@@ -256,7 +257,7 @@ function Assessment() {
                   </div>
 
                   <div className="input-group">
-                    <label>Insulin Level (μU/mL)</label>
+                    <label>{t("assessment.insulin")}</label>
                     <input
                       type="number"
                       placeholder="e.g. 80"
@@ -266,7 +267,7 @@ function Assessment() {
                   </div>
 
                   <div className="input-group">
-                    <label>Skin Fold Thickness (mm)</label>
+                    <label>{t("assessment.skinThickness")}</label>
                     <input
                       type="number"
                       placeholder="e.g. 20"
@@ -276,10 +277,10 @@ function Assessment() {
                   </div>
 
                   <div className="input-group">
-                    <label>Family Diabetes History</label>
+                    <label>{t("assessment.familyHistory")}</label>
                     <select value={formData.familyHistory} onChange={(e) => handleChange("familyHistory", e.target.value)}>
-                      <option value="No">No Immediate Family History</option>
-                      <option value="Yes">Yes (Parent / Sibling with Diabetes)</option>
+                      <option value="No">{t("assessment.familyHistoryNo")}</option>
+                      <option value="Yes">{t("assessment.familyHistoryYes")}</option>
                     </select>
                   </div>
                 </div>
@@ -288,21 +289,21 @@ function Assessment() {
 
             {step === 3 && (
               <div className="form-step-content">
-                <h2><FaRunning /> Step 3: Lifestyle & Behavioral Markers</h2>
-                <p className="step-subtitle">Daily activity, sleep, and habits affecting metabolic health.</p>
+                <h2><FaRunning /> {t("assessment.step3Badge")}</h2>
+                <p className="step-subtitle">{t("assessment.lifestyleSubtitle")}</p>
 
                 <div className="input-grid">
                   <div className="input-group">
-                    <label>Physical Exercise Level</label>
+                    <label>{t("assessment.exerciseLevel")}</label>
                     <select value={formData.exerciseLevel} onChange={(e) => handleChange("exerciseLevel", e.target.value)}>
-                      <option value="Regular">Regular (3+ times / week)</option>
-                      <option value="Moderate">Moderate (1-2 times / week)</option>
-                      <option value="Sedentary">Sedentary (Little to no exercise)</option>
+                      <option value="Regular">{t("assessment.regularExercise")}</option>
+                      <option value="Moderate">{t("assessment.moderateExercise")}</option>
+                      <option value="Sedentary">{t("assessment.sedentaryExercise")}</option>
                     </select>
                   </div>
 
                   <div className="input-group">
-                    <label>Daily Sleep Hours</label>
+                    <label>{t("assessment.sleepHours")}</label>
                     <input
                       type="number"
                       placeholder="e.g. 7"
@@ -312,18 +313,18 @@ function Assessment() {
                   </div>
 
                   <div className="input-group">
-                    <label>Tobacco Use</label>
+                    <label>{t("assessment.smoking")}</label>
                     <select value={formData.smoking} onChange={(e) => handleChange("smoking", e.target.value)}>
-                      <option value="No">No / Non-Smoker</option>
-                      <option value="Yes">Yes / Regular Smoker</option>
+                      <option value="No">{t("assessment.nonSmoker")}</option>
+                      <option value="Yes">{t("assessment.smoker")}</option>
                     </select>
                   </div>
 
                   <div className="input-group">
-                    <label>Alcohol Consumption</label>
+                    <label>{t("assessment.alcohol")}</label>
                     <select value={formData.alcohol} onChange={(e) => handleChange("alcohol", e.target.value)}>
-                      <option value="No">No / Rare</option>
-                      <option value="Yes">Occasional / Moderate</option>
+                      <option value="No">{t("assessment.nonDrinker")}</option>
+                      <option value="Yes">{t("assessment.drinker")}</option>
                     </select>
                   </div>
                 </div>
@@ -334,17 +335,17 @@ function Assessment() {
             <div className="stepper-actions">
               {step > 1 && (
                 <button className="btn-step secondary" onClick={() => setStep(step - 1)}>
-                  ← Back
+                  ← {t("common.previous")}
                 </button>
               )}
               {step < 3 && (
                 <button className="btn-step primary" onClick={handleNextStep}>
-                  Continue →
+                  {t("common.next")} →
                 </button>
               )}
               {step === 3 && (
                 <button className="btn-step primary predict-btn" onClick={handleNextStep} disabled={loading}>
-                  <FaBrain /> {loading ? "Processing AI Prediction..." : "Generate AI Diabetes Prediction →"}
+                  <FaBrain /> {loading ? t("assessment.runningModel") : `${t("assessment.runPrediction")} →`}
                 </button>
               )}
             </div>
@@ -357,8 +358,8 @@ function Assessment() {
         <div className="ai-loading-overlay">
           <div className="loading-card">
             <FaBrain className="spinner-brain" />
-            <h3>Processing XGBoost Risk Inference</h3>
-            <p>Evaluating physiological markers against clinical decision boundaries...</p>
+            <h3>{t("assessment.runningModel")}</h3>
+            <p>{t("assessment.evaluatingMarkers")}</p>
           </div>
         </div>
       )}

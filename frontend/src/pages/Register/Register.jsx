@@ -5,9 +5,11 @@ import { toast } from "react-toastify";
 import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaCheckCircle, FaTimesCircle, FaArrowLeft, FaShieldAlt, FaCalendarAlt, FaVenusMars } from "react-icons/fa";
 import { authService } from "../../services/api";
 import AuthShowcase from "../../components/AuthShowcase/AuthShowcase";
+import { useTranslation } from "../../context/LanguageContext";
 
 function Register() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [age, setAge] = useState("");
@@ -31,17 +33,17 @@ function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
     if (!fullName || !email || !password) {
-      toast.error("Please fill in all required registration fields.");
+      toast.error(t("auth.fillRequiredFields"));
       return;
     }
 
     if (!isPasswordValid) {
-      toast.error("Password does not meet all security criteria.");
+      toast.error(t("auth.passwordRequirements"));
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error("Passwords do not match. Please re-enter.");
+      toast.error(t("auth.pwMatchError"));
       return;
     }
 
@@ -59,12 +61,12 @@ function Register() {
       localStorage.setItem("access_token", authData.access_token);
       localStorage.setItem("user", JSON.stringify(authData));
 
-      toast.success("✅ Account created successfully! Welcome to DiaSense AI.");
+      toast.success(`✅ ${t("auth.registeredSuccess")}`);
       setTimeout(() => {
         navigate("/dashboard");
       }, 700);
     } catch (err) {
-      toast.error(err.message || "Registration failed. Email may already be registered.");
+      toast.error(err.message || t("auth.regFailedEmailExists"));
     } finally {
       setLoading(false);
     }
@@ -79,7 +81,7 @@ function Register() {
       <div className="auth-split-container">
         {/* Floating Back Button */}
         <button className="auth-back-floating-btn" onClick={() => navigate("/")}>
-          <FaArrowLeft /> Go Back to Home
+          <FaArrowLeft /> {t("common.backToHome")}
         </button>
 
         {/* Left Side Designed Medical AI Showcase */}
@@ -89,16 +91,16 @@ function Register() {
         <div className="auth-right-form">
           <div className="auth-form-card">
             <div className="form-header">
-              <h1>Create Account 🚀</h1>
-              <p>Register for your AI-powered diabetes risk account.</p>
+              <h1>{t("auth.registerTitle")}</h1>
+              <p>{t("auth.registerSubtitle")}</p>
             </div>
 
             <form onSubmit={handleRegister}>
               <div className="form-input-group">
-                <label><FaUser /> Full Name</label>
+                <label><FaUser /> {t("auth.fullNameLabel")}</label>
                 <input
                   type="text"
-                  placeholder="e.g. Jane Doe"
+                  placeholder={t("auth.fullNamePlaceholder")}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
@@ -106,10 +108,10 @@ function Register() {
               </div>
 
               <div className="form-input-group">
-                <label><FaEnvelope /> Email Address</label>
+                <label><FaEnvelope /> {t("auth.emailLabel")}</label>
                 <input
                   type="email"
-                  placeholder="name@example.com"
+                  placeholder={t("auth.emailPlaceholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -119,7 +121,7 @@ function Register() {
               {/* Age and Gender Inputs */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
                 <div className="form-input-group">
-                  <label><FaCalendarAlt /> Age (Years)</label>
+                  <label><FaCalendarAlt /> {t("auth.ageLabel")}</label>
                   <input
                     type="number"
                     min="1"
@@ -131,7 +133,7 @@ function Register() {
                 </div>
 
                 <div className="form-input-group">
-                  <label><FaVenusMars /> Gender</label>
+                  <label><FaVenusMars /> {t("auth.genderLabel")}</label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
@@ -145,19 +147,19 @@ function Register() {
                       fontSize: "0.95rem"
                     }}
                   >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
+                    <option value="Male">{t("auth.male")}</option>
+                    <option value="Female">{t("auth.female")}</option>
+                    <option value="Other">{t("auth.other")}</option>
                   </select>
                 </div>
               </div>
 
               <div className="form-input-group">
-                <label><FaLock /> Create Password</label>
+                <label><FaLock /> {t("auth.passwordLabel")}</label>
                 <div className="password-wrapper">
                   <input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter a secure password"
+                    placeholder={t("auth.passwordPlaceholder")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -175,37 +177,37 @@ function Register() {
               {/* Password Criteria Real-Time Checklist */}
               {password.length > 0 && (
                 <div className="password-criteria-box">
-                  <div className="criteria-title"><FaShieldAlt /> Password Requirements:</div>
+                  <div className="criteria-title"><FaShieldAlt /> {t("profile.passCriteriaTitle")}</div>
                   <div className="criteria-list">
                     <div className={`criteria-item ${criteria.length ? "valid" : "invalid"}`}>
                       {criteria.length ? <FaCheckCircle className="crit-icon" /> : <FaTimesCircle className="crit-icon" />}
-                      At least 8 characters
+                      {t("profile.critLength")}
                     </div>
                     <div className={`criteria-item ${criteria.uppercase ? "valid" : "invalid"}`}>
                       {criteria.uppercase ? <FaCheckCircle className="crit-icon" /> : <FaTimesCircle className="crit-icon" />}
-                      At least 1 uppercase letter (A-Z)
+                      {t("profile.critUpper")}
                     </div>
                     <div className={`criteria-item ${criteria.lowercase ? "valid" : "invalid"}`}>
                       {criteria.lowercase ? <FaCheckCircle className="crit-icon" /> : <FaTimesCircle className="crit-icon" />}
-                      At least 1 lowercase letter (a-z)
+                      {t("profile.critLower")}
                     </div>
                     <div className={`criteria-item ${criteria.number ? "valid" : "invalid"}`}>
                       {criteria.number ? <FaCheckCircle className="crit-icon" /> : <FaTimesCircle className="crit-icon" />}
-                      At least 1 number (0-9)
+                      {t("profile.critNumber")}
                     </div>
                     <div className={`criteria-item ${criteria.special ? "valid" : "invalid"}`}>
                       {criteria.special ? <FaCheckCircle className="crit-icon" /> : <FaTimesCircle className="crit-icon" />}
-                      At least 1 special character (!@#$%^&*)
+                      {t("profile.critSpecial")}
                     </div>
                   </div>
                 </div>
               )}
 
               <div className="form-input-group">
-                <label><FaLock /> Confirm Password</label>
+                <label><FaLock /> {t("auth.confirmPasswordLabel")}</label>
                 <input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Re-enter password"
+                  placeholder={t("auth.confirmPasswordPlaceholder")}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
@@ -213,12 +215,12 @@ function Register() {
               </div>
 
               <button className="auth-submit-btn" type="submit" disabled={loading}>
-                {loading ? "Creating Account..." : "Create Account →"}
+                {loading ? t("common.loading") : `${t("auth.registerBtn")} →`}
               </button>
             </form>
 
             <div className="auth-footer-link">
-              Already have an account? <Link to="/login">Sign In</Link>
+              {t("auth.haveAccount")} <Link to="/login">{t("auth.loginLink")}</Link>
             </div>
           </div>
         </div>
