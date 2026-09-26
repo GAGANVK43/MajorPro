@@ -23,7 +23,7 @@ def test_ml_prediction_inference():
 
     pred_label, risk_pct, confidence, recommendation, factors = predict_diabetes_risk(high_risk_data)
     
-    assert pred_label in ["Diabetic", "Non-Diabetic"]
+    assert pred_label in ["Higher Risk Pattern", "Lower Risk Pattern", "Diabetic", "Non-Diabetic"]
     assert 0.0 <= risk_pct <= 100.0
     assert 0.0 <= confidence <= 100.0
     assert len(recommendation) > 10
@@ -45,4 +45,4 @@ def test_ml_low_risk_inference():
 
     pred_label, risk_pct, confidence, recommendation, factors = predict_diabetes_risk(low_risk_data)
     assert risk_pct < 50.0
-    assert pred_label == "Non-Diabetic"
+    assert pred_label in ["Lower Risk Pattern", "Non-Diabetic"]

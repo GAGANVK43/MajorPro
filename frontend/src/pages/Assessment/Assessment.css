@@ -326,3 +326,48 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* v2 — Medical Disclaimer */
+.assessment-disclaimer {
+  font-size: 0.82rem;
+  color: #64748b;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  margin-top: 0.5rem;
+  text-align: left;
+}
+
+/* v2 — Summary Preview (Step 3) */
+.summary-preview {
+  margin-top: 1.8rem;
+  padding: 1rem 1.2rem;
+  background: rgba(13, 148, 136, 0.05);
+  border: 1px solid rgba(13, 148, 136, 0.2);
+  border-radius: 10px;
+}
+.summary-preview h4 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.6rem;
+}
+.summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.summary-chips span {
+  padding: 0.25rem 0.65rem;
+  background: #e0f2fe;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #0369a1;
+}
+.summary-chips .risk-chip {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
