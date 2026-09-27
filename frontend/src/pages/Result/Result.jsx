@@ -233,7 +233,7 @@ function Result() {
                   <Tooltip
                     contentStyle={{ backgroundColor: "#1e293b", borderColor: "rgba(255,255,255,0.1)", borderRadius: "12px", color: "#f8fafc" }}
                   />
-                  <Line type="monotone" dataKey="risk" stroke="#0B6EBD" strokeWidth={3} dot={{ r: 6, fill: "#0B6EBD" }} />
+                  <Line type="monotone" dataKey="risk" stroke="#0ea5e9" strokeWidth={3} dot={{ r: 6, fill: "#0ea5e9" }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>

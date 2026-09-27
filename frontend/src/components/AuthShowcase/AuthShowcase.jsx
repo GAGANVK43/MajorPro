@@ -129,9 +129,9 @@ function AuthShowcase() {
             <svg className="ecg-svg" viewBox="0 0 200 45" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="ecgGlow" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="rgba(11, 110, 189, 0.2)" />
-                  <stop offset="50%" stopColor="#0B6EBD" />
-                  <stop offset="100%" stopColor="#0F9D9A" />
+                  <stop offset="0%" stopColor="rgba(14, 165, 233, 0.2)" />
+                  <stop offset="50%" stopColor="#38bdf8" />
+                  <stop offset="100%" stopColor="#818cf8" />
                 </linearGradient>
               </defs>
               <path

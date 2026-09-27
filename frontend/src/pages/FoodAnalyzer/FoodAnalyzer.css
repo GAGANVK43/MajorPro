@@ -13,13 +13,13 @@
 .food-header h1 {
   font-size: clamp(1.8rem, 2.8vw, 2.3rem);
   font-weight: 800;
-  color: #FFFFFF;
+  color: #f8fafc;
   margin-bottom: 0.5rem;
   line-height: 1.3;
 }
 
 .food-header p {
-  color: #829EAD;
+  color: #94a3b8;
   font-size: 1.05rem;
   max-width: 780px;
   margin: 0 auto;
@@ -37,9 +37,9 @@
 .tab-btn {
   padding: 0.8rem clamp(1.2rem, 2vw, 1.8rem);
   border-radius: 16px;
-  background: #0D2638;
-  border: 1px solid #2A5368;
-  color: #829EAD;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
   font-size: 0.95rem;
   font-weight: 700;
   display: inline-flex;
@@ -51,57 +51,57 @@
 }
 
 .tab-btn:hover {
-  color: #FFFFFF;
-  border-color: #0B6EBD;
+  color: #f8fafc;
+  border-color: rgba(14, 165, 233, 0.4);
 }
 
 .tab-btn.active {
-  background: #0B6EBD;
+  background: #0ea5e9;
   color: #ffffff;
-  border-color: #0B6EBD;
-  box-shadow: 0 4px 15px rgba(11, 110, 189, 0.4);
+  border-color: #0ea5e9;
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.35);
 }
 
 /* Card */
 .analyzer-card {
-  background: #0D2638;
+  background: rgba(30, 41, 59, 0.7);
   backdrop-filter: blur(16px);
-  border: 1px solid #2A5368;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 24px;
   padding: clamp(1.5rem, 3vw, 2.5rem);
-  box-shadow: 0 15px 35px rgba(7, 26, 43, 0.5);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
 }
 
 .analyzer-card h2 {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #FFFFFF;
+  color: #f8fafc;
   margin-bottom: 0.3rem;
   line-height: 1.3;
 }
 
 .card-subtext {
   font-size: 0.9rem;
-  color: #829EAD;
+  color: #94a3b8;
   margin-bottom: 1.5rem;
   line-height: 1.5;
 }
 
 /* Image Upload Dropzone */
 .upload-dropzone {
-  border: 2px dashed #2A5368;
+  border: 2px dashed rgba(14, 165, 233, 0.4);
   border-radius: 20px;
   padding: 2.5rem clamp(1rem, 2vw, 2rem);
   text-align: center;
-  background: #071A2B;
+  background: rgba(15, 23, 42, 0.5);
   cursor: pointer;
   transition: all 0.3s ease;
   margin-bottom: 1.5rem;
 }
 
 .upload-dropzone:hover {
-  border-color: #0B6EBD;
-  background: rgba(11, 110, 189, 0.08);
+  border-color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.05);
 }
 
 .file-input-hidden {
@@ -122,7 +122,7 @@
 
 .upload-icon {
   font-size: 3rem;
-  color: #0B6EBD;
+  color: #38bdf8;
   margin-bottom: 0.4rem;
   flex-shrink: 0;
 }
@@ -130,13 +130,13 @@
 .dropzone-prompt h3 {
   font-size: 1.15rem;
   font-weight: 700;
-  color: #FFFFFF;
+  color: #f8fafc;
   line-height: 1.3;
 }
 
 .dropzone-prompt p {
   font-size: 0.88rem;
-  color: #829EAD;
+  color: #94a3b8;
   line-height: 1.4;
 }
 
@@ -151,13 +151,13 @@
   max-height: 240px;
   max-width: 100%;
   border-radius: 16px;
-  border: 1px solid #2A5368;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   object-fit: cover;
 }
 
 .change-img-text {
   font-size: 0.85rem;
-  color: #0B6EBD;
+  color: #38bdf8;
   font-weight: 600;
 }
 
@@ -165,7 +165,7 @@
   width: 100%;
   padding: 0.9rem;
   border-radius: 14px;
-  background: #0B6EBD;
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
   color: #ffffff;
   font-size: 1rem;
   font-weight: 700;
@@ -173,15 +173,14 @@
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  box-shadow: 0 4px 18px rgba(11, 110, 189, 0.35);
+  box-shadow: 0 4px 18px rgba(14, 165, 233, 0.35);
   transition: all 0.25s ease;
   min-height: 48px;
 }
 
 .analyze-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  background: #095A9D;
-  box-shadow: 0 6px 22px rgba(11, 110, 189, 0.5);
+  box-shadow: 0 6px 22px rgba(14, 165, 233, 0.5);
 }
 
 .analyze-btn:disabled {
@@ -211,21 +210,21 @@
   min-width: 240px;
   padding: 0.9rem 1.25rem;
   border-radius: 14px;
-  background: #071A2B;
-  border: 1px solid #2A5368;
-  color: #FFFFFF;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
   font-size: 0.95rem;
 }
 
 .text-search-box input:focus {
   outline: none;
-  border-color: #0B6EBD;
+  border-color: #0ea5e9;
 }
 
 .search-btn {
   padding: 0.9rem 1.8rem;
   border-radius: 14px;
-  background: #0B6EBD;
+  background: #0ea5e9;
   color: #ffffff;
   font-weight: 700;
   border: none;
@@ -239,7 +238,7 @@
 }
 
 .search-btn:hover:not(:disabled) {
-  background: #095A9D;
+  background: #0284c7;
 }
 
 /* Sample Chips */
@@ -251,7 +250,7 @@
 
 .chips-title {
   font-size: 0.88rem;
-  color: #829EAD;
+  color: #94a3b8;
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -267,9 +266,9 @@
 .sample-chip-btn {
   padding: 0.45rem 1rem;
   border-radius: 20px;
-  background: #071A2B;
-  border: 1px solid #2A5368;
-  color: #B8CBD6;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -279,23 +278,23 @@
 }
 
 .sample-chip-btn:hover {
-  border-color: #0B6EBD;
-  color: #0B6EBD;
-  background: rgba(11, 110, 189, 0.1);
+  border-color: #0ea5e9;
+  color: #38bdf8;
+  background: rgba(14, 165, 233, 0.1);
 }
 
 /* Analysis Results Panel */
 .food-result-card,
 .analysis-results-card {
-  background: #0D2638;
+  background: rgba(30, 41, 59, 0.7);
   backdrop-filter: blur(16px);
-  border: 1px solid #2A5368;
+  border: 1px solid rgba(14, 165, 233, 0.25);
   border-radius: 24px;
   padding: clamp(1.5rem, 3vw, 2.5rem);
   display: flex;
   flex-direction: column;
   gap: 1.8rem;
-  box-shadow: 0 15px 40px rgba(7, 26, 43, 0.5);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.45);
 }
 
 .result-header-row,
@@ -311,7 +310,7 @@
 .analysis-pill {
   font-size: 0.8rem;
   font-weight: 700;
-  color: #0F9D9A;
+  color: #38bdf8;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   display: block;
@@ -322,7 +321,7 @@
 .results-header h2 {
   font-size: clamp(1.4rem, 2.2vw, 1.75rem);
   font-weight: 800;
-  color: #FFFFFF;
+  color: #f8fafc;
   line-height: 1.3;
 }
 
@@ -339,21 +338,21 @@
 }
 
 .suitability-pill.emerald {
-  background: rgba(22, 160, 133, 0.15);
-  border: 1px solid rgba(22, 160, 133, 0.4);
-  color: #16A085;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
 }
 
 .suitability-pill.amber {
-  background: rgba(244, 183, 64, 0.15);
-  border: 1px solid rgba(244, 183, 64, 0.4);
-  color: #F4B740;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
 }
 
 .suitability-pill.red {
-  background: rgba(217, 83, 79, 0.15);
-  border: 1px solid rgba(217, 83, 79, 0.4);
-  color: #D9534F;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
 }
 
 /* 4 Essential Stats Grid */
@@ -364,8 +363,8 @@
 }
 
 .nutri-stat-box {
-  background: #071A2B;
-  border: 1px solid #2A5368;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
   padding: 1.25rem 1rem;
   display: flex;
@@ -380,21 +379,21 @@
   margin-bottom: 0.2rem;
 }
 
-.nutri-stat-box.cal .stat-icon { color: #D9534F; }
-.nutri-stat-box.carbs .stat-icon { color: #F4B740; }
-.nutri-stat-box.protein .stat-icon { color: #16A085; }
-.nutri-stat-box.gi .stat-icon { color: #0B6EBD; }
+.nutri-stat-box.cal .stat-icon { color: #f87171; }
+.nutri-stat-box.carbs .stat-icon { color: #fbbf24; }
+.nutri-stat-box.protein .stat-icon { color: #34d399; }
+.nutri-stat-box.gi .stat-icon { color: #38bdf8; }
 
 .nutri-stat-box .stat-value {
   font-size: 1.35rem;
   font-weight: 800;
-  color: #FFFFFF;
+  color: #f8fafc;
   line-height: 1.2;
 }
 
 .nutri-stat-box .stat-label {
   font-size: 0.8rem;
-  color: #829EAD;
+  color: #94a3b8;
   font-weight: 600;
 }
 
@@ -403,8 +402,8 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.85rem;
-  background: #071A2B;
-  border: 1px solid #2A5368;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   padding: 1rem 1.25rem;
 }
@@ -419,20 +418,20 @@
 
 .sec-label {
   font-size: 0.85rem;
-  color: #829EAD;
+  color: #94a3b8;
 }
 
 .sec-val {
   font-size: 0.9rem;
   font-weight: 700;
-  color: #FFFFFF;
+  color: #f8fafc;
 }
 
 /* Clinical Recommendation Box */
 .clinical-recommendation-box,
 .clinical-advice-box {
-  background: #071A2B;
-  border: 1px solid #2A5368;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(14, 165, 233, 0.25);
   border-radius: 16px;
   padding: 1.25rem 1.5rem;
 }
@@ -441,7 +440,7 @@
 .clinical-advice-box h4 {
   font-size: 0.98rem;
   font-weight: 700;
-  color: #0B6EBD;
+  color: #38bdf8;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -452,6 +451,6 @@
 .clinical-recommendation-box p,
 .clinical-advice-box p {
   font-size: 0.92rem;
-  color: #B8CBD6;
+  color: #cbd5e1;
   line-height: 1.6;
 }
