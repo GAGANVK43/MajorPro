@@ -300,7 +300,7 @@ function DietPlan() {
                 className="goals-progress-fill"
                 style={{
                   width: `${goalProgressPercentage}%`,
-                  background: isAllGoalsCompleted ? "linear-gradient(90deg, #10b981 0%, #059669 100%)" : "linear-gradient(90deg, #0ea5e9 0%, #10b981 100%)"
+                  background: isAllGoalsCompleted ? "linear-gradient(90deg, #16A085 0%, #0F9D9A 100%)" : "linear-gradient(90deg, #0B6EBD 0%, #16A085 100%)"
                 }}
               />
             </div>

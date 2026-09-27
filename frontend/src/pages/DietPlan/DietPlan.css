@@ -13,13 +13,13 @@
 .diet-header h1 {
   font-size: clamp(1.8rem, 2.8vw, 2.3rem);
   font-weight: 800;
-  color: #f8fafc;
+  color: #FFFFFF;
   margin-bottom: 0.5rem;
   line-height: 1.3;
 }
 
 .diet-header p {
-  color: #94a3b8;
+  color: #829EAD;
   font-size: 1.05rem;
   max-width: 800px;
   margin: 0 auto;
@@ -38,15 +38,15 @@
 .fire-streak-badge {
   padding: 0.4rem 1rem;
   border-radius: 20px;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(239, 68, 68, 0.2) 100%);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  color: #fbbf24;
+  background: rgba(244, 183, 64, 0.15);
+  border: 1px solid rgba(244, 183, 64, 0.4);
+  color: #F4B740;
   font-size: 0.88rem;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2);
+  box-shadow: 0 4px 15px rgba(244, 183, 64, 0.2);
   white-space: nowrap;
 }
 
@@ -55,8 +55,8 @@
   margin-top: 1.5rem;
   padding: 1.25rem 1.5rem;
   border-radius: 20px;
-  background: rgba(30, 41, 59, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0D2638;
+  border: 1px solid #2A5368;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -66,18 +66,18 @@
 }
 
 .diet-patient-status-banner.high-risk {
-  border-color: rgba(239, 68, 68, 0.4);
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(30, 41, 59, 0.8) 100%);
+  border-color: rgba(217, 83, 79, 0.4);
+  background: linear-gradient(135deg, rgba(217, 83, 79, 0.15) 0%, rgba(13, 38, 56, 0.8) 100%);
 }
 
 .diet-patient-status-banner.mod-risk {
-  border-color: rgba(245, 158, 11, 0.4);
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(30, 41, 59, 0.8) 100%);
+  border-color: rgba(244, 183, 64, 0.4);
+  background: linear-gradient(135deg, rgba(244, 183, 64, 0.15) 0%, rgba(13, 38, 56, 0.8) 100%);
 }
 
 .diet-patient-status-banner.low-risk {
-  border-color: rgba(16, 185, 129, 0.4);
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(30, 41, 59, 0.8) 100%);
+  border-color: rgba(22, 160, 133, 0.4);
+  background: linear-gradient(135deg, rgba(22, 160, 133, 0.15) 0%, rgba(13, 38, 56, 0.8) 100%);
 }
 
 .status-banner-left {
@@ -90,47 +90,48 @@
 
 .status-banner-left svg {
   font-size: 1.8rem;
-  color: #38bdf8;
+  color: #0B6EBD;
   flex-shrink: 0;
 }
 
-.high-risk .status-banner-left svg { color: #f87171; }
-.mod-risk .status-banner-left svg { color: #fbbf24; }
-.low-risk .status-banner-left svg { color: #34d399; }
+.high-risk .status-banner-left svg { color: #D9534F; }
+.mod-risk .status-banner-left svg { color: #F4B740; }
+.low-risk .status-banner-left svg { color: #16A085; }
 
 .status-banner-left h3 {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
   margin-bottom: 0.2rem;
   line-height: 1.3;
 }
 
 .status-banner-left p {
   font-size: 0.9rem;
-  color: #cbd5e1;
+  color: #B8CBD6;
   line-height: 1.5;
 }
 
 .status-badge {
   padding: 0.5rem 1rem;
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #f8fafc;
+  background: #071A2B;
+  border: 1px solid #2A5368;
+  color: #FFFFFF;
   font-size: 0.85rem;
   font-weight: 700;
   white-space: nowrap;
 }
 
 /* Daily Health Goals Widget */
+/* Daily Health Goals Widget */
 .daily-goals-card {
-  background: rgba(30, 41, 59, 0.7);
+  background: #0D2638;
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #2A5368;
   border-radius: 24px;
   padding: clamp(1.25rem, 2.5vw, 2rem);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 15px 35px rgba(7, 26, 43, 0.5);
 }
 
 .goals-header {
@@ -145,7 +146,7 @@
 .goals-header h2 {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -154,16 +155,16 @@
 
 .goals-header p {
   font-size: 0.88rem;
-  color: #94a3b8;
+  color: #829EAD;
   line-height: 1.4;
 }
 
 .goal-progress-badge {
   padding: 0.4rem 1rem;
   border-radius: 20px;
-  background: rgba(14, 165, 233, 0.15);
-  border: 1px solid rgba(14, 165, 233, 0.3);
-  color: #38bdf8;
+  background: rgba(15, 157, 154, 0.12);
+  border: 1px solid #0F9D9A;
+  color: #0F9D9A;
   font-size: 0.85rem;
   font-weight: 700;
   white-space: nowrap;
@@ -173,7 +174,7 @@
   width: 100%;
   height: 8px;
   border-radius: 4px;
-  background: rgba(15, 23, 42, 0.8);
+  background: #071A2B;
   overflow: hidden;
   margin-bottom: 1.5rem;
 }
@@ -188,8 +189,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(14, 165, 233, 0.15) 100%);
-  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, rgba(22, 160, 133, 0.15) 0%, rgba(11, 110, 189, 0.15) 100%);
+  border: 1px solid rgba(22, 160, 133, 0.4);
   border-radius: 18px;
   padding: 1.25rem 1.5rem;
   margin-bottom: 1.5rem;
@@ -198,8 +199,8 @@
 }
 
 .goals-complete-congratulations.claimed-today {
-  background: rgba(30, 41, 59, 0.8);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: #0D2638;
+  border-color: #2A5368;
 }
 
 .congratulations-left {
@@ -212,33 +213,33 @@
 
 .trophy-icon {
   font-size: 2rem;
-  color: #fbbf24;
+  color: #F4B740;
   flex-shrink: 0;
 }
 
 .claimed-icon {
-  color: #10b981;
+  color: #16A085;
 }
 
 .congratulations-left h3 {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
   margin-bottom: 0.2rem;
 }
 
 .congratulations-left p {
   font-size: 0.88rem;
-  color: #cbd5e1;
+  color: #B8CBD6;
   line-height: 1.4;
 }
 
 .streak-locked-pill {
   padding: 0.5rem 1.2rem;
   border-radius: 14px;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  color: #34d399;
+  background: rgba(22, 160, 133, 0.15);
+  border: 1px solid rgba(22, 160, 133, 0.3);
+  color: #16A085;
   font-size: 0.9rem;
   font-weight: 700;
   white-space: nowrap;
@@ -250,18 +251,19 @@
   gap: 0.6rem;
   padding: 0.75rem 1.5rem;
   border-radius: 14px;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: #16A085;
   color: #ffffff;
   font-size: 0.92rem;
   font-weight: 700;
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 6px 20px rgba(22, 160, 133, 0.4);
   transition: all 0.25s ease;
   white-space: nowrap;
 }
 
 .claim-streak-btn:hover {
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.6);
+  background: #0F9D9A;
+  box-shadow: 0 10px 25px rgba(22, 160, 133, 0.6);
 }
 
 .goals-grid {
@@ -271,8 +273,8 @@
 }
 
 .goal-item-card {
-  background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #071A2B;
+  border: 1px solid #2A5368;
   border-radius: 16px;
   padding: 1.25rem 1rem;
   display: flex;
@@ -286,12 +288,13 @@
 
 .goal-item-card:hover {
   transform: translateY(-2px);
-  border-color: #0ea5e9;
+  border-color: #0B6EBD;
+  box-shadow: 0 4px 14px rgba(11, 110, 189, 0.2);
 }
 
 .goal-item-card.completed {
-  border-color: #10b981;
-  background: rgba(16, 185, 129, 0.08);
+  border-color: #16A085;
+  background: rgba(22, 160, 133, 0.08);
 }
 
 .goal-item-card.locked {
@@ -309,10 +312,10 @@
   flex-shrink: 0;
 }
 
-.goal-icon.cyan { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
-.goal-icon.emerald { background: rgba(16, 185, 129, 0.15); color: #34d399; }
-.goal-icon.amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-.goal-icon.indigo { background: rgba(99, 102, 241, 0.15); color: #818cf8; }
+.goal-icon.cyan { background: rgba(11, 110, 189, 0.15); color: #0B6EBD; }
+.goal-icon.emerald { background: rgba(22, 160, 133, 0.15); color: #16A085; }
+.goal-icon.amber { background: rgba(244, 183, 64, 0.15); color: #F4B740; }
+.goal-icon.indigo { background: rgba(15, 157, 154, 0.15); color: #0F9D9A; }
 
 .goal-info {
   flex: 1;
@@ -321,14 +324,14 @@
 .goal-info h4 {
   font-size: 0.92rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
   margin-bottom: 0.2rem;
   line-height: 1.3;
 }
 
 .goal-info p {
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: #829EAD;
   line-height: 1.4;
 }
 
@@ -336,7 +339,7 @@
   width: 24px;
   height: 24px;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid #2A5368;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -348,8 +351,8 @@
 }
 
 .goal-item-card.completed .checkbox {
-  background: #10b981;
-  border-color: #10b981;
+  background: #16A085;
+  border-color: #16A085;
 }
 
 /* Controls */
@@ -363,10 +366,10 @@
 .diet-type-toggle {
   display: flex;
   gap: 0.75rem;
-  background: #0f172a;
+  background: #071A2B;
   padding: 0.4rem;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #2A5368;
   flex-wrap: wrap;
   justify-content: center;
 }
@@ -376,7 +379,7 @@
   border-radius: 12px;
   font-size: 0.9rem;
   font-weight: 700;
-  color: #94a3b8;
+  color: #829EAD;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -385,9 +388,9 @@
 }
 
 .type-btn.active {
-  background: #0ea5e9;
+  background: #0B6EBD;
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
+  box-shadow: 0 4px 14px rgba(11, 110, 189, 0.35);
 }
 
 .days-tabs {
@@ -401,9 +404,9 @@
 .day-tab {
   padding: 0.55rem clamp(0.75rem, 1.2vw, 1.25rem);
   border-radius: 12px;
-  background: rgba(30, 41, 59, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #cbd5e1;
+  background: #0D2638;
+  border: 1px solid #2A5368;
+  color: #B8CBD6;
   font-size: clamp(0.82rem, 0.9vw, 0.9rem);
   font-weight: 600;
   transition: all 0.25s ease;
@@ -413,15 +416,15 @@
 }
 
 .day-tab.active {
-  border-color: #0ea5e9;
-  color: #38bdf8;
-  background: rgba(14, 165, 233, 0.15);
+  border-color: #0B6EBD;
+  color: #0B6EBD;
+  background: rgba(11, 110, 189, 0.15);
 }
 
 .day-title {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
   margin-bottom: 1.25rem;
   line-height: 1.4;
 }
@@ -433,9 +436,9 @@
 }
 
 .meal-card {
-  background: rgba(30, 41, 59, 0.7);
+  background: #0D2638;
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #2A5368;
   border-radius: 20px;
   padding: 1.75rem;
   display: flex;
@@ -460,11 +463,11 @@
 .meal-header h3 {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
 }
 
 .meal-text {
-  color: #cbd5e1;
+  color: #B8CBD6;
   font-size: 0.95rem;
   line-height: 1.65;
 }
@@ -472,8 +475,8 @@
 .meal-cal-badge {
   padding: 0.4rem 0.8rem;
   border-radius: 10px;
-  background: rgba(14, 165, 233, 0.12);
-  color: #38bdf8;
+  background: rgba(11, 110, 189, 0.12);
+  color: #0B6EBD;
   font-size: 0.82rem;
   font-weight: 600;
   width: fit-content;
@@ -488,23 +491,23 @@
 }
 
 .extra-card {
-  background: rgba(30, 41, 59, 0.7);
+  background: #0D2638;
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #2A5368;
   border-radius: 20px;
   padding: 2rem;
   height: 100%;
 }
 
 .extra-card.highlight {
-  border-color: rgba(14, 165, 233, 0.3);
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(30, 41, 59, 0.7) 100%);
+  border-color: rgba(11, 110, 189, 0.3);
+  background: linear-gradient(135deg, rgba(11, 110, 189, 0.1) 0%, #0D2638 100%);
 }
 
 .extra-card h2 {
   font-size: 1.2rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -521,7 +524,7 @@
 
 .extra-card li {
   font-size: 0.92rem;
-  color: #cbd5e1;
+  color: #B8CBD6;
   display: flex;
   align-items: flex-start;
   gap: 0.65rem;
@@ -529,7 +532,7 @@
 }
 
 .extra-card svg {
-  color: #10b981;
+  color: #16A085;
   flex-shrink: 0;
   margin-top: 0.2rem;
 }
@@ -542,13 +545,13 @@
   justify-content: center;
   gap: 1.25rem;
   min-height: 400px;
-  color: #94a3b8;
+  color: #829EAD;
   font-size: 1.1rem;
 }
 
 .diet-spinner {
   font-size: 2.5rem;
-  color: #0ea5e9;
+  color: #0B6EBD;
   animation: spin 1s linear infinite;
 }
 
@@ -558,14 +561,14 @@
 }
 
 .diet-empty-state-card {
-  background: rgba(30, 41, 59, 0.7);
+  background: #0D2638;
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid #2A5368;
   border-radius: 28px;
   padding: 3.5rem 2rem;
   max-width: 850px;
   margin: 0 auto;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 20px 45px rgba(7, 26, 43, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -575,29 +578,29 @@
   width: 80px;
   height: 80px;
   border-radius: 24px;
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%);
-  border: 1px solid rgba(14, 165, 233, 0.4);
+  background: linear-gradient(135deg, rgba(11, 110, 189, 0.2) 0%, rgba(15, 157, 154, 0.2) 100%);
+  border: 1px solid rgba(11, 110, 189, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 2.2rem;
-  color: #38bdf8;
+  color: #0B6EBD;
   margin-bottom: 1.5rem;
-  box-shadow: 0 10px 25px rgba(14, 165, 233, 0.25);
+  box-shadow: 0 10px 25px rgba(11, 110, 189, 0.25);
   flex-shrink: 0;
 }
 
 .diet-empty-state-card h1 {
   font-size: clamp(1.6rem, 2.5vw, 2rem);
   font-weight: 800;
-  color: #f8fafc;
+  color: #FFFFFF;
   margin-bottom: 1rem;
   line-height: 1.3;
 }
 
 .diet-empty-desc {
   font-size: 1.05rem;
-  color: #cbd5e1;
+  color: #B8CBD6;
   max-width: 680px;
   line-height: 1.6;
   margin-bottom: 0.75rem;
@@ -605,7 +608,7 @@
 
 .diet-empty-subtext {
   font-size: 0.92rem;
-  color: #94a3b8;
+  color: #829EAD;
   max-width: 620px;
   line-height: 1.5;
   margin-bottom: 2rem;
@@ -617,12 +620,12 @@
   gap: 0.75rem;
   padding: 0.9rem 2.25rem;
   border-radius: 16px;
-  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  background: #0B6EBD;
   color: #ffffff;
   font-weight: 700;
   font-size: 1.05rem;
   text-decoration: none;
-  box-shadow: 0 10px 30px rgba(14, 165, 233, 0.4);
+  box-shadow: 0 10px 30px rgba(11, 110, 189, 0.4);
   transition: all 0.25s ease;
   margin-bottom: 2.5rem;
   white-space: nowrap;
@@ -630,7 +633,8 @@
 
 .start-assessment-cta-btn:hover {
   transform: translateY(-3px) scale(1.02);
-  box-shadow: 0 15px 40px rgba(14, 165, 233, 0.6);
+  background: #095A9D;
+  box-shadow: 0 15px 40px rgba(11, 110, 189, 0.6);
   color: #ffffff;
 }
 
@@ -640,13 +644,13 @@
   gap: 1.25rem;
   width: 100%;
   text-align: left;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid #2A5368;
   padding-top: 2rem;
 }
 
 .preview-pill-card {
-  background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #071A2B;
+  border: 1px solid #2A5368;
   border-radius: 16px;
   padding: 1.25rem;
   display: flex;
@@ -655,7 +659,7 @@
 }
 
 .preview-pill-card .pill-check {
-  color: #10b981;
+  color: #16A085;
   font-size: 1.2rem;
   margin-top: 0.2rem;
   flex-shrink: 0;
@@ -664,13 +668,13 @@
 .preview-pill-card h4 {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
   margin-bottom: 0.25rem;
   line-height: 1.3;
 }
 
 .preview-pill-card p {
   font-size: 0.82rem;
-  color: #94a3b8;
+  color: #829EAD;
   line-height: 1.45;
 }

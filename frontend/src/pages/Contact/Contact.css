@@ -23,12 +23,12 @@
 .contact-info-card h1 {
   font-size: 2.3rem;
   font-weight: 800;
-  color: #f8fafc;
+  color: #FFFFFF;
   line-height: 1.25;
 }
 
 .contact-info-card p {
-  color: #94a3b8;
+  color: #829EAD;
   font-size: 1.05rem;
   line-height: 1.6;
 }
@@ -47,7 +47,7 @@
 }
 
 .info-icon {
-  color: #10b981;
+  color: #16A085;
   font-size: 1.3rem;
   margin-top: 0.2rem;
   flex-shrink: 0;
@@ -56,27 +56,27 @@
 .info-point h4 {
   font-size: 1rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
 }
 
 .info-point p {
   font-size: 0.88rem;
-  color: #94a3b8;
+  color: #829EAD;
 }
 
 .contact-form-card {
-  background: rgba(30, 41, 59, 0.7);
+  background: #0D2638;
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #2A5368;
   border-radius: 24px;
   padding: 2.5rem;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 15px 35px rgba(7, 26, 43, 0.5);
 }
 
 .contact-form-card h2 {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
   margin-bottom: 1.75rem;
 }
 
@@ -95,7 +95,7 @@
 .form-group label {
   font-size: 0.88rem;
   font-weight: 600;
-  color: #cbd5e1;
+  color: #B8CBD6;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -106,24 +106,24 @@
   width: 100%;
   padding: 0.8rem 1rem;
   border-radius: 12px;
-  background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #f8fafc;
+  background: #071A2B;
+  border: 1px solid #2A5368;
+  color: #FFFFFF;
   font-size: 0.95rem;
   transition: all 0.25s ease;
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
-  border-color: #0ea5e9;
-  box-shadow: 0 0 12px rgba(14, 165, 233, 0.3);
+  border-color: #0B6EBD;
+  box-shadow: 0 0 12px rgba(11, 110, 189, 0.35);
 }
 
 .contact-submit-btn {
   width: 100%;
   padding: 0.95rem;
   border-radius: 12px;
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  background: #0B6EBD;
   color: #ffffff;
   font-size: 1rem;
   font-weight: 700;
@@ -131,14 +131,15 @@
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  box-shadow: 0 4px 18px rgba(14, 165, 233, 0.35);
+  box-shadow: 0 4px 18px rgba(11, 110, 189, 0.35);
   transition: all 0.25s ease;
   margin-top: 0.5rem;
 }
 
 .contact-submit-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 22px rgba(14, 165, 233, 0.5);
+  background: #095A9D;
+  box-shadow: 0 6px 22px rgba(11, 110, 189, 0.5);
 }
 
 @media (max-width: 900px) {

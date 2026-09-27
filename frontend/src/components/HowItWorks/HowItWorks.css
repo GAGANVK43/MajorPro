@@ -1,6 +1,6 @@
 .how-it-works-section {
   padding: 4.5rem 1.5rem;
-  background: rgba(15, 23, 42, 0.4);
+  background: #071A2B;
 }
 
 .how-container {
@@ -16,9 +16,9 @@
 }
 
 .step-card {
-  background: rgba(30, 41, 59, 0.6);
+  background: #0D2638;
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #2A5368;
   border-radius: 20px;
   padding: 1.75rem;
   position: relative;
@@ -27,7 +27,8 @@
 
 .step-card:hover {
   transform: translateY(-6px);
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: #0B6EBD;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25), 0 0 20px rgba(11, 110, 189, 0.2);
 }
 
 .step-header {
@@ -40,15 +41,15 @@
 .step-number {
   font-size: 1.5rem;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.25);
 }
 
 .step-icon {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
+  background: #123B52;
+  color: #0F9D9A;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -58,13 +59,13 @@
 .step-card h3 {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
   margin-bottom: 0.5rem;
 }
 
 .step-card p {
   font-size: 0.88rem;
-  color: #94a3b8;
+  color: #829EAD;
   line-height: 1.5;
 }
 

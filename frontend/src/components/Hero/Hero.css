@@ -6,113 +6,136 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: #030712;
+  background-color: #071A2B;
 }
 
-/* Background Atmosphere & Ambient Lighting */
-.hero-cosmic-bg {
+/* Reference Image 2: Exact Medical Background System */
+.hero-medical-bg-base {
   position: absolute;
   inset: 0;
   background: 
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(14, 165, 233, 0.12) 0%, transparent 60%),
-    radial-gradient(circle 600px at 90% 35%, rgba(139, 92, 246, 0.18) 0%, transparent 70%),
-    radial-gradient(circle 500px at 10% 45%, rgba(14, 165, 233, 0.15) 0%, transparent 70%),
-    #030712;
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(11, 110, 189, 0.22) 0%, transparent 60%),
+    radial-gradient(circle 600px at 90% 35%, rgba(15, 157, 154, 0.16) 0%, transparent 70%),
+    radial-gradient(circle 500px at 10% 45%, rgba(11, 110, 189, 0.15) 0%, transparent 70%),
+    #071A2B;
   pointer-events: none;
+  z-index: 0;
 }
 
-.hero-glow-left {
+.hero-medical-bg-image {
   position: absolute;
-  top: 15%;
-  left: -80px;
-  width: 450px;
-  height: 450px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(14, 165, 233, 0.2) 0%, rgba(3, 7, 18, 0) 70%);
-  filter: blur(60px);
+  inset: 0;
+  background-image: url('../../assets/medical_hero_bg_composed.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0.85;
   pointer-events: none;
+  z-index: 1;
 }
 
-.hero-glow-right {
+.hero-stethoscope-layer {
   position: absolute;
-  top: 10%;
-  right: -100px;
-  width: 550px;
-  height: 550px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.25) 0%, rgba(99, 102, 241, 0.1) 40%, transparent 70%);
-  filter: blur(60px);
+  top: 0;
+  left: 0;
+  width: 45%;
+  max-width: 520px;
+  height: 100%;
+  background-image: url('../../assets/medical_left_stethoscope.png');
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: contain;
   pointer-events: none;
+  z-index: 2;
+  opacity: 0.95;
 }
 
-.hero-glow-center {
+.hero-dna-layer {
   position: absolute;
-  top: 25%;
+  top: 0;
+  right: 0;
+  width: 45%;
+  max-width: 520px;
+  height: 100%;
+  background-image: url('../../assets/medical_right_dna.png');
+  background-repeat: no-repeat;
+  background-position: right center;
+  background-size: contain;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.95;
+}
+
+/* Center Clean Gradient Mask (Ensures 100% Readability for Hero Title & CTA) */
+.hero-center-clarity {
+  position: absolute;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 700px;
-  height: 350px;
-  background: radial-gradient(ellipse, rgba(56, 189, 248, 0.1) 0%, transparent 70%);
-  filter: blur(50px);
+  width: 100%;
+  max-width: 820px;
+  height: 100%;
+  background: radial-gradient(ellipse 65% 75% at 50% 42%, #071A2B 0%, rgba(7, 26, 43, 0.88) 55%, transparent 100%);
   pointer-events: none;
+  z-index: 3;
 }
 
-/* Left Side: Neural Geometric Constellation */
-.hero-neural-left {
+/* Live Subtle Medical SVG Animations */
+.hero-medical-svg-left {
   position: absolute;
-  top: 50%;
-  left: -20px;
+  top: 45%;
+  left: 30px;
   transform: translateY(-50%);
-  width: 420px;
-  height: 580px;
+  width: 380px;
+  height: 320px;
   pointer-events: none;
-  z-index: 1;
-  opacity: 0.85;
+  z-index: 4;
 }
 
-.neural-svg {
+.ecg-pulse-svg {
   width: 100%;
   height: 100%;
-  animation: floatNeural 8s ease-in-out infinite alternate;
 }
 
-@keyframes floatNeural {
-  0% { transform: translateY(0) rotate(0deg); }
-  100% { transform: translateY(-12px) rotate(1.5deg); }
+.ecg-line-pulse {
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+  animation: pulseHeartbeat 4s ease-in-out infinite;
 }
 
-.pulse-node {
-  animation: pulseGlow 3s ease-in-out infinite alternate;
+@keyframes pulseHeartbeat {
+  0% { stroke-dashoffset: 600; opacity: 0.35; }
+  50% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: -600; opacity: 0.35; }
 }
 
-@keyframes pulseGlow {
-  0% { transform-origin: center; opacity: 0.6; }
-  100% { transform-origin: center; opacity: 1; filter: drop-shadow(0 0 8px #38bdf8); }
+.floating-cross {
+  animation: floatCross 5s ease-in-out infinite alternate;
 }
 
-/* Right Side: Ethereal Neon Flowing Energy Wave Ribbon */
-.hero-wave-right {
+.floating-cross-delayed {
+  animation: floatCross 6s 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes floatCross {
+  0% { transform: translateY(0) scale(1); opacity: 0.55; }
+  100% { transform: translateY(-8px) scale(1.06); opacity: 0.9; filter: drop-shadow(0 0 10px #0F9D9A); }
+}
+
+.hero-medical-svg-right {
   position: absolute;
-  top: 48%;
-  right: -40px;
+  top: 45%;
+  right: 30px;
   transform: translateY(-50%);
-  width: 560px;
-  height: 600px;
+  width: 380px;
+  height: 320px;
   pointer-events: none;
-  z-index: 1;
-  opacity: 0.9;
+  z-index: 4;
 }
 
-.wave-svg {
+.hex-dna-svg {
   width: 100%;
   height: 100%;
-  animation: waveFloat 10s ease-in-out infinite alternate;
-}
-
-@keyframes waveFloat {
-  0% { transform: scale(1) translateY(0); }
-  50% { transform: scale(1.03) translateY(-14px); }
-  100% { transform: scale(1) translateY(0); }
 }
 
 /* Foreground Container (Text & Controls) */
@@ -127,19 +150,26 @@
   z-index: 10;
 }
 
+/* Reference Image 1: Hero Badge */
 .hero-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
   padding: 0.45rem 1.1rem;
   border-radius: 30px;
-  background: rgba(14, 165, 233, 0.1);
-  border: 1px solid rgba(14, 165, 233, 0.35);
-  color: #38bdf8;
+  background: rgba(15, 157, 154, 0.12);
+  border: 1px solid #0F9D9A;
+  color: #0F9D9A;
   font-size: 0.88rem;
   font-weight: 600;
   margin-bottom: 1.5rem;
   backdrop-filter: blur(8px);
+  transition: all 0.25s ease;
+}
+
+.hero-badge:hover {
+  background: rgba(15, 157, 154, 0.2);
+  border-color: #0F9D9A;
 }
 
 .badge-icon {
@@ -150,23 +180,26 @@
   font-size: 3.2rem;
   font-weight: 800;
   line-height: 1.25;
-  color: #f8fafc;
+  color: #FFFFFF;
   margin-bottom: 1.25rem;
   letter-spacing: -0.8px;
   max-width: 900px;
 }
 
+/* Reference Image 1 (Item 2: Highlight Text AI) */
 .gradient-text {
-  background: linear-gradient(135deg, #38bdf8 0%, #a855f7 50%, #c084fc 100%);
+  color: #0B6EBD;
+  background: linear-gradient(90deg, #0B6EBD 0%, #0F9D9A 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   display: inline-block;
+  font-weight: 800;
 }
 
 .hero-description {
   font-size: 1.12rem;
   line-height: 1.7;
-  color: #94a3b8;
+  color: #B8CBD6;
   max-width: 750px;
   margin-bottom: 2.2rem;
 }
@@ -189,35 +222,39 @@
   cursor: pointer;
 }
 
+/* Reference Image 1: Primary Button */
 .cta-btn.primary {
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-  color: #ffffff;
-  box-shadow: 0 4px 20px rgba(14, 165, 233, 0.35);
+  background: #0B6EBD;
+  color: #FFFFFF;
   border: none;
+  box-shadow: 0 4px 18px rgba(11, 110, 189, 0.35);
 }
 
 .cta-btn.primary:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 28px rgba(14, 165, 233, 0.55);
+  background: #095A9D;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(11, 110, 189, 0.5);
 }
 
+/* Reference Image 1: Secondary Button */
 .cta-btn.secondary {
-  background: rgba(15, 23, 42, 0.7);
+  background: transparent;
   backdrop-filter: blur(12px);
-  color: #f8fafc;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+  border: 1px solid #0F9D9A;
 }
 
 .cta-btn.secondary:hover {
-  background: rgba(30, 41, 59, 0.9);
-  border-color: #0ea5e9;
-  transform: translateY(-3px);
+  background: rgba(15, 157, 154, 0.1);
+  border-color: #0F9D9A;
+  color: #FFFFFF;
+  transform: translateY(-2px);
 }
 
-/* Authentic Stats Grid */
+/* Reference Image 1 (Item 3: Authentic Stats Cards Grid) */
 .hero-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 1.5rem;
   width: 100%;
   max-width: 980px;
@@ -225,72 +262,79 @@
 }
 
 .stat-card {
-  background: rgba(15, 23, 42, 0.65);
+  background: #0D2638;
   backdrop-filter: blur(18px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #2A5368;
   border-radius: 18px;
   padding: 1.35rem 1.6rem;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1.2rem;
   text-align: left;
   transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(14, 165, 233, 0.35);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), 0 0 20px rgba(14, 165, 233, 0.15);
+  transform: translateY(-3px);
+  border-color: #0B6EBD;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.35), 0 0 20px rgba(11, 110, 189, 0.15);
 }
 
 .stat-icon-box {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  background: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
+  background: #123B52;
+  color: #0B6EBD;
+  border: 1px solid #2A5368;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   flex-shrink: 0;
 }
 
-.stat-icon-box.cyan {
-  background: rgba(14, 165, 233, 0.15);
-  color: #38bdf8;
+.stat-icon-box.teal {
+  color: #0F9D9A;
 }
 
-.stat-icon-box.emerald {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
+.stat-content {
+  flex: 1;
 }
 
 .stat-content h3 {
   font-size: 1.55rem;
   font-weight: 800;
-  color: #f8fafc;
+  color: #FFFFFF;
   margin: 0 0 0.2rem 0;
 }
 
 .stat-content p {
-  font-size: 0.82rem;
-  color: #94a3b8;
+  font-size: 0.84rem;
+  color: #B8CBD6;
   font-weight: 500;
   margin: 0;
 }
 
+.stat-mini-chart {
+  font-size: 1.15rem;
+  color: #0F9D9A;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+/* Responsive Rules: Section 19 of Prompt */
 @media (max-width: 1024px) {
-  .hero-neural-left {
-    width: 280px;
-    left: -40px;
+  .hero-stethoscope-layer,
+  .hero-dna-layer {
+    width: 35%;
     opacity: 0.45;
   }
-  .hero-wave-right {
-    width: 380px;
-    right: -50px;
-    opacity: 0.55;
+  .hero-medical-svg-left,
+  .hero-medical-svg-right {
+    opacity: 0.5;
   }
 }
 
@@ -309,8 +353,13 @@
     width: 100%;
     justify-content: center;
   }
-  .hero-neural-left,
-  .hero-wave-right {
+  .hero-stethoscope-layer,
+  .hero-dna-layer,
+  .hero-medical-svg-left,
+  .hero-medical-svg-right {
     display: none;
+  }
+  .hero-medical-bg-image {
+    opacity: 0.35;
   }
 }

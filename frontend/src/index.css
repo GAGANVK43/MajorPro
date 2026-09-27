@@ -1,28 +1,64 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   DiaSense AI — Enterprise Health SaaS Design System & Multilingual Engine
+   DiaSense AI — Professional Medical + Healthcare + AI Design System
    ========================================================================== */
 
 :root {
-  --bg-dark: #0f172a;
-  --bg-card: rgba(30, 41, 59, 0.7);
-  --bg-card-hover: rgba(30, 41, 59, 0.9);
-  --border-glass: rgba(255, 255, 255, 0.08);
-  --border-glass-hover: rgba(14, 165, 233, 0.3);
+  /* Primary Medical Colors */
+  --primary-medical-blue: #0B6EBD;
+  --primary-medical-blue-hover: #095A9D;
+  --healthcare-teal: #0F9D9A;
+  --healthcare-teal-hover: #0C7E7B;
+  --deep-medical-navy: #071A2B;
+  --medical-surface: #0D2638;
+  --medical-surface-hover: #123B52;
+  --light-medical-bg: #F4FAFC;
+  --white: #FFFFFF;
+  --soft-medical-cyan: #DFF6FA;
+
+  /* Status Colors */
+  --healthy-green: #16A085;
+  --warning-amber: #F4B740;
+  --medical-danger-red: #D9534F;
+  --border-divider: #2A5368;
+  --border-subtle: rgba(42, 83, 104, 0.6);
+
+  /* Typography Colors on Dark */
+  --text-primary: #FFFFFF;
+  --text-secondary: #B8CBD6;
+  --text-muted: #829EAD;
+  --text-dark: #071A2B;
+
+  /* Component Mappings (Unified System Tokens) */
+  --bg-dark: #071A2B;
+  --bg-card: #0D2638;
+  --bg-card-hover: #123B52;
+  --border-glass: #2A5368;
+  --border-glass-hover: #0B6EBD;
   
-  --primary: #0ea5e9;
-  --primary-hover: #0284c7;
-  --primary-glow: rgba(14, 165, 233, 0.25);
+  --primary: #0B6EBD;
+  --primary-hover: #095A9D;
+  --primary-glow: rgba(11, 110, 189, 0.25);
+
+  /* Medical Theme Tokens */
+  --ai-cyan: #0F9D9A;
+  --ai-cyan-glow: rgba(15, 157, 154, 0.4);
+  --ai-purple: #0F9D9A;
+  --ai-purple-glow: rgba(15, 157, 154, 0.4);
+  --ai-blue: #0B6EBD;
+  --ai-blue-glow: rgba(11, 110, 189, 0.4);
+  --ai-btn-gradient: #0B6EBD;
+  --ai-btn-gradient-hover: #095A9D;
+  --ai-text-gradient: linear-gradient(90deg, #0B6EBD 0%, #0F9D9A 100%);
   
-  --accent-indigo: #6366f1;
-  --accent-emerald: #10b981;
-  --accent-rose: #f43f5e;
-  --accent-amber: #f59e0b;
+  --accent-indigo: #0B6EBD;
+  --accent-purple: #0F9D9A;
+  --accent-emerald: #16A085; /* Healthy Success Green */
+  --accent-rose: #D9534F; /* Medical Danger Red */
+  --accent-amber: #F4B740; /* Warning Amber */
   
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-dark: #1e293b;
+  --text-main: #FFFFFF;
 
   --font-family: 'Inter', 'Poppins', 'Noto Sans', 'Noto Sans Kannada', 'Noto Sans Devanagari', 'Noto Sans Tamil', 'Noto Sans Telugu', 'Noto Sans Malayalam', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   --radius-sm: 8px;
@@ -30,8 +66,8 @@
   --radius-lg: 20px;
   --radius-xl: 28px;
   
-  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
-  --shadow-glow: 0 0 25px rgba(14, 165, 233, 0.15);
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+  --shadow-glow: 0 0 25px rgba(14, 165, 233, 0.2);
 }
 
 * {
@@ -43,8 +79,8 @@
 html, body, #root {
   width: 100%;
   min-height: 100vh;
-  background-color: var(--bg-dark);
-  color: var(--text-main);
+  background-color: var(--deep-medical-navy);
+  color: var(--text-primary);
   font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -54,7 +90,7 @@ html, body, #root {
 
 body {
   overflow-x: hidden;
-  background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #0f172a 70%);
+  background: radial-gradient(circle at 50% 0%, #0D2638 0%, #071A2B 70%);
 }
 
 /* ==========================================================================
@@ -84,7 +120,7 @@ html[lang="hi"], body[data-lang="hi"], [data-lang="hi"] {
   line-height: 1.65;
 }
 
-/* Tamil Typography (Native Unicode glyph rendering, comfortable line-height, no letter-spacing distortion) */
+/* Tamil Typography */
 html[lang="ta"], body[data-lang="ta"], [data-lang="ta"] {
   font-family: 'Noto Sans Tamil', 'Latha', 'Vijaya', 'Inter', system-ui, sans-serif;
   line-height: 1.68;
@@ -99,7 +135,7 @@ html[lang="te"], body[data-lang="te"], [data-lang="te"] {
   letter-spacing: normal;
 }
 
-/* Malayalam Typography (Special Line-Height & Native Glyphs for Complex Conjuncts) */
+/* Malayalam Typography */
 html[lang="ml"], body[data-lang="ml"], [data-lang="ml"] {
   font-family: 'Noto Sans Malayalam', 'Manjari', 'Gayathri', 'Kartika', 'Inter', system-ui, sans-serif;
   line-height: 1.72;
@@ -137,23 +173,23 @@ input, select, textarea {
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #071A2B;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #2A5368;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #0ea5e9;
+  background: #0B6EBD;
 }
 
 /* Toastify Styling Overrides */
 .Toastify__toast-theme--dark {
-  background: rgba(15, 23, 42, 0.95) !important;
+  background: rgba(13, 38, 56, 0.95) !important;
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid #2A5368;
   border-radius: var(--radius-md) !important;
-  color: var(--text-main) !important;
+  color: var(--text-primary) !important;
   font-family: inherit !important;
   line-height: 1.5 !important;
 }
@@ -162,15 +198,15 @@ input, select, textarea {
 @media print {
   body {
     background: #ffffff !important;
-    color: #0f172a !important;
+    color: #071A2B !important;
   }
   .no-print, nav, footer, .back-btn-container, .btn-action {
     display: none !important;
   }
   .result-page, .result-container, .report-header-card, .score-summary-card, .content-card, .factor-item-card, .plan-block {
     background: #ffffff !important;
-    color: #0f172a !important;
-    border: 1px solid #cbd5e1 !important;
+    color: #071A2B !important;
+    border: 1px solid #2A5368 !important;
     box-shadow: none !important;
   }
 }

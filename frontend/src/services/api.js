@@ -102,4 +102,11 @@ export const nearbyCareService = {
   geocodeLocation: (query) => api.get("/api/nearby-care/geocode", { params: { query } }),
 };
 
+export const smartAssessmentService = {
+  extractReport: (formData) =>
+    api.post("/api/smart-assessment/extract-report", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+};
+
 export default api;

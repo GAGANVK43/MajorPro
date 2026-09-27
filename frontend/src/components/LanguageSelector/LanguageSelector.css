@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DiaSense AI — Language Selector Stylesheet
+   DiaSense AI — Language Selector Stylesheet (Medical Theme)
    ========================================================================== */
 
 .language-selector-wrapper {
@@ -13,11 +13,11 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.45rem 0.85rem;
-  background: rgba(30, 41, 59, 0.75);
+  background: #0D2638;
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid #2A5368;
   border-radius: 20px;
-  color: #f8fafc;
+  color: #FFFFFF;
   font-size: 0.86rem;
   font-weight: 600;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -26,13 +26,13 @@
 
 .lang-select-btn:hover,
 .lang-select-btn.active {
-  background: rgba(30, 41, 59, 0.95);
-  border-color: rgba(14, 165, 233, 0.5);
-  box-shadow: 0 0 15px rgba(14, 165, 233, 0.25);
+  background: #123B52;
+  border-color: #0B6EBD;
+  box-shadow: 0 0 15px rgba(11, 110, 189, 0.25);
 }
 
 .lang-globe-icon {
-  color: #38bdf8;
+  color: #0F9D9A;
   font-size: 0.95rem;
   display: flex;
   align-items: center;
@@ -43,18 +43,19 @@
 }
 
 .lang-current-name {
-  color: #f8fafc;
+  color: #FFFFFF;
   white-space: nowrap;
 }
 
 .lang-chevron {
   font-size: 0.7rem;
-  color: #94a3b8;
+  color: #829EAD;
   transition: transform 0.25s ease;
 }
 
 .lang-chevron.rotate {
   transform: rotate(180deg);
+  color: #0B6EBD;
 }
 
 /* Dropdown Menu */
@@ -63,12 +64,12 @@
   top: calc(100% + 8px);
   right: 0;
   min-width: 220px;
-  background: rgba(15, 23, 42, 0.95);
+  background: #0D2638;
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid #2A5368;
   border-radius: 16px;
   padding: 0.5rem;
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
   animation: langDropdownIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -87,8 +88,8 @@
   padding: 0.4rem 0.75rem 0.5rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 700;
-  color: #94a3b8;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #829EAD;
+  border-bottom: 1px solid #2A5368;
   margin-bottom: 0.35rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -108,21 +109,21 @@
   background: transparent;
   border: 1px solid transparent;
   border-radius: 10px;
-  color: #cbd5e1;
+  color: #B8CBD6;
   text-align: left;
   transition: all 0.2s ease;
   width: 100%;
 }
 
 .lang-option-item:hover {
-  background: rgba(30, 41, 59, 0.85);
-  color: #f8fafc;
+  background: #123B52;
+  color: #FFFFFF;
 }
 
 .lang-option-item.selected {
-  background: rgba(14, 165, 233, 0.15);
-  border-color: rgba(14, 165, 233, 0.35);
-  color: #38bdf8;
+  background: #0B6EBD;
+  border-color: #0B6EBD;
+  color: #FFFFFF;
 }
 
 .lang-option-flag {
@@ -139,17 +140,17 @@
 .lang-native-name {
   font-size: 0.88rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: #FFFFFF;
 }
 
 .lang-eng-name {
   font-size: 0.72rem;
-  color: #94a3b8;
+  color: #B8CBD6;
 }
 
 .lang-check-icon {
-  color: #38bdf8;
-  font-size: 0.8rem;
+  color: #0F9D9A;
+  font-size: 0.85rem;
 }
 
 /* Compact Mode (e.g. for small headers or drawers) */
