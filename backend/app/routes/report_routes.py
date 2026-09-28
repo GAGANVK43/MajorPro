@@ -48,7 +48,7 @@ def get_report_by_id(
 
 @router.get("/latest/pdf", status_code=status.HTTP_200_OK)
 def download_latest_pdf_report(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_with_query_token),
     db: Session = Depends(get_db),
 ):
     """

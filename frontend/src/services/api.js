@@ -86,11 +86,33 @@ export const reportService = {
   getPdfUrl: (id) => {
     const token = localStorage.getItem("access_token") || "";
     const base = API_BASE_URL || window.location.origin;
+    const path = (id && id !== 1) ? `/api/reports/${id}/pdf` : `/api/reports/latest/pdf`;
     return token
-      ? `${base}/api/reports/${id}/pdf?token=${encodeURIComponent(token)}`
-      : `${base}/api/reports/${id}/pdf`;
+      ? `${base}${path}?token=${encodeURIComponent(token)}`
+      : `${base}${path}`;
+  },
+  downloadLatestPdf: async () => {
+    const token = localStorage.getItem("access_token");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const base = API_BASE_URL || "";
+    const res = await axios.get(`${base}/api/reports/latest/pdf`, {
+      headers,
+      responseType: "blob",
+    });
+    const blob = new Blob([res.data], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `DiaSense_Health_Report.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   },
   downloadPdf: async (id) => {
+    if (!id || id === 1) {
+      return reportService.downloadLatestPdf();
+    }
     const token = localStorage.getItem("access_token");
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const base = API_BASE_URL || "";

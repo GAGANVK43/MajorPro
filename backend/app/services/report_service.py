@@ -8,243 +8,334 @@ from app.models.prediction import Prediction
 from app.ml.prediction import analyze_contributing_factors
 
 
+# ─── Colour Palette ──────────────────────────────────────────────────────────
+C_TEAL      = "#0D9488"
+C_NAVY      = "#0F172A"
+C_SLATE     = "#1E293B"
+C_BODY      = "#334155"
+C_MUTED     = "#64748B"
+C_BORDER    = "#CBD5E1"
+C_LIGHT_BG  = "#F8FAFC"
+C_TABLE_HDR = "#E2E8F0"
+C_GREEN_BG  = "#DCFCE7"
+C_GREEN_BOR = "#10B981"
+C_RED_BG    = "#FEE2E2"
+C_RED_BOR   = "#EF4444"
+C_AMBER_BG  = "#FFFBEB"
+C_AMBER_BOR = "#F59E0B"
+C_WHITE     = "#FFFFFF"
+
+
+def _risk_colors(prediction_label: str, risk_pct: float):
+    """Return (bg, border, text) hex based on prediction label / risk %."""
+    label = (prediction_label or "").lower()
+    if "higher" in label or "diabetic" in label or risk_pct >= 50:
+        return C_RED_BG, C_RED_BOR, "#991B1B"
+    if risk_pct >= 30:
+        return C_AMBER_BG, C_AMBER_BOR, "#92400E"
+    return C_GREEN_BG, C_GREEN_BOR, "#065F46"
+
+
+def _impact_color(impact: str) -> str:
+    lo = impact.lower()
+    if "high" in lo or "elevated" in lo:
+        return "#EF4444"
+    if "moderate" in lo:
+        return "#F59E0B"
+    return "#10B981"
+
+
 class ReportService:
     def __init__(self, db: Session):
         self.db = db
 
+    # ─────────────────────────────────────────────────────────────────────────
     def generate_pdf_report(self, user: User, prediction_id: int) -> bytes:
         try:
-            from reportlab.lib.pagesizes import letter
+            from reportlab.lib.pagesizes import A4
             from reportlab.lib import colors
-            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+            from reportlab.platypus import (
+                SimpleDocTemplate, Paragraph, Spacer, Table,
+                TableStyle, HRFlowable, KeepTogether,
+            )
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import mm
         except ImportError:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="PDF report generator dependency (reportlab) is not installed in the active environment.",
+                detail="PDF generator dependency (reportlab) is not installed.",
             )
 
+        # ── Fetch data ────────────────────────────────────────────────────────
         prediction = self.db.query(Prediction).filter(Prediction.id == prediction_id).first()
         if not prediction:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Prediction report record not found",
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
 
         assessment = prediction.assessment
         if not assessment or assessment.user_id != user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied to requested health report",
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
+        # ── Page setup ────────────────────────────────────────────────────────
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
             buffer,
-            pagesize=letter,
-            rightMargin=36,
-            leftMargin=36,
-            topMargin=36,
-            bottomMargin=36,
+            pagesize=A4,
+            rightMargin=20 * mm,
+            leftMargin=20 * mm,
+            topMargin=18 * mm,
+            bottomMargin=18 * mm,
         )
+        W = A4[0] - 40 * mm   # usable width
 
+        # ── Styles ────────────────────────────────────────────────────────────
         styles = getSampleStyleSheet()
 
-        title_style = ParagraphStyle(
-            "ReportTitle",
-            parent=styles["Heading1"],
-            fontSize=22,
-            leading=26,
-            textColor=colors.HexColor("#0f172a"),
-            spaceAfter=4,
-        )
-        subtitle_style = ParagraphStyle(
-            "ReportSubtitle",
-            parent=styles["Normal"],
-            fontSize=11,
-            leading=14,
-            textColor=colors.HexColor("#64748b"),
-            spaceAfter=15,
-        )
-        h2_style = ParagraphStyle(
-            "SectionHeader",
-            parent=styles["Heading2"],
-            fontSize=13,
-            leading=17,
-            textColor=colors.HexColor("#1e293b"),
-            spaceBefore=12,
-            spaceAfter=8,
-        )
-        body_style = ParagraphStyle(
-            "ReportBody",
-            parent=styles["Normal"],
-            fontSize=9.5,
-            leading=13,
-            textColor=colors.HexColor("#334155"),
-        )
-        alert_style = ParagraphStyle(
-            "RiskAlert",
-            parent=styles["Normal"],
-            fontSize=11.5,
-            leading=15,
-            fontName="Helvetica-Bold",
-            textColor=colors.HexColor("#991b1b") if prediction.prediction == "Diabetic" else colors.HexColor("#065f46"),
-        )
+        def sty(name, **kw):
+            base = kw.pop("parent", "Normal")
+            p = ParagraphStyle(name, parent=styles[base], **kw)
+            return p
 
+        title_sty  = sty("RPT_Title", parent="Heading1", fontSize=22, leading=27,
+                         textColor=colors.HexColor(C_NAVY), spaceAfter=2)
+        sub_sty    = sty("RPT_Sub",   fontSize=10, leading=13,
+                         textColor=colors.HexColor(C_MUTED), spaceAfter=0)
+        h2_sty     = sty("RPT_H2",    parent="Heading2", fontSize=13, leading=17,
+                         textColor=colors.HexColor(C_SLATE), spaceBefore=14, spaceAfter=6)
+        body_sty   = sty("RPT_Body",  fontSize=9.5, leading=13,
+                         textColor=colors.HexColor(C_BODY))
+        small_sty  = sty("RPT_Small", fontSize=8, leading=11,
+                         textColor=colors.HexColor(C_MUTED))
+        disc_sty   = sty("RPT_Disc",  fontSize=7.5, leading=10.5,
+                         textColor=colors.HexColor(C_MUTED))
+
+        def B(text): return f"<b>{text}</b>"
+        def C(text, hex_color): return f'<font color="{hex_color}">{text}</font>'
+
+        # ── Helpers ───────────────────────────────────────────────────────────
+        def P(text, style=None): return Paragraph(text, style or body_sty)
+        def HR(thick=1.5, color=C_TEAL): return HRFlowable(width="100%", thickness=thick,
+                                                             color=colors.HexColor(color), spaceAfter=10)
+        def SP(h=6): return Spacer(1, h)
+
+        # ── Assessment field helpers ──────────────────────────────────────────
+        def gv(attr, default=None):
+            return getattr(assessment, attr, default) or default
+
+        hba1c_val  = gv("hba1c", 5.7)
+        glu_val    = gv("fasting_glucose") or gv("glucose", 100.0)
+        bp_val     = gv("blood_pressure", 120.0)
+        bmi_val    = gv("bmi", 22.0)
+        sugar_val  = gv("daily_sugar_intake", 30.0)
+        act_val    = gv("physical_activity_hours", 1.0)
+        ff_val     = gv("fast_food_frequency", 2.0)
+        sleep_val  = gv("sleep_hours", 7.0)
+        fh_raw     = gv("family_history", 0)
+        fh_str     = "Positive (Yes)" if fh_raw in (1, 1.0, True, "1") else "Negative (No)"
+        age_val    = gv("age") or getattr(user, "age", "—")
+        gender_val = gv("gender") or getattr(user, "gender", "—") or "—"
+        pg_val     = gv("patient_group", "Urban")
+        monthly_income = gv("monthly_income")
+
+        pred_label  = prediction.prediction or "Unknown"
+        risk_pct    = round(prediction.risk_percentage, 1)
+        confidence  = round(prediction.confidence, 1)
+        date_str    = (prediction.created_at.strftime("%B %d, %Y")
+                       if prediction.created_at else datetime.utcnow().strftime("%B %d, %Y"))
+        report_id   = f"REP-{prediction.id:05d}"
+
+        risk_bg, risk_bor, risk_txt = _risk_colors(pred_label, risk_pct)
+
+        # ═════════════════════════════════════════════════════════════════════
         elements = []
 
-        # Header
-        elements.append(Paragraph("DiaSense AI — Health Risk Screening Report", title_style))
-        elements.append(Paragraph("Indian Clinical Diabetes Assessment & Metabolic Risk Profile", subtitle_style))
-        elements.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor("#0ea5e9"), spaceAfter=12))
+        # ── TITLE BLOCK ──────────────────────────────────────────────────────
+        elements.append(P("DiaSense AI — Health Risk Screening Report", title_sty))
+        elements.append(P("Artificial Intelligence Medical Assessment &amp; Clinical Insights", sub_sty))
+        elements.append(SP(6))
+        elements.append(HR(2.5, C_TEAL))
 
-        # Patient Info & Summary Box
-        date_str = prediction.created_at.strftime("%B %d, %Y") if prediction.created_at else datetime.utcnow().strftime("%B %d, %Y")
-        patient_grp = getattr(assessment, "patient_group", "Urban") or "Urban"
-        gender_val = getattr(assessment, "gender", None) or user.gender or "Unspecified"
-
-        patient_data = [
-            [
-                Paragraph(f"<b>Patient Name:</b> {user.full_name}", body_style),
-                Paragraph(f"<b>Report ID:</b> REP-{prediction.id:05d}", body_style),
-            ],
-            [
-                Paragraph(f"<b>Email:</b> {user.email}", body_style),
-                Paragraph(f"<b>Assessment Date:</b> {date_str}", body_style),
-            ],
-            [
-                Paragraph(f"<b>Age / Gender:</b> {assessment.age} yrs / {gender_val}", body_style),
-                Paragraph(f"<b>Region / Demographics:</b> {patient_grp}", body_style),
-            ]
+        # ── PATIENT INFO TABLE ───────────────────────────────────────────────
+        ai_status = "Active (XGBoost)"
+        pat_data = [
+            [P(f"{B('Patient Name:')} {user.full_name}"),   P(f"{B('Report ID:')} {report_id}")],
+            [P(f"{B('Email:')} {user.email}"),               P(f"{B('Assessment Date:')} {date_str}")],
+            [P(f"{B('Age / Gender:')} {age_val} yrs / {gender_val}"),
+             P(f"{B('AI Engine Status:')} {ai_status}")],
         ]
-        info_table = Table(patient_data, colWidths=[270, 270])
-        info_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
-            ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#e2e8f0")),
-            ("PADDING", (0, 0), (-1, -1), 6),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        pat_tbl = Table(pat_data, colWidths=[W * 0.50, W * 0.50])
+        pat_tbl.setStyle(TableStyle([
+            ("BACKGROUND",  (0, 0), (-1, -1), colors.HexColor(C_LIGHT_BG)),
+            ("BOX",         (0, 0), (-1, -1), 1,   colors.HexColor(C_BORDER)),
+            ("INNERGRID",   (0, 0), (-1, -1), 0.5, colors.HexColor(C_BORDER)),
+            ("PADDING",     (0, 0), (-1, -1), 7),
+            ("VALIGN",      (0, 0), (-1, -1), "MIDDLE"),
         ]))
-        elements.append(info_table)
-        elements.append(Spacer(1, 10))
+        elements.append(pat_tbl)
+        elements.append(SP(12))
 
-        # AI Prediction Summary
-        elements.append(Paragraph("1. AI Diabetes Risk Screening Summary", h2_style))
-        risk_color = "#fee2e2" if prediction.prediction == "Diabetic" else "#dcfce7"
-        risk_border = "#ef4444" if prediction.prediction == "Diabetic" else "#10b981"
+        # ── SECTION 1: AI RISK SUMMARY ────────────────────────────────────────
+        elements.append(P("1. AI Diabetes Risk Screening Summary", h2_sty))
 
-        pred_text = f"Risk Classification: {prediction.prediction.upper()} ({prediction.risk_percentage}% Risk Score)"
-        conf_text = f"Model Confidence: {prediction.confidence}%"
+        pred_display = pred_label.upper()
+        risk_line   = f"{B(f'Risk Classification: {pred_display} ({risk_pct}% Risk Score)')}"
+        conf_line   = f"Statistical Probability Score: {B(f'{risk_pct}%')} | Model Confidence: {confidence}%"
 
-        summary_data = [
-            [Paragraph(f"<b>{pred_text}</b>", alert_style)],
-            [Paragraph(f"Statistical Probability Score: <b>{prediction.risk_percentage}%</b> | {conf_text}", body_style)]
+        sum_data = [
+            [P(C(risk_line, risk_txt))],
+            [P(conf_line)],
         ]
-        summary_table = Table(summary_data, colWidths=[540])
-        summary_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(risk_color)),
-            ("BOX", (0, 0), (-1, -1), 1.5, colors.HexColor(risk_border)),
-            ("PADDING", (0, 0), (-1, -1), 8),
+        sum_tbl = Table(sum_data, colWidths=[W])
+        sum_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(risk_bg)),
+            ("BOX",        (0, 0), (-1, -1), 1.5, colors.HexColor(risk_bor)),
+            ("PADDING",    (0, 0), (-1, -1), 9),
+            ("ROWBACKGROUNDS", (0, 0), (-1, -1),
+             [colors.HexColor(risk_bg), colors.HexColor(risk_bg)]),
         ]))
-        elements.append(summary_table)
-        elements.append(Spacer(1, 10))
+        elements.append(sum_tbl)
+        elements.append(SP(10))
 
-        # Clinical Vitals Matrix
-        elements.append(Paragraph("2. Recorded Clinical Biomarkers & Lifestyle Metrics", h2_style))
-        vitals_headers = [Paragraph("<b>Parameter</b>", body_style), Paragraph("<b>Recorded Value</b>", body_style), Paragraph("<b>Reference Threshold</b>", body_style)]
-        vitals_data = [vitals_headers]
+        # ── SECTION 2: VITALS TABLE ────────────────────────────────────────────
+        elements.append(P("2. Recorded Vitals &amp; Laboratory Metrics", h2_sty))
 
-        hba1c_val = getattr(assessment, "hba1c", 5.7) or 5.7
-        glu_val = getattr(assessment, "fasting_glucose", None) or getattr(assessment, "glucose", 100.0) or 100.0
-        sugar_val = getattr(assessment, "daily_sugar_intake", 30.0) or 30.0
-        act_val = getattr(assessment, "physical_activity_hours", 2.0) or 2.0
-        ff_val = getattr(assessment, "fast_food_frequency", 2.0) or 2.0
-        sleep_val = getattr(assessment, "sleep_hours", 7.0) or 7.0
-        fh_raw = getattr(assessment, "family_history", 0.0)
-        fh_str = "Positive (Yes)" if fh_raw in (1, 1.0, True, "1") else "Negative (No)"
-
-        metrics_list = [
-            ("HbA1c (Glycated Hemoglobin)", f"{hba1c_val:.1f}%", "< 5.7% Normal (>=6.5% Diabetic)"),
-            ("Fasting Blood Glucose", f"{glu_val:.0f} mg/dL", "< 100 mg/dL Normal (>=126 High)"),
-            ("Blood Pressure", f"{assessment.blood_pressure:.0f} mmHg", "< 120 mmHg Normal"),
-            ("BMI (Body Mass Index)", f"{assessment.bmi:.1f} kg/m²", "18.5 – 24.9 Normal"),
-            ("Daily Sugar Intake", f"{sugar_val:.0f} g/day", "<= 25 g/day WHO Guideline"),
-            ("Physical Activity", f"{act_val:.1f} hrs/day", ">= 1.0 hr/day Active"),
-            ("Fast Food Frequency", f"{ff_val:.0f} meals/wk", "<= 1 meal/wk Recommended"),
-            ("Sleep Duration", f"{sleep_val:.1f} hrs/night", "7 – 9 hrs Optimal"),
-            ("Family History of Diabetes", fh_str, "Genetic Risk Indicator"),
+        vh = [P(B("Parameter")), P(B("Recorded Value")), P(B("Reference Threshold"))]
+        vitals_rows = [vh,
+            ["Fasting Blood Glucose",    f"{glu_val:.0f} mg/dL",      "< 100 mg/dL Normal"],
+            ["HbA1c Level",              f"{hba1c_val:.1f}%",          "< 5.7% Normal"],
+            ["Blood Pressure",           f"{bp_val:.0f} mmHg",         "< 80 mmHg Normal"],
+            ["BMI (Body Mass Index)",    f"{bmi_val:.1f} kg/m²",       "18.5 – 24.9 Normal"],
+            ["Physical Activity",        f"{act_val:.1f} hrs/week",    ">= 2.5 hrs/week"],
+            ["Daily Sugar Intake",       f"{sugar_val:.0f} g/day",     "< 25–50 g/day"],
+            ["Daily Sleep",              f"{sleep_val:.1f} hrs/night", "7 – 9 hrs Normal"],
+            ["Fast Food Frequency",      f"{ff_val:.0f} meals/week",   "<= 1 meal/week"],
+            ["Family History",           fh_str,                       "Genetic Risk Indicator"],
         ]
-        for name, val, ref in metrics_list:
-            vitals_data.append([
-                Paragraph(name, body_style),
-                Paragraph(f"<b>{val}</b>", body_style),
-                Paragraph(ref, body_style)
-            ])
 
-        vitals_table = Table(vitals_data, colWidths=[180, 150, 210])
-        vitals_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
-            ("PADDING", (0, 0), (-1, -1), 5),
+        # Convert string rows to Paragraphs
+        vt_data = [vitals_rows[0]]
+        for r in vitals_rows[1:]:
+            vt_data.append([P(r[0]), P(B(r[1])), P(r[2])])
+
+        vt_tbl = Table(vt_data, colWidths=[W * 0.38, W * 0.28, W * 0.34])
+        vt_tbl.setStyle(TableStyle([
+            ("BACKGROUND",  (0, 0), (-1, 0), colors.HexColor(C_TABLE_HDR)),
+            ("GRID",        (0, 0), (-1, -1), 0.5, colors.HexColor(C_BORDER)),
+            ("PADDING",     (0, 0), (-1, -1), 6),
+            ("VALIGN",      (0, 0), (-1, -1), "MIDDLE"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+             [colors.HexColor(C_WHITE), colors.HexColor(C_LIGHT_BG)]),
         ]))
-        elements.append(vitals_table)
-        elements.append(Spacer(1, 10))
+        elements.append(vt_tbl)
+        elements.append(SP(10))
 
-        # Contributing Risk Factors
-        elements.append(Paragraph("3. Clinical Risk Factor Analysis & Explainability", h2_style))
-        assessment_dict = {
-            "patient_group": patient_grp,
-            "hba1c": hba1c_val,
-            "fasting_glucose": glu_val,
-            "glucose": glu_val,
-            "bmi": assessment.bmi,
-            "blood_pressure": assessment.blood_pressure,
-            "daily_sugar_intake": sugar_val,
-            "physical_activity_hours": act_val,
-            "fast_food_frequency": ff_val,
-            "family_history": fh_raw,
+        # ── SECTION 3: RISK FACTOR ANALYSIS ──────────────────────────────────
+        elements.append(P("3. Clinical Risk Factor Analysis &amp; Explainability", h2_sty))
+
+        adict = {
+            "patient_group": pg_val, "hba1c": hba1c_val,
+            "fasting_glucose": glu_val, "glucose": glu_val,
+            "bmi": bmi_val, "blood_pressure": bp_val,
+            "daily_sugar_intake": sugar_val, "physical_activity_hours": act_val,
+            "fast_food_frequency": ff_val, "family_history": fh_raw,
         }
-        factors = analyze_contributing_factors(assessment_dict)
+        factors = analyze_contributing_factors(adict)
 
-        factor_rows = [[Paragraph("<b>Risk Factor</b>", body_style), Paragraph("<b>Value</b>", body_style), Paragraph("<b>Impact Level</b>", body_style), Paragraph("<b>Description</b>", body_style)]]
+        fh = [P(B("Risk Factor")), P(B("Value")), P(B("Impact Level")), P(B("Description"))]
+        f_data = [fh]
         for f in factors:
-            factor_rows.append([
-                Paragraph(f["factor"], body_style),
-                Paragraph(f["value"], body_style),
-                Paragraph(f"<b>{f['impact']}</b>", body_style),
-                Paragraph(f["description"], body_style)
+            ic = _impact_color(f["impact"])
+            f_data.append([
+                P(f["factor"]),
+                P(f["value"]),
+                P(C(B(f["impact"]), ic)),
+                P(f["description"]),
             ])
 
-        factor_table = Table(factor_rows, colWidths=[130, 90, 90, 230])
-        factor_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
-            ("PADDING", (0, 0), (-1, -1), 5),
+        f_tbl = Table(f_data, colWidths=[W * 0.23, W * 0.14, W * 0.17, W * 0.46])
+        f_tbl.setStyle(TableStyle([
+            ("BACKGROUND",  (0, 0), (-1, 0), colors.HexColor(C_TABLE_HDR)),
+            ("GRID",        (0, 0), (-1, -1), 0.5, colors.HexColor(C_BORDER)),
+            ("PADDING",     (0, 0), (-1, -1), 6),
+            ("VALIGN",      (0, 0), (-1, -1), "TOP"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+             [colors.HexColor(C_WHITE), colors.HexColor(C_LIGHT_BG)]),
         ]))
-        elements.append(factor_table)
-        elements.append(Spacer(1, 10))
+        elements.append(f_tbl)
+        elements.append(SP(10))
 
-        # Lifestyle & Medical Recommendations
-        elements.append(Paragraph("4. Recommended Personalized Interventions", h2_style))
-        rec_p1 = "• <b>Dietary Guidance:</b> Limit refined carbohydrates, sugary tea/coffee, and deep-fried snacks. Emphasize low-GI Indian grains (Ragi, Bajra, Oats, Moong Dal) and fresh vegetables."
-        rec_p2 = "• <b>Physical Exercise:</b> Target at least 150 minutes of weekly moderate aerobic activity (brisk walking, cycling, yoga) combined with light resistance training."
-        rec_p3 = "• <b>Clinical Confirmation:</b> Schedule a laboratory Fasting Blood Glucose and HbA1c test with a certified healthcare physician for definitive diagnosis."
+        # ── SECTION 4: RECOMMENDATIONS ────────────────────────────────────────
+        elements.append(P("4. Personalised Health Interventions &amp; Next Steps", h2_sty))
 
-        elements.append(Paragraph(rec_p1, body_style))
-        elements.append(Spacer(1, 3))
-        elements.append(Paragraph(rec_p2, body_style))
-        elements.append(Spacer(1, 3))
-        elements.append(Paragraph(rec_p3, body_style))
-        elements.append(Spacer(1, 15))
+        recs = [
+            ("🥗 Dietary Guidance",
+             "Limit refined carbohydrates, sugary beverages, and deep-fried snacks. "
+             "Emphasise low-GI Indian grains (Ragi, Bajra, Oats, Moong Dal) "
+             "and increase fibre from fresh vegetables and legumes."),
+            ("🏃 Physical Exercise",
+             "Target ≥ 150 minutes of weekly moderate aerobic activity — brisk walking, "
+             "cycling, or yoga — combined with light resistance training twice a week."),
+            ("🩺 Clinical Follow-up",
+             "Schedule a laboratory Fasting Blood Glucose and HbA1c test with a "
+             "certified healthcare professional for a definitive clinical diagnosis."),
+            ("😴 Lifestyle Optimisation",
+             "Aim for 7–9 hours of quality sleep per night. Manage stress through "
+             "mindfulness or relaxation techniques. Avoid tobacco and limit alcohol."),
+        ]
 
-        # Disclaimer
-        elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#cbd5e1"), spaceAfter=8))
-        disclaimer_text = (
-            "<b>Medical Disclaimer:</b> DiaSense AI is an artificial intelligence-assisted risk screening platform intended for educational "
-            "and preventive risk assessment purposes only. This report does NOT constitute a clinical medical diagnosis or treatment plan. "
-            "Always consult a licensed medical practitioner for formal clinical evaluation."
-        )
-        elements.append(Paragraph(disclaimer_text, ParagraphStyle("Disclaimer", parent=styles["Normal"], fontSize=7.5, leading=10, textColor=colors.HexColor("#64748b"))))
+        rec_data = []
+        for icon_label, desc in recs:
+            rec_data.append([P(B(icon_label)), P(desc)])
 
+        rec_tbl = Table(rec_data, colWidths=[W * 0.30, W * 0.70])
+        rec_tbl.setStyle(TableStyle([
+            ("GRID",    (0, 0), (-1, -1), 0.5, colors.HexColor(C_BORDER)),
+            ("PADDING", (0, 0), (-1, -1), 7),
+            ("VALIGN",  (0, 0), (-1, -1), "TOP"),
+            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor(C_LIGHT_BG)),
+            ("ROWBACKGROUNDS", (1, 0), (1, -1),
+             [colors.HexColor(C_WHITE), colors.HexColor(C_LIGHT_BG)]),
+        ]))
+        elements.append(rec_tbl)
+        elements.append(SP(14))
+
+        # ── FOOTER / DISCLAIMER ───────────────────────────────────────────────
+        elements.append(HR(1, C_BORDER))
+        elements.append(P(
+            f"<b>Generated by DiaSense AI</b> &nbsp;|&nbsp; Report ID: {report_id} "
+            f"&nbsp;|&nbsp; {date_str}",
+            small_sty,
+        ))
+        elements.append(SP(4))
+        elements.append(P(
+            "<b>Medical Disclaimer:</b> DiaSense AI is an artificial-intelligence-assisted "
+            "risk-screening platform for educational and preventive purposes only. "
+            "This report does <b>NOT</b> constitute a clinical medical diagnosis or "
+            "treatment plan. Always consult a licensed healthcare professional for "
+            "formal clinical evaluation, diagnosis, and treatment.",
+            disc_sty,
+        ))
+
+        # ── BUILD PDF ─────────────────────────────────────────────────────────
         doc.build(elements)
         buffer.seek(0)
         return buffer.getvalue()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    def generate_latest_pdf_report(self, user: User) -> bytes:
+        """Generate PDF for the user's most recent prediction."""
+        from app.models.prediction import Prediction
+        from app.models.assessment import Assessment
+
+        latest = (
+            self.db.query(Prediction)
+            .join(Assessment, Prediction.assessment_id == Assessment.id)
+            .filter(Assessment.user_id == user.id)
+            .order_by(Prediction.created_at.desc())
+            .first()
+        )
+        if not latest:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No health assessment found. Please complete an assessment first.",
+            )
+        return self.generate_pdf_report(user, latest.id)

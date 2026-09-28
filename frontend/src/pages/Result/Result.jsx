@@ -112,45 +112,18 @@ function Result() {
 
   const handleDownloadPDF = async () => {
     try {
-      // Always try /latest/pdf first — works even if prediction ID is unknown
-      const token = localStorage.getItem("access_token") || "";
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
-      const latestPdfUrl = `${baseUrl}/api/reports/latest/pdf`;
-
-      // Fetch as blob with auth token
-      const response = await fetch(latestPdfUrl, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute("download", `DiaSense_Health_Report.pdf`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        return;
-      }
+      await reportService.downloadPdf(predictionData.id);
     } catch (err) {
-      // fall through to ID-based download
-    }
-
-    // Fallback: ID-based download if we have a real prediction ID
-    if (predictionData.id && predictionData.id !== 1) {
+      console.warn("Direct blob PDF download failed, falling back to authenticated URL window:", err);
       try {
-        await reportService.downloadPdf(predictionData.id);
-      } catch (err) {
         const pdfUrl = reportService.getPdfUrl(predictionData.id);
         window.open(pdfUrl, "_blank");
+      } catch (e) {
+        window.print();
       }
-    } else {
-      // Last resort: browser print
-      window.print();
     }
   };
+
 
 
   const getImpactLabel = (impact) => {
