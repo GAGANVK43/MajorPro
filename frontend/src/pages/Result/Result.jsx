@@ -32,7 +32,7 @@ function Result() {
   ];
 
   const [predictionData, setPredictionData] = useState({
-    id: 1,
+    id: null,
     prediction: "Non-Diabetic",
     risk_percentage: 24.5,
     confidence: 95.0,
@@ -65,7 +65,7 @@ function Result() {
         const parsed = JSON.parse(stored);
         if (parsed.prediction) {
           setPredictionData({
-            id: parsed.id || 1,
+            id: parsed.id || null,
             prediction: parsed.prediction,
             risk_percentage: parsed.risk_percentage || 25.0,
             confidence: parsed.confidence || 95.0,
@@ -84,7 +84,7 @@ function Result() {
         if (res.data) {
           const d = res.data;
           setPredictionData({
-            id: d.id || 1,
+            id: d.id || null,
             prediction: d.prediction,
             risk_percentage: d.risk_percentage,
             confidence: d.confidence,
@@ -111,18 +111,47 @@ function Result() {
   }, [currentLanguage]);
 
   const handleDownloadPDF = async () => {
-    if (predictionData.id) {
+    try {
+      // Always try /latest/pdf first — works even if prediction ID is unknown
+      const token = localStorage.getItem("access_token") || "";
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+      const latestPdfUrl = `${baseUrl}/api/reports/latest/pdf`;
+
+      // Fetch as blob with auth token
+      const response = await fetch(latestPdfUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `DiaSense_Health_Report.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        return;
+      }
+    } catch (err) {
+      // fall through to ID-based download
+    }
+
+    // Fallback: ID-based download if we have a real prediction ID
+    if (predictionData.id && predictionData.id !== 1) {
       try {
         await reportService.downloadPdf(predictionData.id);
       } catch (err) {
-        console.warn("Direct blob PDF download failed, falling back to authenticated URL window:", err);
         const pdfUrl = reportService.getPdfUrl(predictionData.id);
         window.open(pdfUrl, "_blank");
       }
     } else {
+      // Last resort: browser print
       window.print();
     }
   };
+
 
   const getImpactLabel = (impact) => {
     if (!impact) return "";
