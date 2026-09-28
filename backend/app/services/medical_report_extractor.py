@@ -1,19 +1,29 @@
 """
-Medical Report Extractor Service — DiaSense AI
+Medical Report Extractor Service — DiaSense AI (Production Grade)
 Extracts diabetes-relevant health data from PDF and image medical reports.
+
+Features:
+- Dual-engine PDF extraction: pdfplumber (structured) + PyMuPDF (fallback)
+- High-resolution OCR with pytesseract for scanned documents and images
+- OCR Quality Control Check: detects unreadable, noisy, or garbled scans
+- Context-aware synonym dictionary matching clinical laboratory standards
+- Explicit medical unit normalization (e.g. mmol/L -> mg/dL, lbs -> kg, m/ft -> cm)
+- Physiological boundary validation & Confidence scoring (HIGH, MEDIUM, LOW)
+- Hard rule: NEVER INVENT patient data. Missing values remain missing.
 """
 import io
 import re
 import os
-import tempfile
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 
 logger = logging.getLogger(__name__)
 
-# ── Field validation ranges (matching prediction_schema.py) ──────────────────
+# ── Physiological Validation Ranges (matching PredictionRequest schema) ───────
 FIELD_RANGES = {
     "age":                    (1.0,   110.0),
+    "height":                 (100.0, 250.0),
+    "weight":                 (20.0,  250.0),
     "bmi":                    (10.0,  70.0),
     "blood_pressure":         (60.0,  220.0),
     "physical_activity_hours":(0.0,   20.0),
@@ -26,19 +36,26 @@ FIELD_RANGES = {
     "monthly_income":         (0.0,   200000.0),
 }
 
-GENDER_MAP = {"male": "Male", "female": "Female", "m": "Male", "f": "Female"}
-PATIENT_GROUP_MAP = {"urban": "Urban", "rural": "Rural", "semi-urban": "Semi-Urban", "semiurban": "Semi-Urban"}
-FAMILY_HISTORY_YES = {"yes", "positive", "present", "1", "true", "यस", "हाँ"}
-FAMILY_HISTORY_NO  = {"no", "negative", "absent", "0", "false", "none", "नहीं", "नहि"}
+GENDER_MAP = {
+    "male": "Male", "m": "Male", "man": "Male", "boy": "Male",
+    "female": "Female", "f": "Female", "woman": "Female", "girl": "Female"
+}
+PATIENT_GROUP_MAP = {
+    "urban": "Urban", "rural": "Rural", "semi-urban": "Semi-Urban",
+    "semiurban": "Semi-Urban", "suburban": "Semi-Urban"
+}
+FAMILY_HISTORY_YES = {"yes", "positive", "present", "1", "true", "detected", "यस", "हाँ"}
+FAMILY_HISTORY_NO  = {"no", "negative", "absent", "0", "false", "none", "nil", "नहीं", "नहि"}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TEXT EXTRACTION
+# 1. TEXT EXTRACTION & OCR
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _extract_text_from_pdf(file_bytes: bytes) -> str:
-    """Try pdfplumber first, fall back to PyMuPDF."""
+    """Extract native text from digital PDF using pdfplumber, falling back to PyMuPDF."""
     text = ""
+    # 1. pdfplumber
     try:
         import pdfplumber
         with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
@@ -47,197 +64,357 @@ def _extract_text_from_pdf(file_bytes: bytes) -> str:
                 if page_text:
                     text += page_text + "\n"
         if text.strip():
-            logger.info("PDF text extracted via pdfplumber (%d chars)", len(text))
+            logger.info("PDF text extracted via pdfplumber (%d characters)", len(text))
             return text
     except Exception as exc:
-        logger.warning("pdfplumber failed: %s", exc)
+        logger.warning("pdfplumber extraction failed: %s", exc)
 
-    # PyMuPDF fallback
+    # 2. PyMuPDF fallback
     try:
-        import fitz  # PyMuPDF
+        import fitz
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         for page in doc:
             text += page.get_text() + "\n"
         doc.close()
         if text.strip():
-            logger.info("PDF text extracted via PyMuPDF (%d chars)", len(text))
+            logger.info("PDF text extracted via PyMuPDF (%d characters)", len(text))
             return text
     except Exception as exc:
-        logger.warning("PyMuPDF fallback also failed: %s", exc)
+        logger.warning("PyMuPDF fallback failed: %s", exc)
 
     return text
 
 
-def _extract_text_from_image_bytes(file_bytes: bytes, content_type: str) -> str:
-    """OCR an image using pytesseract."""
+def _extract_text_from_image(file_bytes: bytes) -> str:
+    """OCR an image using pytesseract with PIL image preprocessing."""
     try:
         import pytesseract
-        from PIL import Image
+        from PIL import Image, ImageEnhance, ImageFilter
+
         img = Image.open(io.BytesIO(file_bytes))
-        text = pytesseract.image_to_string(img, lang="eng")
-        logger.info("Image OCR completed (%d chars)", len(text))
+        # Convert to grayscale and enhance contrast for better medical OCR accuracy
+        if img.mode != "L":
+            img = img.convert("L")
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(1.8)
+
+        text = pytesseract.image_to_string(img, lang="eng", config="--psm 6")
+        logger.info("Image OCR completed (%d characters)", len(text))
         return text
     except Exception as exc:
-        logger.warning("pytesseract OCR failed: %s", exc)
+        logger.warning("pytesseract image OCR failed: %s", exc)
         return ""
 
 
-def _pdf_needs_ocr(text: str) -> bool:
-    """Returns True if extracted text looks like a scanned/empty PDF."""
-    return len(text.strip()) < 50
-
-
-def _ocr_pdf_pages(file_bytes: bytes) -> str:
-    """Rasterise PDF pages and OCR them."""
+def _ocr_pdf_scanned_pages(file_bytes: bytes) -> str:
+    """Rasterize PDF pages to high-resolution images and run OCR."""
     text = ""
     try:
         import fitz
         import pytesseract
         from PIL import Image
+
         doc = fitz.open(stream=file_bytes, filetype="pdf")
-        for page in doc:
+        for i, page in enumerate(doc):
+            if i >= 5:  # Limit to first 5 pages for responsiveness
+                break
             pix = page.get_pixmap(dpi=200)
-            img = Image.open(io.BytesIO(pix.tobytes("png")))
-            text += pytesseract.image_to_string(img, lang="eng") + "\n"
+            img = Image.open(io.BytesIO(pix.tobytes("png"))).convert("L")
+            page_text = pytesseract.image_to_string(img, lang="eng", config="--psm 6")
+            text += page_text + "\n"
         doc.close()
-        logger.info("PDF OCR completed (%d chars)", len(text))
+        logger.info("Scanned PDF OCR completed (%d characters)", len(text))
     except Exception as exc:
-        logger.warning("PDF OCR failed: %s", exc)
+        logger.warning("Scanned PDF OCR failed: %s", exc)
     return text
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# MEDICAL FIELD EXTRACTION
+# 2. OCR QUALITY CONTROL CHECK
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _parse_float(s: str) -> Optional[float]:
-    try:
-        return float(re.sub(r"[^\d.]", "", s))
-    except (ValueError, TypeError):
-        return None
+def assess_ocr_quality(text: str) -> Tuple[bool, Optional[str]]:
+    """
+    Checks if extracted text is legible or degraded/garbled.
+    Returns (is_acceptable, warning_message).
+    """
+    cleaned = text.strip()
+    if len(cleaned) < 25:
+        return False, "The document text is very short or could not be read clearly. Please verify the highlighted fields."
+
+    # Ratio of alphanumeric characters to total characters
+    alphanumeric_count = sum(1 for c in cleaned if c.isalnum())
+    ratio = alphanumeric_count / max(len(cleaned), 1)
+
+    if ratio < 0.45:
+        return False, "Some information in this report could not be read clearly due to image quality or scan noise. Please verify the highlighted fields."
+
+    return True, None
 
 
-def _confidence(value: Optional[float], field: str) -> str:
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. CONTEXT-AWARE MEDICAL FIELD PARSER
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _confidence(value: Optional[float], field: str, has_explicit_unit: bool = False) -> str:
+    """Evaluate confidence level based on physiological bounds and unit evidence."""
     if value is None:
         return "LOW"
     lo, hi = FIELD_RANGES.get(field, (None, None))
     if lo is None:
-        return "HIGH"
+        return "HIGH" if has_explicit_unit else "MEDIUM"
+
     if lo <= value <= hi:
-        return "HIGH"
-    # Allow ±10% outside range → MEDIUM
-    if (lo * 0.9) <= value <= (hi * 1.1):
+        return "HIGH" if has_explicit_unit else "MEDIUM"
+    elif (lo * 0.9) <= value <= (hi * 1.1):
         return "MEDIUM"
     return "LOW"
 
 
-# Pattern registry: each entry → (field_key, regex, transform)
-# We prefer patterns with explicit labels (HIGH confidence).
-_PATTERNS = [
-    # Fasting Glucose
-    ("fasting_glucose",  r"fasting\s*(?:blood\s*)?(?:glucose|sugar)[:\s]+(\d+(?:\.\d+)?)\s*(?:mg[/\s]?dl)?", None),
-    ("fasting_glucose",  r"fbg[:\s]+(\d+(?:\.\d+)?)\s*(?:mg[/\s]?dl)?", None),
-    ("fasting_glucose",  r"fbs[:\s]+(\d+(?:\.\d+)?)\s*(?:mg[/\s]?dl)?", None),
-    ("fasting_glucose",  r"glucose[:\s]+(\d+(?:\.\d+)?)\s*(?:mg[/\s]?dl)?", None),
-    # HbA1c
-    ("hba1c",  r"hba1c[:\s]+(\d+(?:\.\d+)?)\s*%?", None),
-    ("hba1c",  r"glycated\s+haemoglobin[:\s]+(\d+(?:\.\d+)?)\s*%?", None),
-    ("hba1c",  r"glycosylated\s+hemoglobin[:\s]+(\d+(?:\.\d+)?)\s*%?", None),
-    ("hba1c",  r"a1c[:\s]+(\d+(?:\.\d+)?)\s*%?", None),
-    # Blood Pressure (systolic only)
-    ("blood_pressure",   r"blood\s*pressure[:\s]+(\d+)\s*/\s*\d+\s*(?:mmhg)?", None),
-    ("blood_pressure",   r"bp[:\s]+(\d+)\s*/\s*\d+\s*(?:mmhg)?", None),
-    ("blood_pressure",   r"systolic[:\s]+(\d+)\s*(?:mmhg)?", None),
-    # BMI
-    ("bmi",  r"bmi[:\s]+(\d+(?:\.\d+)?)\s*(?:kg[/\s]?m[\u00b2²2]?)?", None),
-    ("bmi",  r"body\s+mass\s+index[:\s]+(\d+(?:\.\d+)?)", None),
-    # Age
-    ("age",  r"\bage[:\s]+(\d+(?:\.\d+)?)\s*(?:years?|yrs?)?", None),
-    # Sleep
-    ("sleep_hours",  r"sleep[:\s]+(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)?", None),
-    ("sleep_hours",  r"sleep\s+duration[:\s]+(\d+(?:\.\d+)?)", None),
-    # Physical Activity
-    ("physical_activity_hours",  r"physical\s*activity[:\s]+(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)?", None),
-    ("physical_activity_hours",  r"exercise[:\s]+(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)?", None),
-    # Sugar intake
-    ("daily_sugar_intake",  r"sugar\s*intake[:\s]+(\d+(?:\.\d+)?)\s*(?:g(?:rams?)?)?", None),
-    # Fast food frequency
-    ("fast_food_frequency",  r"fast\s*food[:\s]+(\d+(?:\.\d+)?)\s*(?:times?|meals?)?(?:\s*per\s*week)?", None),
-    # Monthly Income
-    ("monthly_income",  r"monthly\s*income[:\s]+(\d+(?:\.\d+)?)", None),
-    ("monthly_income",  r"income[:\s]+(?:rs\.?|inr\.?|₹)?\s*(\d+(?:\.\d+)?)", None),
-]
-
-_GENDER_PATTERN   = re.compile(r"\bgender[:\s]+(\w+)", re.IGNORECASE)
-_GENDER_PATTERN2  = re.compile(r"\bsex[:\s]+(\w+)", re.IGNORECASE)
-_FH_PATTERN       = re.compile(
-    r"family\s*history(?:\s*of\s*diabetes)?[:\s]+(\w[\w\s-]*?)(?:\n|$)",
-    re.IGNORECASE
-)
-_PG_PATTERN       = re.compile(r"\b(urban|rural|semi-urban|semiurban)\b", re.IGNORECASE)
-
-
-def _extract_fields(text: str) -> Dict[str, Dict[str, Any]]:
-    """
-    Returns dict of { field_name: { value, confidence, raw } }
-    Only fields actually found in the text are returned.
-    """
-    lower = text.lower()
-    results: Dict[str, Dict[str, Any]] = {}
-
-    for field, pattern, transform in _PATTERNS:
-        if field in results:          # already captured with higher-priority pattern
-            continue
-        m = re.search(pattern, lower, re.IGNORECASE)
+def _extract_glucose(text: str) -> Optional[Dict[str, Any]]:
+    """Extract Fasting Blood Glucose, handling mg/dL and mmol/L."""
+    patterns = [
+        r"(?:fasting\s*(?:blood\s*)?(?:glucose|sugar)|fbg|fbs|fasting\s*plasma\s*glucose|plasma\s*glucose\s*[-:]?\s*fasting)[\s:=-]+(\d+(?:\.\d+)?)\s*(mg\s*/?\s*dl|mmol\s*/?\s*l)?",
+        r"\b(?:glucose|sugar)\s*[-:]?\s*fasting[\s:=-]+(\d+(?:\.\d+)?)\s*(mg\s*/?\s*dl|mmol\s*/?\s*l)?",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text, re.IGNORECASE)
         if m:
-            raw = m.group(1)
-            value = _parse_float(raw) if transform is None else transform(raw)
-            if value is not None:
-                conf = _confidence(value, field)
-                if conf != "LOW":
-                    results[field] = {"value": value, "confidence": conf, "raw": m.group(0)}
+            val = float(m.group(1))
+            unit = (m.group(2) or "").lower().replace(" ", "")
+            has_unit = bool(unit)
+
+            # Convert mmol/L to mg/dL if unit is mmol/l or value looks like mmol/L (< 25)
+            if "mmol" in unit or (val < 25.0 and val > 2.0 and not "mg" in unit):
+                val = round(val * 18.0182, 1)
+                unit = "mg/dL (converted from mmol/L)"
+                has_unit = True
+
+            conf = _confidence(val, "fasting_glucose", has_unit)
+            if conf != "LOW":
+                return {
+                    "value": val,
+                    "unit": "mg/dL",
+                    "confidence": conf,
+                    "raw": m.group(0).strip(),
+                }
+    return None
+
+
+def _extract_hba1c(text: str) -> Optional[Dict[str, Any]]:
+    """Extract HbA1c (Glycated Hemoglobin), handling % and IFCC mmol/mol."""
+    patterns = [
+        r"(?:hba1c|glycated\s*h[ae]moglobin|glycosylated\s*h[ae]moglobin|h[ae]moglobin\s*a1c|a1c)[\s:=-]+(\d+(?:\.\d+)?)\s*(%|percent|mmol\s*/?\s*mol)?",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            val = float(m.group(1))
+            unit = (m.group(2) or "").lower().replace(" ", "")
+            has_unit = bool(unit)
+
+            # Convert IFCC mmol/mol if value > 25 (e.g. 48 mmol/mol -> ~6.5%)
+            if "mmol" in unit or (val > 20.0 and val < 150.0):
+                val = round((val * 0.09148) + 2.152, 1)
+                unit = "% (converted from IFCC mmol/mol)"
+                has_unit = True
+
+            conf = _confidence(val, "hba1c", has_unit)
+            if conf != "LOW":
+                return {
+                    "value": val,
+                    "unit": "%",
+                    "confidence": conf,
+                    "raw": m.group(0).strip(),
+                }
+    return None
+
+
+def _extract_blood_pressure(text: str) -> Optional[Dict[str, Any]]:
+    """Extract Systolic Blood Pressure from pair (e.g. 120/80 mmHg) or standalone systolic."""
+    pair_pattern = r"(?:blood\s*pressure|b\.?p\.?|bp|systolic\s*bp)[\s:=-]+(\d{2,3})\s*(?:/|over)\s*(\d{2,3})\s*(mm\s*hg)?"
+    m = re.search(pair_pattern, text, re.IGNORECASE)
+    if m:
+        systolic = float(m.group(1))
+        diastolic = float(m.group(2))
+        has_unit = bool(m.group(3))
+        conf = _confidence(systolic, "blood_pressure", has_unit)
+        if conf != "LOW":
+            return {
+                "value": systolic,
+                "unit": "mmHg",
+                "confidence": conf,
+                "raw": m.group(0).strip(),
+                "details": f"{int(systolic)}/{int(diastolic)} mmHg",
+            }
+
+    # Standalone systolic
+    single_pattern = r"(?:systolic\s*(?:blood\s*pressure|bp)?|systolic)[\s:=-]+(\d{2,3})\s*(mm\s*hg)?"
+    sm = re.search(single_pattern, text, re.IGNORECASE)
+    if sm:
+        systolic = float(sm.group(1))
+        has_unit = bool(sm.group(2))
+        conf = _confidence(systolic, "blood_pressure", has_unit)
+        if conf != "LOW":
+            return {
+                "value": systolic,
+                "unit": "mmHg",
+                "confidence": conf,
+                "raw": sm.group(0).strip(),
+            }
+    return None
+
+
+def _extract_bmi(text: str) -> Optional[Dict[str, Any]]:
+    """Extract BMI (Body Mass Index)."""
+    pattern = r"(?:body\s*mass\s*index|b\.?m\.?i\.?|bmi)[\s:=-]+(\d+(?:\.\d+)?)\s*(kg\s*/?\s*m[\u00b2²2]?)?"
+    m = re.search(pattern, text, re.IGNORECASE)
+    if m:
+        val = float(m.group(1))
+        has_unit = bool(m.group(2))
+        conf = _confidence(val, "bmi", has_unit)
+        if conf != "LOW":
+            return {
+                "value": val,
+                "unit": "kg/m²",
+                "confidence": conf,
+                "raw": m.group(0).strip(),
+            }
+    return None
+
+
+def _extract_height_weight(text: str) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Extract Height (cm) and Weight (kg)."""
+    h_result = None
+    w_result = None
+
+    # Height: "Height: 170 cm" or "Height: 5 ft 8 in"
+    h_cm = re.search(r"(?:height|ht|stature)[\s:=-]+(\d+(?:\.\d+)?)\s*(cm|centimeters?|m|meters?)?", text, re.IGNORECASE)
+    if h_cm:
+        val = float(h_cm.group(1))
+        unit = (h_cm.group(2) or "").lower()
+        if "m" in unit and val < 3.0:
+            val = round(val * 100, 1)
+        if 100 <= val <= 250:
+            h_result = {"value": val, "unit": "cm", "confidence": "HIGH" if unit else "MEDIUM", "raw": h_cm.group(0).strip()}
+
+    # Height feet/inches
+    h_ft = re.search(r"(?:height|ht)[\s:=-]+(\d+)\s*(?:ft|feet|')\s*(?:and\s*)?(\d+)?\s*(?:in|inches|\")?", text, re.IGNORECASE)
+    if h_ft and not h_result:
+        ft = float(h_ft.group(1))
+        inch = float(h_ft.group(2)) if h_ft.group(2) else 0.0
+        cm = round((ft * 30.48 + inch * 2.54), 1)
+        if 100 <= cm <= 250:
+            h_result = {"value": cm, "unit": "cm", "confidence": "HIGH", "raw": h_ft.group(0).strip()}
+
+    # Weight: "Weight: 75 kg" or "Weight: 165 lbs"
+    w_match = re.search(r"(?:weight|wt|body\s*weight)[\s:=-]+(\d+(?:\.\d+)?)\s*(kg|kilos?|kilograms?|lbs?|pounds?)?", text, re.IGNORECASE)
+    if w_match:
+        val = float(w_match.group(1))
+        unit = (w_match.group(2) or "").lower()
+        if "lb" in unit or "pound" in unit:
+            val = round(val * 0.45359237, 1)
+        if 20 <= val <= 250:
+            w_result = {"value": val, "unit": "kg", "confidence": "HIGH" if unit else "MEDIUM", "raw": w_match.group(0).strip()}
+
+    return h_result, w_result
+
+
+def _extract_demographics_and_lifestyle(text: str) -> Dict[str, Dict[str, Any]]:
+    """Extract Age, Gender, Patient Group, Family History, Lifestyle habits."""
+    results = {}
+
+    # Age
+    age_match = re.search(r"\b(?:age|years\s*old)[\s:=-]+(\d{1,3})\s*(?:years?|yrs?)?\b", text, re.IGNORECASE)
+    if age_match:
+        age_val = float(age_match.group(1))
+        if 1 <= age_val <= 110:
+            results["age"] = {"value": age_val, "unit": "years", "confidence": "HIGH", "raw": age_match.group(0).strip()}
 
     # Gender
-    for pat in (_GENDER_PATTERN, _GENDER_PATTERN2):
-        gm = pat.search(text)
-        if gm:
-            gval = GENDER_MAP.get(gm.group(1).strip().lower())
-            if gval:
-                results["gender"] = {"value": gval, "confidence": "HIGH", "raw": gm.group(0)}
-            break
+    gender_match = re.search(r"\b(?:gender|sex)[\s:=-]+(\w+)\b", text, re.IGNORECASE)
+    if gender_match:
+        g = gender_match.group(1).lower()
+        if g in GENDER_MAP:
+            results["gender"] = {"value": GENDER_MAP[g], "unit": "", "confidence": "HIGH", "raw": gender_match.group(0).strip()}
 
     # Family History
-    fhm = _FH_PATTERN.search(text)
-    if fhm:
-        answer = fhm.group(1).strip().lower()
-        if any(k in answer for k in FAMILY_HISTORY_YES):
-            results["family_history"] = {"value": 1.0, "confidence": "HIGH", "raw": fhm.group(0)}
-        elif any(k in answer for k in FAMILY_HISTORY_NO):
-            results["family_history"] = {"value": 0.0, "confidence": "HIGH", "raw": fhm.group(0)}
+    fh_match = re.search(r"(?:family\s*history(?:\s*of\s*diabetes)?|diabetic\s*heredity)[\s:=-]+([a-zA-Z0-9]+)", text, re.IGNORECASE)
+    if fh_match:
+        ans = fh_match.group(1).strip().lower()
+        if any(w in ans for w in FAMILY_HISTORY_YES):
+            results["family_history"] = {"value": 1.0, "unit": "boolean", "confidence": "HIGH", "raw": fh_match.group(0).strip()}
+        elif any(w in ans for w in FAMILY_HISTORY_NO):
+            results["family_history"] = {"value": 0.0, "unit": "boolean", "confidence": "HIGH", "raw": fh_match.group(0).strip()}
 
-    # Patient Group
-    pgm = _PG_PATTERN.search(text)
-    if pgm:
-        pgval = PATIENT_GROUP_MAP.get(pgm.group(1).strip().lower(), "Urban")
-        results["patient_group"] = {"value": pgval, "confidence": "MEDIUM", "raw": pgm.group(0)}
+    # Location / Patient Group
+    loc_match = re.search(r"\b(urban|rural|semi[\s-]?urban|suburban)\b", text, re.IGNORECASE)
+    if loc_match:
+        norm = loc_match.group(1).lower().replace(" ", "").replace("-", "")
+        if "semi" in norm or "sub" in norm:
+            val = "Semi-Urban"
+        elif "rural" in norm:
+            val = "Rural"
+        else:
+            val = "Urban"
+        results["patient_group"] = {"value": val, "unit": "", "confidence": "MEDIUM", "raw": loc_match.group(0).strip()}
+
+    # Sleep Hours
+    sleep_match = re.search(r"(?:sleep\s*duration|sleep\s*hours|sleep)[\s:=-]+(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)?", text, re.IGNORECASE)
+    if sleep_match:
+        s_val = float(sleep_match.group(1))
+        if 2 <= s_val <= 14:
+            results["sleep_hours"] = {"value": s_val, "unit": "hours", "confidence": "HIGH", "raw": sleep_match.group(0).strip()}
+
+    # Physical Activity
+    act_match = re.search(r"(?:physical\s*activity|exercise|workout)[\s:=-]+(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)?", text, re.IGNORECASE)
+    if act_match:
+        act_val = float(act_match.group(1))
+        if 0 <= act_val <= 20:
+            results["physical_activity_hours"] = {"value": act_val, "unit": "hours/day", "confidence": "HIGH", "raw": act_match.group(0).strip()}
+
+    # Daily Sugar Intake
+    sugar_match = re.search(r"(?:sugar\s*intake|daily\s*sugar)[\s:=-]+(\d+(?:\.\d+)?)\s*(?:grams?|g)?", text, re.IGNORECASE)
+    if sugar_match:
+        sug_val = float(sugar_match.group(1))
+        if 0 <= sug_val <= 200:
+            results["daily_sugar_intake"] = {"value": sug_val, "unit": "grams", "confidence": "HIGH", "raw": sugar_match.group(0).strip()}
+
+    # Fast food frequency
+    ff_match = re.search(r"(?:fast\s*food|junk\s*food)[\s:=-]+(\d+(?:\.\d+)?)\s*(?:meals?|times?)?", text, re.IGNORECASE)
+    if ff_match:
+        ff_val = float(ff_match.group(1))
+        if 0 <= ff_val <= 15:
+            results["fast_food_frequency"] = {"value": ff_val, "unit": "meals/week", "confidence": "HIGH", "raw": ff_match.group(0).strip()}
+
+    # Monthly income
+    inc_match = re.search(r"(?:monthly\s*income|household\s*income|salary)[\s:=-]+(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)", text, re.IGNORECASE)
+    if inc_match:
+        inc_val = float(inc_match.group(1))
+        if 0 <= inc_val <= 200000:
+            results["monthly_income"] = {"value": inc_val, "unit": "₹", "confidence": "HIGH", "raw": inc_match.group(0).strip()}
 
     return results
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PUBLIC API
+# 4. MAIN EXTRACTION ENTRY POINT
 # ─────────────────────────────────────────────────────────────────────────────
 
 def extract_from_report(file_bytes: bytes, filename: str, content_type: str) -> Dict[str, Any]:
     """
-    Main entry point. Returns:
+    Main extraction pipeline.
+    Returns:
     {
         "success": bool,
         "source_type": "pdf_text" | "pdf_ocr" | "image_ocr",
-        "raw_text_preview": str,          # first 500 chars of extracted text
+        "ocr_quality_ok": bool,
+        "ocr_quality_warning": str | None,
+        "raw_text_preview": str,
         "extracted_fields": {
-            field_name: { "value": ..., "confidence": "HIGH"|"MEDIUM", "raw": "..." }
+            field_name: { "value": Any, "unit": str, "confidence": "HIGH"|"MEDIUM"|"LOW", "raw": str }
         },
+        "fields_found": int,
         "error": str | None
     }
     """
@@ -245,41 +422,90 @@ def extract_from_report(file_bytes: bytes, filename: str, content_type: str) -> 
     ct_lower = (content_type or "").lower()
 
     try:
+        # Determine extraction strategy
         if fn_lower.endswith(".pdf") or "pdf" in ct_lower:
             text = _extract_text_from_pdf(file_bytes)
             source_type = "pdf_text"
-            if _pdf_needs_ocr(text):
-                text = _ocr_pdf_pages(file_bytes)
+            if len(text.strip()) < 50:
+                text = _ocr_pdf_scanned_pages(file_bytes)
                 source_type = "pdf_ocr"
         else:
-            # image
-            text = _extract_text_from_image_bytes(file_bytes, content_type)
+            text = _extract_text_from_image(file_bytes)
             source_type = "image_ocr"
 
+        # Quality check
+        quality_ok, quality_warning = assess_ocr_quality(text)
         if not text.strip():
             return {
                 "success": False,
                 "source_type": source_type,
+                "ocr_quality_ok": False,
+                "ocr_quality_warning": "No readable text could be extracted from this document. Please enter values manually.",
                 "raw_text_preview": "",
                 "extracted_fields": {},
-                "error": "Could not read any text from this document. Please enter values manually.",
+                "fields_found": 0,
+                "error": "Could not read text from this file. Please enter values manually.",
             }
 
-        fields = _extract_fields(text)
+        # Context-aware extraction
+        extracted_fields: Dict[str, Dict[str, Any]] = {}
+
+        # 1. Glucose
+        gl = _extract_glucose(text)
+        if gl:
+            extracted_fields["fasting_glucose"] = gl
+
+        # 2. HbA1c
+        hb = _extract_hba1c(text)
+        if hb:
+            extracted_fields["hba1c"] = hb
+
+        # 3. Blood Pressure
+        bp = _extract_blood_pressure(text)
+        if bp:
+            extracted_fields["blood_pressure"] = bp
+
+        # 4. BMI
+        bmi = _extract_bmi(text)
+        if bmi:
+            extracted_fields["bmi"] = bmi
+
+        # 5. Height & Weight
+        ht, wt = _extract_height_weight(text)
+        if ht:
+            extracted_fields["height"] = ht
+        if wt:
+            extracted_fields["weight"] = wt
+
+        # 6. Demographics & Lifestyle
+        demo_life = _extract_demographics_and_lifestyle(text)
+        extracted_fields.update(demo_life)
+
+        logger.info(
+            "Extraction completed for %s: %d fields found (source=%s, quality_ok=%s)",
+            filename, len(extracted_fields), source_type, quality_ok
+        )
+
         return {
             "success": True,
             "source_type": source_type,
+            "ocr_quality_ok": quality_ok,
+            "ocr_quality_warning": quality_warning,
             "raw_text_preview": text[:500],
-            "extracted_fields": fields,
+            "extracted_fields": extracted_fields,
+            "fields_found": len(extracted_fields),
             "error": None,
         }
 
     except Exception as exc:
-        logger.error("Report extraction error: %s", exc, exc_info=True)
+        logger.error("Medical report extraction error on %s: %s", filename, exc, exc_info=True)
         return {
             "success": False,
             "source_type": "unknown",
+            "ocr_quality_ok": False,
+            "ocr_quality_warning": None,
             "raw_text_preview": "",
             "extracted_fields": {},
-            "error": "An unexpected error occurred while processing your report. Please try again.",
+            "fields_found": 0,
+            "error": "An error occurred while processing the document. Please enter your health values manually.",
         }

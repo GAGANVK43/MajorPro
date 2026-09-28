@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 import bcrypt
 from jose import JWTError, jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -122,3 +122,37 @@ def get_optional_current_user(
         return user_repo.get_by_email(email)
     except Exception:
         return None
+
+
+def get_current_user_with_query_token(
+    token: Optional[str] = Query(None, description="Alternative JWT token query parameter for downloads"),
+    bearer_token: Optional[str] = Depends(oauth2_scheme_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    Dependency to authenticate user via Bearer token header OR ?token= query parameter.
+    Used for authenticated media/file downloads (e.g. PDF reports) without compromising security.
+    """
+    effective_token = bearer_token or token
+    if not effective_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    payload = decode_token(effective_token)
+    email: str = payload.get("sub")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token format",
+        )
+    from app.repositories.user_repository import UserRepository
+    user_repo = UserRepository(db)
+    user = user_repo.get_by_email(email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User associated with token no longer exists",
+        )
+    return user

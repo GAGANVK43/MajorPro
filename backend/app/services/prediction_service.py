@@ -236,6 +236,10 @@ class PredictionService:
             created_at=latest.created_at,
         )
 
+    def get_prediction_by_id(self, prediction_id: int) -> Optional[Prediction]:
+        """Retrieve a specific prediction entity by ID."""
+        return self.prediction_repo.get_by_id(prediction_id)
+
     def get_prediction_history(self, user: User, lang: str = "en") -> PredictionListResponse:
         predictions = self.prediction_repo.get_history_by_user_id(user.id)
         items = []

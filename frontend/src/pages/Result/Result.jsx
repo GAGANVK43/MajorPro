@@ -110,10 +110,15 @@ function Result() {
     fetchLatestData();
   }, [currentLanguage]);
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (predictionData.id) {
-      const pdfUrl = reportService.getPdfUrl(predictionData.id);
-      window.open(pdfUrl, "_blank");
+      try {
+        await reportService.downloadPdf(predictionData.id);
+      } catch (err) {
+        console.warn("Direct blob PDF download failed, falling back to authenticated URL window:", err);
+        const pdfUrl = reportService.getPdfUrl(predictionData.id);
+        window.open(pdfUrl, "_blank");
+      }
     } else {
       window.print();
     }

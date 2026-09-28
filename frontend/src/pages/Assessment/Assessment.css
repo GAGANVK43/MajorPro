@@ -746,3 +746,40 @@
   background: rgba(16, 185, 129, 0.15);
   color: #34d399;
 }
+
+/* ═══ OCR QUALITY WARNING BOX ══════════════════════════════════════════════ */
+.ocr-warning-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.2rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.ocr-warning-box svg {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+/* ═══ VOICE CONVERTED LABEL ════════════════════════════════════════════════ */
+.vc-converted {
+  font-size: 0.8rem;
+  color: #38bdf8;
+  background: rgba(14, 165, 233, 0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  margin-bottom: 0.8rem;
+}
+
+/* ═══ INLINE ERROR TEXT ════════════════════════════════════════════════════ */
+.error-text {
+  font-size: 0.75rem;
+  color: #f87171;
+  font-weight: 500;
+  margin-left: auto;
+}

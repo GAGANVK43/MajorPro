@@ -74,6 +74,8 @@ async def extract_medical_report(file: UploadFile = File(...)):
             "success": True,
             "extracted_fields": fields,
             "source_type": result["source_type"],
+            "ocr_quality_ok": result.get("ocr_quality_ok", True),
+            "ocr_quality_warning": result.get("ocr_quality_warning", None),
             "fields_found": len(fields),
             "raw_text_preview": result.get("raw_text_preview", "")[:300],
         },

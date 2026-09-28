@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -34,7 +34,8 @@ api.interceptors.response.use(
     }
     const message =
       error.response?.data?.message ||
-      error.response?.data?.detail ||
+      (typeof error.response?.data?.detail === "string" ? error.response.data.detail : null) ||
+      error.message ||
       "An unexpected network error occurred";
     return Promise.reject(new Error(message));
   }
@@ -82,7 +83,31 @@ export const contactService = {
 
 export const reportService = {
   getById: (id) => api.get(`/api/reports/${id}`),
-  getPdfUrl: (id) => `${API_BASE_URL}/api/reports/${id}/pdf`,
+  getPdfUrl: (id) => {
+    const token = localStorage.getItem("access_token") || "";
+    const base = API_BASE_URL || window.location.origin;
+    return token
+      ? `${base}/api/reports/${id}/pdf?token=${encodeURIComponent(token)}`
+      : `${base}/api/reports/${id}/pdf`;
+  },
+  downloadPdf: async (id) => {
+    const token = localStorage.getItem("access_token");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const base = API_BASE_URL || "";
+    const res = await axios.get(`${base}/api/reports/${id}/pdf`, {
+      headers,
+      responseType: "blob",
+    });
+    const blob = new Blob([res.data], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `DiaSense_Health_Report_${id}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 export const chatbotService = {
