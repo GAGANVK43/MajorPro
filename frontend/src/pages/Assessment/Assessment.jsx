@@ -7,8 +7,9 @@ import {
   FaBrain, FaInfoCircle, FaCalculator, FaAppleAlt,
   FaMicrophone, FaMicrophoneSlash, FaFileUpload,
   FaFileAlt, FaTimesCircle, FaCheckDouble, FaVolumeUp,
-  FaStopCircle, FaEdit, FaExclamationTriangle, FaRobot,
-  FaKeyboard, FaCheck, FaTimes, FaShieldAlt
+  FaVolumeMute, FaStopCircle, FaEdit, FaExclamationTriangle,
+  FaRobot, FaKeyboard, FaCheck, FaTimes, FaShieldAlt,
+  FaArrowRight, FaArrowLeft, FaExchangeAlt, FaRedo, FaUndo
 } from "react-icons/fa";
 
 import Navbar from "../../components/Navbar/Navbar";
@@ -32,11 +33,12 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. CANONICAL ASSESSMENT SCHEMA (Single Source of Truth)
 // ─────────────────────────────────────────────────────────────────────────────
-const CANONICAL_ASSESSMENT_SCHEMA = {
-  // Priority 1 — Required Model Inputs
+export const CANONICAL_ASSESSMENT_SCHEMA = {
+  // Priority 1 — Personal & Physical
   age: {
     key: "age",
     label: "Age",
+    group: "personal",
     priority: 1,
     required: true,
     type: "number",
@@ -44,33 +46,39 @@ const CANONICAL_ASSESSMENT_SCHEMA = {
     unit: "years",
     step: 1,
     question: "What is your age in years?",
+    hint: "Enter your age between 1 and 110 years.",
     placeholder: "e.g. 42",
   },
   gender: {
     key: "gender",
     label: "Gender",
+    group: "personal",
     priority: 1,
     required: true,
     type: "select",
     options: ["Male", "Female"],
     step: 1,
     question: "What is your gender? Male or Female?",
+    hint: "Choose Male or Female.",
     placeholder: "Male or Female",
   },
   patientGroup: {
     key: "patientGroup",
     label: "Location Type",
+    group: "personal",
     priority: 1,
     required: true,
     type: "select",
     options: ["Urban", "Rural", "Semi-Urban"],
     step: 1,
     question: "Do you live in an Urban, Rural, or Semi-Urban area?",
+    hint: "Select your primary living environment.",
     placeholder: "Urban / Rural / Semi-Urban",
   },
   height: {
     key: "height",
     label: "Height",
+    group: "personal",
     priority: 1,
     required: true,
     type: "number",
@@ -78,11 +86,13 @@ const CANONICAL_ASSESSMENT_SCHEMA = {
     unit: "cm",
     step: 1,
     question: "What is your height in centimeters (or feet and inches)?",
+    hint: "Height in centimeters (e.g. 170) or say '5 feet 8 inches'.",
     placeholder: "e.g. 170",
   },
   weight: {
     key: "weight",
     label: "Weight",
+    group: "personal",
     priority: 1,
     required: true,
     type: "number",
@@ -90,39 +100,30 @@ const CANONICAL_ASSESSMENT_SCHEMA = {
     unit: "kg",
     step: 1,
     question: "What is your weight in kilograms?",
+    hint: "Weight in kilograms (e.g. 70) or say '154 pounds'.",
     placeholder: "e.g. 75",
   },
+  bmi: {
+    key: "bmi",
+    label: "BMI (Body Mass Index)",
+    group: "personal",
+    priority: 1,
+    required: true,
+    type: "number",
+    min: 10, max: 70,
+    unit: "kg/m²",
+    autoCalculated: true,
+    step: 1,
+    question: "What is your Body Mass Index (BMI)?",
+    hint: "Automatically calculated from height and weight.",
+    placeholder: "Auto-calculated",
+  },
 
-  // Priority 2 — High-Value Clinical Measurements
-  fastingGlucose: {
-    key: "fastingGlucose",
-    label: "Fasting Blood Glucose",
-    priority: 2,
-    required: false,
-    clinical: true,
-    type: "number",
-    min: 50, max: 450,
-    unit: "mg/dL",
-    step: 2,
-    question: "What is your fasting blood glucose level in mg/dL?",
-    placeholder: "e.g. 108 (optional)",
-  },
-  hba1c: {
-    key: "hba1c",
-    label: "HbA1c Level",
-    priority: 2,
-    required: false,
-    clinical: true,
-    type: "number",
-    min: 3.0, max: 20.0,
-    unit: "%",
-    step: 2,
-    question: "What is your HbA1c percentage?",
-    placeholder: "e.g. 5.8 (optional)",
-  },
+  // Priority 2 — Clinical Measurements
   bloodPressure: {
     key: "bloodPressure",
     label: "Systolic Blood Pressure",
+    group: "clinical",
     priority: 2,
     required: false,
     clinical: true,
@@ -131,25 +132,74 @@ const CANONICAL_ASSESSMENT_SCHEMA = {
     unit: "mmHg",
     step: 2,
     question: "What is your systolic blood pressure in mmHg?",
-    placeholder: "e.g. 125 (optional)",
+    hint: "Systolic value (e.g. 120 from 120/80 mmHg).",
+    placeholder: "e.g. 120 (optional)",
   },
-  familyHistory: {
-    key: "familyHistory",
-    label: "Family History of Diabetes",
+  hba1c: {
+    key: "hba1c",
+    label: "HbA1c Level",
+    group: "clinical",
     priority: 2,
     required: false,
     clinical: true,
-    type: "select",
-    options: ["0", "1"],
+    type: "number",
+    min: 3.0, max: 20.0,
+    unit: "%",
     step: 2,
-    question: "Do you have a family history of diabetes? Yes or No?",
-    placeholder: "Yes or No",
+    question: "What is your HbA1c percentage from your lab report?",
+    hint: "Glycated hemoglobin (normal: < 5.7%, prediabetes: 5.7–6.4%).",
+    placeholder: "e.g. 5.8 (optional)",
+  },
+  fastingGlucose: {
+    key: "fastingGlucose",
+    label: "Fasting Blood Glucose",
+    group: "clinical",
+    priority: 2,
+    required: false,
+    clinical: true,
+    type: "number",
+    min: 50, max: 450,
+    unit: "mg/dL",
+    step: 2,
+    question: "What is your fasting blood glucose level in mg/dL?",
+    hint: "Measured after 8+ hours fast (normal: 70–99 mg/dL).",
+    placeholder: "e.g. 108 (optional)",
+  },
+  monthlyIncome: {
+    key: "monthlyIncome",
+    label: "Monthly Income",
+    group: "clinical",
+    priority: 2,
+    required: false,
+    clinical: true,
+    type: "number",
+    min: 0, max: 200000,
+    unit: "₹",
+    step: 2,
+    question: "What is your monthly household income in rupees?",
+    hint: "Demographic risk calibration factor.",
+    placeholder: "e.g. 35000 (optional)",
   },
 
-  // Priority 3 — Remaining Lifestyle Factors
+  // Priority 3 — Lifestyle & Habits
+  familyHistory: {
+    key: "familyHistory",
+    label: "Family History of Diabetes",
+    group: "lifestyle",
+    priority: 3,
+    required: false,
+    lifestyle: true,
+    type: "select",
+    options: ["0", "1"],
+    step: 3,
+    question: "Does anyone in your immediate family have diabetes?",
+    hint: "Parent, sibling, or child with diagnosed diabetes.",
+    placeholder: "Yes or No",
+  },
   physicalActivityHours: {
     key: "physicalActivityHours",
     label: "Physical Activity",
+    group: "lifestyle",
     priority: 3,
     required: false,
     lifestyle: true,
@@ -158,24 +208,28 @@ const CANONICAL_ASSESSMENT_SCHEMA = {
     unit: "hours/day",
     step: 3,
     question: "How many hours per day do you spend on physical activity?",
-    placeholder: "e.g. 3.0",
+    hint: "Walking, jogging, sports, or physical work.",
+    placeholder: "e.g. 1.5",
   },
   dailySugarIntake: {
     key: "dailySugarIntake",
     label: "Daily Sugar Intake",
+    group: "lifestyle",
     priority: 3,
     required: false,
     lifestyle: true,
     type: "number",
     min: 0, max: 200,
-    unit: "grams",
+    unit: "grams/day",
     step: 3,
-    question: "How many grams of sugar do you consume daily?",
-    placeholder: "e.g. 50",
+    question: "Approximately how many grams of sugar do you consume daily?",
+    hint: "Sugar from tea, sweets, soda, snacks (WHO suggests < 50g).",
+    placeholder: "e.g. 45",
   },
   fastFoodFrequency: {
     key: "fastFoodFrequency",
     label: "Fast Food Frequency",
+    group: "lifestyle",
     priority: 3,
     required: false,
     lifestyle: true,
@@ -183,34 +237,24 @@ const CANONICAL_ASSESSMENT_SCHEMA = {
     min: 0, max: 15,
     unit: "meals/week",
     step: 3,
-    question: "How many fast food meals do you eat per week?",
+    question: "How many fast food or processed meals do you eat per week?",
+    hint: "Fried foods, restaurant takeout, instant snacks.",
     placeholder: "e.g. 2",
   },
   sleepHours: {
     key: "sleepHours",
     label: "Sleep Duration",
+    group: "lifestyle",
     priority: 3,
     required: false,
     lifestyle: true,
     type: "number",
     min: 2, max: 14,
-    unit: "hours",
+    unit: "hours/night",
     step: 3,
     question: "How many hours do you sleep per night on average?",
+    hint: "Typical restorative sleep duration.",
     placeholder: "e.g. 7",
-  },
-  monthlyIncome: {
-    key: "monthlyIncome",
-    label: "Monthly Income",
-    priority: 3,
-    required: false,
-    lifestyle: true,
-    type: "number",
-    min: 0, max: 200000,
-    unit: "₹",
-    step: 2,
-    question: "What is your monthly household income in rupees? (optional)",
-    placeholder: "e.g. 35000",
   },
 };
 
@@ -233,65 +277,96 @@ const BACKEND_TO_FORM = {
   patient_group: "patientGroup",
 };
 
-// Ordered list for sequential voice mode (Priority 1 -> 2 -> 3)
-const VOICE_QUESTION_ORDER = [
+// Sequential Question Order for Voice Mode
+const VOICE_QUESTION_KEYS = [
   "age", "gender", "patientGroup", "height", "weight",
-  "fastingGlucose", "hba1c", "bloodPressure", "familyHistory",
-  "physicalActivityHours", "dailySugarIntake", "fastFoodFrequency",
-  "sleepHours", "monthlyIncome",
+  "bloodPressure", "hba1c", "fastingGlucose", "monthlyIncome",
+  "familyHistory", "physicalActivityHours", "dailySugarIntake", "fastFoodFrequency", "sleepHours"
 ];
 
+// Sequential Question Order for Manual One-Question-at-a-Time Mode
+const MANUAL_QUESTION_KEYS = [
+  "age", "gender", "patientGroup", "height", "weight",
+  "familyHistory", "physicalActivityHours", "dailySugarIntake", "fastFoodFrequency", "sleepHours",
+  "bloodPressure", "hba1c", "fastingGlucose", "monthlyIncome",
+];
+
+
 function Assessment() {
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { t, language } = useTranslation();
 
-  // ── Unified Assessment State ───────────────────────────────────────────────
+  // ── Mode Selection State ──────────────────────────────────────────────────
+  // null = Landing (Mode Selection), 'voice' = Voice Mode, 'report' = Report Mode, 'manual' = Manual Mode, 'review' = Final Review
+  const [assessmentMode, setAssessmentMode] = useState(null);
+  const [showSwitchModal, setShowSwitchModal] = useState(false);
+  const [pendingModeSwitch, setPendingModeSwitch] = useState(null);
+
+  // ── Manual Step State (1: Personal, 2: Clinical, 3: Lifestyle) ────────────
+  const [manualStep, setManualStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+
+  // ── Unified Assessment State (Canonical Single Source of Truth) ────────────
   const [formData, setFormData] = useState({
     fullName: "",
-    age: "42",
+    age: "",
     gender: "Male",
     patientGroup: "Urban",
-    height: "170",
-    weight: "75",
-    bmi: "26.0",
+    height: "",
+    weight: "",
+    bmi: "",
     fastingGlucose: "",
     hba1c: "",
     bloodPressure: "",
     familyHistory: "0",
-    physicalActivityHours: "3",
-    dailySugarIntake: "50",
-    fastFoodFrequency: "2",
-    sleepHours: "7",
+    physicalActivityHours: "",
+    dailySugarIntake: "",
+    fastFoodFrequency: "",
+    sleepHours: "",
     monthlyIncome: "",
   });
 
-  // Track field metadata: source ('manual' | 'voice' | 'medical_report') and confirmed status
+  // Track field metadata: source ('manual' | 'voice' | 'report') and confidence ('HIGH' | 'MEDIUM' | 'LOW')
   const [fieldMetadata, setFieldMetadata] = useState({});
 
-  // ── Voice State ──────────────────────────────────────────────────────────
-  const [voiceMode, setVoiceMode] = useState(false);
+  // ── Voice Mode State ──────────────────────────────────────────────────────
+  const [voiceIndex, setVoiceIndex] = useState(0);
   const [isListening, setIsListening] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState("");
-  const [voiceField, setVoiceField] = useState(null);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [voiceInterpreted, setVoiceInterpreted] = useState(null);
   const [voiceConfirmation, setVoiceConfirmation] = useState(null);
+  // Separate Voice Input (speech recognition) and Voice Output (TTS) toggles
+  const [voiceInputEnabled, setVoiceInputEnabled] = useState(true);
+  const [voiceOutputEnabled, setVoiceOutputEnabled] = useState(true);
+  // Keep voiceAudioEnabled for backward compat — derived from output
+  const voiceAudioEnabled = voiceOutputEnabled;
+  const [voiceTextInput, setVoiceTextInput] = useState("");
 
-  // ── Report Upload & OCR State ────────────────────────────────────────────
+  // ── Manual One-Question-at-a-Time State ───────────────────────────────────
+  const [manualQuestionIndex, setManualQuestionIndex] = useState(0);
+  const [manualTextInput, setManualTextInput] = useState("");
+
+
+  // ── Report Mode State ─────────────────────────────────────────────────────
+  const [reportStep, setReportStep] = useState("upload"); // 'upload' | 'review_extracted' | 'missing_qa'
   const [reportFile, setReportFile] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
-  const [showExtracted, setShowExtracted] = useState(false);
   const [editableExtracted, setEditableExtracted] = useState({});
   const [ocrQualityWarning, setOcrQualityWarning] = useState(null);
+  const [reportError, setReportError] = useState(null);
+
+  // ── Conflicts State ───────────────────────────────────────────────────────
   const [conflicts, setConflicts] = useState([]);
   const [resolvingConflict, setResolvingConflict] = useState(null);
 
-  // ── Missing Data Detection State ─────────────────────────────────────────
-  const [missingQA, setMissingQA] = useState(null);
-  const [missingTextInput, setMissingTextInput] = useState("");
+  // ── Missing Data QA State (Shared by Report & Manual) ─────────────────────
+  const [missingQueue, setMissingQueue] = useState([]);
+  const [missingIndex, setMissingIndex] = useState(0);
+  const [missingInput, setMissingInput] = useState("");
   const [missingListening, setMissingListening] = useState(false);
 
-  // ── Validation Errors (Data Quality Gate) ─────────────────────────────────
+  // ── Validation Errors ─────────────────────────────────────────────────────
   const [validationErrors, setValidationErrors] = useState({});
 
   const fileInputRef = useRef(null);
@@ -306,11 +381,12 @@ function Assessment() {
     }
   }, [formData.height, formData.weight]);
 
-  const updateField = (field, value, source = "manual", confirmed = true) => {
+  // Unified State Updater with Source Tracking
+  const updateField = useCallback((field, value, source = "manual", confidence = "HIGH") => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setFieldMetadata((prev) => ({
       ...prev,
-      [field]: { source, confirmed, timestamp: Date.now() },
+      [field]: { source, confidence, timestamp: Date.now() },
     }));
     // Clear validation error on change
     setValidationErrors((prev) => {
@@ -318,13 +394,26 @@ function Assessment() {
       delete updated[field];
       return updated;
     });
-  };
+  }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 2. DATA QUALITY GATE
-  // Ensures data is complete, valid, and confirmed before ML prediction
+  // UNIFIED MISSING-DATA ENGINE
   // ─────────────────────────────────────────────────────────────────────────
-  const validateDataQualityGate = () => {
+  const getMissingFields = useCallback(() => {
+    return Object.values(CANONICAL_ASSESSMENT_SCHEMA)
+      .sort((a, b) => a.priority - b.priority)
+      .filter((def) => {
+        if (def.autoCalculated) return false;
+        const val = formData[def.key];
+        return val === null || val === undefined || String(val).trim() === "";
+      })
+      .map((def) => def.key);
+  }, [formData]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // UNIFIED VALIDATION ENGINE
+  // ─────────────────────────────────────────────────────────────────────────
+  const validateAssessment = useCallback(() => {
     const errors = {};
 
     // 1. Check all required Priority 1 fields
@@ -340,7 +429,7 @@ function Assessment() {
         }
       });
 
-    // 2. Check clinical & lifestyle fields for valid ranges if provided
+    // 2. Validate optional clinical & lifestyle fields if provided
     Object.values(CANONICAL_ASSESSMENT_SCHEMA)
       .filter((def) => !def.required)
       .forEach((def) => {
@@ -353,75 +442,44 @@ function Assessment() {
 
     // 3. Check for unresolved conflicts
     if (conflicts.length > 0) {
-      errors["conflicts"] = "Please resolve the conflicting data values before proceeding.";
+      errors["conflicts"] = "Please resolve conflicting values before proceeding.";
     }
 
     setValidationErrors(errors);
     return {
-      passed: Object.keys(errors).length === 0,
+      isValid: Object.keys(errors).length === 0,
       errors,
     };
-  };
+  }, [formData, conflicts]);
 
-  // Step-level form validation
-  const validateStep = (currentStep) => {
-    if (currentStep === 1) {
-      const p1Errors = {};
-      ["age", "gender", "patientGroup", "height", "weight"].forEach((k) => {
-        const def = CANONICAL_ASSESSMENT_SCHEMA[k];
-        const val = formData[k];
-        if (!val || String(val).trim() === "") {
-          p1Errors[k] = `${def.label} is required.`;
-        } else {
-          const { valid, message } = validateField(k, val);
-          if (!valid) p1Errors[k] = message;
-        }
-      });
-      if (Object.keys(p1Errors).length > 0) {
-        setValidationErrors(p1Errors);
-        toast.error(Object.values(p1Errors)[0]);
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const handleNextStep = () => {
-    if (validateStep(step)) {
-      if (step === 3) {
-        handleAnalysis();
-      } else {
-        setStep((prev) => prev + 1);
-      }
-    }
-  };
-
-  const handleAnalysis = async () => {
-    const qualityGate = validateDataQualityGate();
-    if (!qualityGate.passed) {
-      const firstError = Object.values(qualityGate.errors)[0];
-      toast.error(`⚠️ Data Quality Gate: ${firstError}`);
+  // ─────────────────────────────────────────────────────────────────────────
+  // PREDICTION PIPELINE (Single Shared ML Endpoint)
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleConfirmAndAnalyze = async () => {
+    const validation = validateAssessment();
+    if (!validation.isValid) {
+      const firstError = Object.values(validation.errors)[0];
+      toast.error(`⚠️ Please check: ${firstError}`);
       return;
     }
 
     setLoading(true);
-    toast.info("🧠 Analysing your health profile with ML model...");
 
     try {
       const payload = {
-        patient_group:           formData.patientGroup || null,
-        age:                     parseFloat(formData.age) || null,
-        gender:                  formData.gender || null,
-        bmi:                     parseFloat(formData.bmi) || null,
-        blood_pressure:          formData.bloodPressure ? parseFloat(formData.bloodPressure) : null,
-        physical_activity_hours: formData.physicalActivityHours ? parseFloat(formData.physicalActivityHours) : null,
-        daily_sugar_intake:      formData.dailySugarIntake ? parseFloat(formData.dailySugarIntake) : null,
-        fast_food_frequency:     formData.fastFoodFrequency ? parseFloat(formData.fastFoodFrequency) : null,
-        sleep_hours:             formData.sleepHours ? parseFloat(formData.sleepHours) : null,
-        hba1c:                   formData.hba1c ? parseFloat(formData.hba1c) : null,
+        patient_group:           formData.patientGroup || "Urban",
+        age:                     formData.age ? parseInt(formData.age, 10) : null,
+        gender:                  formData.gender || "Male",
+        bmi:                     formData.bmi ? parseFloat(formData.bmi) : null,
+        blood_pressure:          formData.bloodPressure ? parseFloat(formData.bloodPressure) : 120.0,
+        physical_activity_hours: formData.physicalActivityHours ? parseFloat(formData.physicalActivityHours) : 2.0,
+        daily_sugar_intake:      formData.dailySugarIntake ? parseFloat(formData.dailySugarIntake) : 30.0,
+        fast_food_frequency:     formData.fastFoodFrequency ? parseFloat(formData.fastFoodFrequency) : 2.0,
+        sleep_hours:             formData.sleepHours ? parseFloat(formData.sleepHours) : 7.0,
+        hba1c:                   formData.hba1c ? parseFloat(formData.hba1c) : 5.7,
         fasting_glucose:         formData.fastingGlucose ? parseFloat(formData.fastingGlucose) : null,
-        family_history:          parseFloat(formData.familyHistory) || 0,
-        monthly_income:          formData.monthlyIncome ? parseFloat(formData.monthlyIncome) : null,
+        family_history:          parseFloat(formData.familyHistory) || 0.0,
+        monthly_income:          formData.monthlyIncome ? parseFloat(formData.monthlyIncome) : 35000.0,
         month:                   new Date().getMonth() + 1,
       };
 
@@ -430,31 +488,110 @@ function Assessment() {
 
       localStorage.setItem("latest_prediction", JSON.stringify(resultData));
       toast.success("✅ Health risk screening complete!");
-      setTimeout(() => navigate("/result"), 800);
+      setTimeout(() => navigate("/result"), 600);
     } catch (err) {
-      toast.error(err.message || "Failed to analyze health information. Please verify your data.");
+      const msg = err?.response?.data?.message || err?.message || "Something went wrong while processing your assessment.";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // FEATURE 2: VOICE INPUT & OUTPUT (Production-Quality)
+  // MODE SWITCHING / NAVIGATION SAFETY
   // ─────────────────────────────────────────────────────────────────────────
-  const handleMicField = useCallback((field) => {
+  const requestModeSwitch = (targetMode) => {
+    // Check if any non-default data has been entered
+    const hasData = Object.keys(formData).some((k) => {
+      if (k === "gender" && formData[k] === "Male") return false;
+      if (k === "patientGroup" && formData[k] === "Urban") return false;
+      if (k === "familyHistory" && formData[k] === "0") return false;
+      return formData[k] && String(formData[k]).trim() !== "";
+    });
+
+    if (hasData && assessmentMode !== null && assessmentMode !== targetMode) {
+      setPendingModeSwitch(targetMode);
+      setShowSwitchModal(true);
+    } else {
+      applyModeSwitch(targetMode, false);
+    }
+  };
+
+  const applyModeSwitch = (targetMode, keepData = true) => {
+    setShowSwitchModal(false);
+    setPendingModeSwitch(null);
+    stopListening();
+    stopSpeaking();
+    setIsListening(false);
+
+    if (!keepData) {
+      setFormData({
+        fullName: "",
+        age: "",
+        gender: "Male",
+        patientGroup: "Urban",
+        height: "",
+        weight: "",
+        bmi: "",
+        fastingGlucose: "",
+        hba1c: "",
+        bloodPressure: "",
+        familyHistory: "0",
+        physicalActivityHours: "",
+        dailySugarIntake: "",
+        fastFoodFrequency: "",
+        sleepHours: "",
+        monthlyIncome: "",
+      });
+      setFieldMetadata({});
+      setConflicts([]);
+      setReportFile(null);
+      setEditableExtracted({});
+    }
+
+    setAssessmentMode(targetMode);
+
+    if (targetMode === "voice") {
+      setVoiceIndex(0);
+      setVoiceConfirmation(null);
+      setVoiceTextInput("");
+    } else if (targetMode === "report") {
+      setReportStep("upload");
+    } else if (targetMode === "manual") {
+      setManualStep(1);
+      setManualQuestionIndex(0);
+      setManualTextInput("");
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // OPTION 1: VOICE ASSESSMENT WORKFLOW
+  // ─────────────────────────────────────────────────────────────────────────
+  const activeVoiceFieldKey = VOICE_QUESTION_KEYS[voiceIndex];
+  const activeVoiceDef = CANONICAL_ASSESSMENT_SCHEMA[activeVoiceFieldKey];
+
+  // Speak voice question whenever voiceIndex changes (if enabled)
+  useEffect(() => {
+    if (assessmentMode === "voice" && activeVoiceDef) {
+      setVoiceTextInput(formData[activeVoiceFieldKey] || "");
+      setVoiceTranscript("");
+      setVoiceInterpreted(null);
+      setVoiceConfirmation(null);
+      setVoiceStatus("");
+
+      if (voiceAudioEnabled && isSpeechSynthesisSupported()) {
+        speak(activeVoiceDef.question, language || "en");
+      }
+    }
+  }, [assessmentMode, voiceIndex, voiceAudioEnabled, activeVoiceFieldKey, language]);
+
+  const handleStartVoiceListening = () => {
     if (!isSpeechRecognitionSupported()) {
-      toast.warning("Voice recognition is not supported in this browser. Please type your answer.");
+      toast.warning("Speech recognition is not available in your browser. Please type your answer.");
       return;
     }
 
-    if (isListening && voiceField === field) {
-      stopListening();
-      setIsListening(false);
-      setVoiceField(null);
-      return;
-    }
-
-    setVoiceField(field);
+    stopSpeaking();
     setIsListening(true);
     setVoiceStatus("Listening… speak now");
 
@@ -463,146 +600,107 @@ function Assessment() {
       onStart: () => setVoiceStatus("Listening… speak clearly"),
       onResult: (transcript, confidence) => {
         setIsListening(false);
-        setVoiceField(null);
         setVoiceStatus("");
+        setVoiceTranscript(transcript);
 
-        const interpreted = interpretTranscript(transcript, field);
+        const interpreted = interpretTranscript(transcript, activeVoiceFieldKey);
         if (!interpreted) {
-          toast.warning(`Could not understand "${transcript}". Please type the value.`);
+          toast.warning(`Could not interpret "${transcript}". Please try again or type below.`);
           return;
         }
 
-        const { valid, message } = validateField(field, interpreted.value);
+        const { valid, message } = validateField(activeVoiceFieldKey, interpreted.value);
         if (!valid) {
           toast.error(`${message} (Heard: "${transcript}")`);
           return;
         }
 
-        // Show confirmation if confidence is not HIGH or needs confirmation
-        if (interpreted.needsConfirmation || confidence < 0.8) {
-          setVoiceConfirmation({
-            field,
-            heard: transcript,
-            interpretedValue: interpreted.value,
-            displayValue: interpreted.displayValue,
-            unit: interpreted.unit,
-            convertedFrom: interpreted.convertedFrom,
-          });
-        } else {
-          updateField(field, interpreted.value, "voice", true);
-          toast.success(`✅ ${CANONICAL_ASSESSMENT_SCHEMA[field]?.label}: ${interpreted.displayValue}`);
+        setVoiceInterpreted(interpreted);
+
+        // Always show clear confirmation for reliability
+        setVoiceConfirmation({
+          field: activeVoiceFieldKey,
+          heard: transcript,
+          interpretedValue: interpreted.value,
+          displayValue: interpreted.displayValue,
+          unit: interpreted.unit,
+        });
+
+        if (voiceAudioEnabled && isSpeechSynthesisSupported()) {
+          speak(`Got it. Your ${activeVoiceDef.label} is ${interpreted.displayValue}. Is that correct?`, language || "en");
         }
       },
-      onError: (msg) => {
+      onError: (err) => {
         setIsListening(false);
-        setVoiceField(null);
         setVoiceStatus("");
-        toast.error(msg);
+        toast.error(err);
       },
       onEnd: () => {
         setIsListening(false);
-        setVoiceField(null);
-        setVoiceStatus("");
       },
     });
-  }, [isListening, voiceField, language]);
+  };
 
-  const confirmVoiceValue = () => {
+  const confirmVoiceAnswer = () => {
     if (!voiceConfirmation) return;
-    updateField(voiceConfirmation.field, voiceConfirmation.interpretedValue, "voice", true);
+    updateField(voiceConfirmation.field, voiceConfirmation.interpretedValue, "voice", "HIGH");
+    toast.success(`✅ ${activeVoiceDef.label} saved.`);
     setVoiceConfirmation(null);
-    toast.success(`✅ ${CANONICAL_ASSESSMENT_SCHEMA[voiceConfirmation.field]?.label} confirmed.`);
+    setVoiceInterpreted(null);
+    setVoiceTranscript("");
+    advanceVoiceQuestion();
   };
 
-  const rejectVoiceValue = () => {
+  const rejectVoiceAnswer = () => {
     setVoiceConfirmation(null);
-    toast.info("Voice value discarded. You can speak again or type manually.");
-  };
-
-  // Full sequential voice assessment mode
-  const startVoiceAssessment = useCallback(async () => {
-    if (!isSpeechRecognitionSupported()) {
-      toast.warning("Voice recognition is not supported in your browser. Please type your answers.");
-      return;
-    }
-    setVoiceMode(true);
-    await runVoiceQuestion(0);
-  }, []);
-
-  const runVoiceQuestion = async (idx) => {
-    if (idx >= VOICE_QUESTION_ORDER.length) {
-      setVoiceMode(false);
-      toast.success("🎉 Voice assessment complete! Please review your answers below.");
-      return;
-    }
-
-    const field = VOICE_QUESTION_ORDER[idx];
-    const def = CANONICAL_ASSESSMENT_SCHEMA[field];
-    if (!def) {
-      runVoiceQuestion(idx + 1);
-      return;
-    }
-
-    setVoiceField(field);
-    setVoiceStatus(`Asking: ${def.question}`);
-
-    if (isSpeechSynthesisSupported()) {
-      await speak(def.question, language || "en");
-    }
-
-    setIsListening(true);
-    setVoiceStatus("Listening… speak now");
-
-    startListening({
-      lang: language || "en",
-      onStart: () => setVoiceStatus("Listening… speak clearly"),
-      onResult: (transcript) => {
-        setIsListening(false);
-        setVoiceField(null);
-
-        const interpreted = interpretTranscript(transcript, field);
-        if (!interpreted) {
-          setVoiceStatus(`Could not understand "${transcript}". Skipping to next question.`);
-          setTimeout(() => runVoiceQuestion(idx + 1), 1500);
-          return;
-        }
-
-        const { valid } = validateField(field, interpreted.value);
-        if (valid) {
-          updateField(field, interpreted.value, "voice", true);
-          setVoiceStatus(`✅ ${def.label}: ${interpreted.displayValue}`);
-          setTimeout(() => runVoiceQuestion(idx + 1), 1500);
-        } else {
-          setVoiceStatus(`Value out of bounds. Moving to next question.`);
-          setTimeout(() => runVoiceQuestion(idx + 1), 1500);
-        }
-      },
-      onError: () => {
-        setIsListening(false);
-        setVoiceField(null);
-        setTimeout(() => runVoiceQuestion(idx + 1), 1000);
-      },
-      onEnd: () => {
-        setIsListening(false);
-        setVoiceField(null);
-      },
-    });
-  };
-
-  const stopVoiceAssessment = () => {
-    stopListening();
-    stopSpeaking();
-    setVoiceMode(false);
-    setIsListening(false);
-    setVoiceField(null);
+    setVoiceInterpreted(null);
+    setVoiceTranscript("");
     setVoiceStatus("");
-    toast.info("Voice assessment stopped. You can continue typing.");
+    toast.info("Value discarded. You can speak again or type manually.");
+  };
+
+  const handleManualVoiceSubmit = () => {
+    if (!voiceTextInput || String(voiceTextInput).trim() === "") {
+      if (activeVoiceDef.required) {
+        toast.warning(`${activeVoiceDef.label} is required.`);
+        return;
+      }
+      advanceVoiceQuestion();
+      return;
+    }
+
+    const { valid, message } = validateField(activeVoiceFieldKey, voiceTextInput);
+    if (!valid) {
+      toast.error(message);
+      return;
+    }
+
+    updateField(activeVoiceFieldKey, String(voiceTextInput).trim(), "manual", "HIGH");
+    toast.success(`✅ ${activeVoiceDef.label} saved.`);
+    advanceVoiceQuestion();
+  };
+
+  const advanceVoiceQuestion = () => {
+    if (voiceIndex + 1 < VOICE_QUESTION_KEYS.length) {
+      setVoiceIndex((prev) => prev + 1);
+    } else {
+      stopSpeaking();
+      stopListening();
+      toast.success("🎉 Voice assessment complete! Reviewing your data.");
+      setAssessmentMode("review");
+    }
+  };
+
+  const prevVoiceQuestion = () => {
+    if (voiceIndex > 0) {
+      setVoiceIndex((prev) => prev - 1);
+    }
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // FEATURE 3: MEDICAL REPORT UPLOAD & OCR EXTRACTION
+  // OPTION 2: MEDICAL REPORT EXTRACTION WORKFLOW
   // ─────────────────────────────────────────────────────────────────────────
-  const handleFileSelect = (e) => {
+  const handleReportFileSelect = (e) => {
     const f = e.target.files[0];
     if (!f) return;
 
@@ -621,26 +719,24 @@ function Assessment() {
     }
 
     setReportFile(f);
-    setExtractedFields(null);
-    setShowExtracted(false);
+    setReportError(null);
     setOcrQualityWarning(null);
-    setConflicts([]);
   };
 
-  const handleExtractReport = async () => {
+  const handleExtractMedicalReport = async () => {
     if (!reportFile) return;
     setReportLoading(true);
-    setShowExtracted(false);
+    setReportError(null);
     setOcrQualityWarning(null);
 
     try {
       const fd = new FormData();
       fd.append("file", reportFile);
       const res = await smartAssessmentService.extractReport(fd);
-      const data = res?.data || res;
+      const data = res?.data?.data || res?.data || res;
 
       if (!data?.success || !data?.extracted_fields || Object.keys(data.extracted_fields).length === 0) {
-        toast.warning(data?.message || "No medical values could be identified. Please enter values manually.");
+        setReportError("Unable to identify clear clinical metrics from this document. Please try a higher quality report or enter your values manually.");
         setReportLoading(false);
         return;
       }
@@ -663,26 +759,32 @@ function Assessment() {
         }
       });
 
+      if (Object.keys(editable).length === 0) {
+        setReportError("No standard diabetic parameters could be extracted. Please enter manually.");
+        setReportLoading(false);
+        return;
+      }
+
       setEditableExtracted(editable);
-      setShowExtracted(true);
+      setReportStep("review_extracted");
       toast.success(`📋 Extracted ${Object.keys(editable).length} health fields from your report.`);
     } catch (err) {
-      toast.error("Failed to process document. Please ensure the file is not corrupted and try again.");
+      setReportError("Something went wrong while processing your document. Please verify the file is not corrupted.");
     } finally {
       setReportLoading(false);
     }
   };
 
-  const handleConfirmExtracted = () => {
+  const handleApplyExtractedValues = () => {
     const newConflicts = [];
     const toApply = {};
 
     Object.entries(editableExtracted).forEach(([field, info]) => {
       const existing = formData[field];
-      const isFilledManually = existing && fieldMetadata[field]?.source === "manual" && existing !== "";
+      const hasPriorEntry = existing && existing !== "" && existing !== null;
 
-      // Check conflict if manually entered value differs from report value
-      if (isFilledManually && String(existing).trim() !== String(info.value).trim() && field !== "bmi") {
+      // Check conflict if previously entered value differs from report value
+      if (hasPriorEntry && String(existing).trim() !== String(info.value).trim() && field !== "bmi") {
         newConflicts.push({
           field,
           manualVal: existing,
@@ -690,38 +792,31 @@ function Assessment() {
           unit: info.unit,
         });
       } else {
-        toApply[field] = info.value;
+        toApply[field] = { value: info.value, confidence: info.confidence };
       }
     });
 
-    // Apply non-conflicting values immediately
-    Object.entries(toApply).forEach(([field, value]) => {
-      updateField(field, value, "medical_report", true);
+    // Apply non-conflicting values to unified state
+    Object.entries(toApply).forEach(([field, data]) => {
+      updateField(field, data.value, "report", data.confidence);
     });
 
-    setConflicts(newConflicts);
-
     if (newConflicts.length > 0) {
+      setConflicts(newConflicts);
       setResolvingConflict(newConflicts[0]);
     } else {
-      setShowExtracted(false);
-      toast.success("✅ Medical report values applied to your assessment.");
-      detectMissingFields();
+      checkReportMissingFields();
     }
   };
 
-  const resolveConflict = (useReport, editedVal = null) => {
+  const resolveConflict = (useReport) => {
     if (!resolvingConflict) return;
     const { field, manualVal, reportVal } = resolvingConflict;
 
-    let finalVal = manualVal;
-    if (editedVal !== null) {
-      finalVal = editedVal;
-    } else if (useReport) {
-      finalVal = reportVal;
-    }
+    const chosenVal = useReport ? reportVal : manualVal;
+    const chosenSrc = useReport ? "report" : "manual";
 
-    updateField(field, finalVal, useReport ? "medical_report" : "manual", true);
+    updateField(field, chosenVal, chosenSrc, "HIGH");
 
     const remaining = conflicts.filter((c) => c.field !== field);
     setConflicts(remaining);
@@ -730,100 +825,34 @@ function Assessment() {
       setResolvingConflict(remaining[0]);
     } else {
       setResolvingConflict(null);
-      setShowExtracted(false);
-      toast.success("✅ All conflicts resolved and data saved.");
-      detectMissingFields();
+      toast.success("✅ All conflicts resolved.");
+      checkReportMissingFields();
     }
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // FEATURE 4: SCHEMA-BASED MISSING DATA DETECTION & SMART Q&A
-  // Prioritized: Required model inputs (1) → Clinical values (2) → Lifestyle (3)
-  // Never asks for information that is already provided or confirmed
-  // ─────────────────────────────────────────────────────────────────────────
-  const getMissingFieldsList = useCallback(() => {
-    return Object.values(CANONICAL_ASSESSMENT_SCHEMA)
-      .sort((a, b) => a.priority - b.priority)
-      .filter((def) => {
-        if (def.autoCalculated) return false;
-        const val = formData[def.key];
-        // Missing if null, undefined, or empty string
-        return val === null || val === undefined || String(val).trim() === "";
-      })
-      .map((def) => def.key);
-  }, [formData]);
-
-  const detectMissingFields = useCallback(() => {
-    const missing = getMissingFieldsList();
+  const checkReportMissingFields = () => {
+    const missing = getMissingFields();
     if (missing.length > 0) {
-      startMissingQA(missing, 0);
+      setMissingQueue(missing);
+      setMissingIndex(0);
+      setMissingInput("");
+      setReportStep("missing_qa");
+      toast.info(`ℹ️ Please provide ${missing.length} additional detail${missing.length > 1 ? "s" : ""} to complete your assessment.`);
     } else {
-      toast.success("✅ All health assessment fields are complete! Ready for screening.");
-    }
-    return missing;
-  }, [getMissingFieldsList]);
-
-  const startMissingQA = (fields, idx) => {
-    if (idx >= fields.length) {
-      setMissingQA(null);
-      toast.success("✅ Missing information gathered. You can now run the health screening.");
-      return;
-    }
-
-    const fieldKey = fields[idx];
-    const def = CANONICAL_ASSESSMENT_SCHEMA[fieldKey];
-
-    // Double-check field isn't already filled
-    const currentVal = formData[fieldKey];
-    if (currentVal !== "" && currentVal !== null && currentVal !== undefined) {
-      startMissingQA(fields, idx + 1);
-      return;
-    }
-
-    setMissingQA({ fieldKey, def, fields, idx });
-    setMissingTextInput("");
-
-    if (isSpeechSynthesisSupported()) {
-      speak(`I need some more information. ${def.question}`, language || "en");
+      toast.success("✅ All information is complete!");
+      setAssessmentMode("review");
     }
   };
 
-  const submitMissingAnswer = (value) => {
-    if (!missingQA) return;
-    const { fieldKey, def, fields, idx } = missingQA;
+  // ─────────────────────────────────────────────────────────────────────────
+  // GUIDED MISSING DATA COMPLETION (Report & Manual)
+  // ─────────────────────────────────────────────────────────────────────────
+  const activeMissingKey = missingQueue[missingIndex];
+  const activeMissingDef = CANONICAL_ASSESSMENT_SCHEMA[activeMissingKey];
 
-    if (!value || String(value).trim() === "") {
-      if (!def.required) {
-        startMissingQA(fields, idx + 1);
-        return;
-      }
-      toast.warning(`${def.label} is required.`);
-      return;
-    }
-
-    const { valid, message } = validateField(fieldKey, value);
-    if (!valid) {
-      toast.error(message);
-      return;
-    }
-
-    updateField(fieldKey, String(value).trim(), "manual", true);
-    toast.success(`✅ ${def.label} recorded.`);
-    startMissingQA(fields, idx + 1);
-  };
-
-  const skipMissingField = () => {
-    if (!missingQA) return;
-    if (missingQA.def.required) {
-      toast.warning(`${missingQA.def.label} is a required field and cannot be skipped.`);
-      return;
-    }
-    startMissingQA(missingQA.fields, missingQA.idx + 1);
-  };
-
-  const handleMissingVoice = () => {
-    if (!missingQA || !isSpeechRecognitionSupported()) {
-      toast.warning("Voice recognition not available. Please type your answer.");
+  const handleMissingVoiceInput = () => {
+    if (!isSpeechRecognitionSupported()) {
+      toast.warning("Voice recognition is not available in your browser.");
       return;
     }
 
@@ -832,15 +861,15 @@ function Assessment() {
       lang: language || "en",
       onResult: (transcript) => {
         setMissingListening(false);
-        const interpreted = interpretTranscript(transcript, missingQA.fieldKey);
+        const interpreted = interpretTranscript(transcript, activeMissingKey);
         if (interpreted) {
-          setMissingTextInput(interpreted.value);
+          setMissingInput(interpreted.value);
         } else {
           const numMatch = transcript.match(/(\d+(?:\.\d+)?)/);
           if (numMatch) {
-            setMissingTextInput(numMatch[1]);
+            setMissingInput(numMatch[1]);
           } else {
-            toast.warning(`Could not understand "${transcript}". Please type the value.`);
+            toast.warning(`Could not interpret "${transcript}". Please type your answer.`);
           }
         }
       },
@@ -852,16 +881,154 @@ function Assessment() {
     });
   };
 
+  const handleSaveMissingAnswer = (source = "manual") => {
+    if (!activeMissingDef) return;
+
+    if (!missingInput || String(missingInput).trim() === "") {
+      if (activeMissingDef.required) {
+        toast.warning(`${activeMissingDef.label} is required.`);
+        return;
+      }
+      advanceMissingQueue();
+      return;
+    }
+
+    const { valid, message } = validateField(activeMissingKey, missingInput);
+    if (!valid) {
+      toast.error(message);
+      return;
+    }
+
+    updateField(activeMissingKey, String(missingInput).trim(), source, "HIGH");
+    toast.success(`✅ ${activeMissingDef.label} recorded.`);
+    advanceMissingQueue();
+  };
+
+  const advanceMissingQueue = () => {
+    if (missingIndex + 1 < missingQueue.length) {
+      setMissingIndex((prev) => prev + 1);
+      setMissingInput("");
+    } else {
+      toast.success("✅ All required health information gathered!");
+      setAssessmentMode("review");
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // OPTION 3: MANUAL ASSESSMENT STEPPING & VALIDATION
+  // ─────────────────────────────────────────────────────────────────────────
+  const validateManualStep = (stepNumber) => {
+    const errors = {};
+    if (stepNumber === 1) {
+      ["age", "gender", "patientGroup", "height", "weight"].forEach((k) => {
+        const val = formData[k];
+        if (!val || String(val).trim() === "") {
+          errors[k] = `${CANONICAL_ASSESSMENT_SCHEMA[k].label} is required.`;
+        } else {
+          const { valid, message } = validateField(k, val);
+          if (!valid) errors[k] = message;
+        }
+      });
+    } else if (stepNumber === 2) {
+      // Validate optional clinical entries if filled
+      ["bloodPressure", "hba1c", "fastingGlucose", "monthlyIncome"].forEach((k) => {
+        const val = formData[k];
+        if (val !== "" && val !== null && val !== undefined) {
+          const { valid, message } = validateField(k, val);
+          if (!valid) errors[k] = message;
+        }
+      });
+    } else if (stepNumber === 3) {
+      ["physicalActivityHours", "dailySugarIntake", "fastFoodFrequency", "sleepHours"].forEach((k) => {
+        const val = formData[k];
+        if (val !== "" && val !== null && val !== undefined) {
+          const { valid, message } = validateField(k, val);
+          if (!valid) errors[k] = message;
+        }
+      });
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      toast.error(Object.values(errors)[0]);
+      return false;
+    }
+    return true;
+  };
+
+  const handleManualNext = () => {
+    if (validateManualStep(manualStep)) {
+      if (manualStep === 3) {
+        setAssessmentMode("review");
+      } else {
+        setManualStep((prev) => prev + 1);
+      }
+    }
+  };
+
+  // Inline Mic Button for manual fields
+  const handleInlineMic = (field) => {
+    if (!isSpeechRecognitionSupported()) {
+      toast.warning("Voice recognition is not supported in this browser. Please type your answer.");
+      return;
+    }
+
+    if (isListening) {
+      stopListening();
+      setIsListening(false);
+      return;
+    }
+
+    setIsListening(true);
+    toast.info(`🎙️ Listening for ${CANONICAL_ASSESSMENT_SCHEMA[field]?.label}…`);
+
+    startListening({
+      lang: language || "en",
+      onResult: (transcript) => {
+        setIsListening(false);
+        const interpreted = interpretTranscript(transcript, field);
+        if (interpreted) {
+          const { valid, message } = validateField(field, interpreted.value);
+          if (valid) {
+            updateField(field, interpreted.value, "voice", "HIGH");
+            toast.success(`✅ ${CANONICAL_ASSESSMENT_SCHEMA[field]?.label}: ${interpreted.displayValue}`);
+          } else {
+            toast.error(message);
+          }
+        } else {
+          toast.warning(`Could not understand "${transcript}". Please type the value.`);
+        }
+      },
+      onError: (msg) => {
+        setIsListening(false);
+        toast.error(msg);
+      },
+      onEnd: () => setIsListening(false),
+    });
+  };
+
+  const MicBtn = ({ field }) => (
+    <button
+      type="button"
+      className="mic-btn-inline"
+      onClick={() => handleInlineMic(field)}
+      title="Speak to fill this field"
+      aria-label="Start voice input"
+    >
+      <FaMicrophone />
+    </button>
+  );
+
   // Helper badge to show data source (voice, report, manual)
   const sourceBadge = (field) => {
     const meta = fieldMetadata[field];
-    if (!meta) return null;
+    if (!meta || !meta.source) return null;
     const badges = {
-      voice: { icon: "🎤", label: "Voice", cls: "src-voice" },
-      medical_report: { icon: "📄", label: "Report", cls: "src-report" },
+      voice: { icon: "🎙️", label: "Voice", cls: "src-voice" },
+      report: { icon: "📄", label: "Report", cls: "src-report" },
+      manual: { icon: "✍️", label: "Manual", cls: "src-manual" },
     };
-    const b = badges[meta.source];
-    if (!b) return null;
+    const b = badges[meta.source] || badges.manual;
     return (
       <span className={`source-badge ${b.cls}`} title={`Sourced from ${b.label}`}>
         {b.icon} {b.label}
@@ -869,18 +1036,24 @@ function Assessment() {
     );
   };
 
-  // Inline Mic Button Component
-  const MicBtn = ({ field }) => (
-    <button
-      type="button"
-      className={`mic-btn-inline ${isListening && voiceField === field ? "listening" : ""}`}
-      onClick={() => handleMicField(field)}
-      title={isListening && voiceField === field ? "Stop listening" : "Speak to fill this field"}
-      aria-label={isListening && voiceField === field ? "Stop voice input" : "Start voice input"}
-    >
-      {isListening && voiceField === field ? <FaMicrophoneSlash /> : <FaMicrophone />}
-    </button>
-  );
+  // Data sources breakdown counts for review screen
+  const sourceStats = useMemo(() => {
+    let reportCount = 0;
+    let voiceCount = 0;
+    let manualCount = 0;
+
+    Object.keys(CANONICAL_ASSESSMENT_SCHEMA).forEach((key) => {
+      const val = formData[key];
+      if (val !== "" && val !== null && val !== undefined) {
+        const src = fieldMetadata[key]?.source || "manual";
+        if (src === "report") reportCount++;
+        else if (src === "voice") voiceCount++;
+        else manualCount++;
+      }
+    });
+
+    return { reportCount, voiceCount, manualCount };
+  }, [formData, fieldMetadata]);
 
   return (
     <>
@@ -889,169 +1062,996 @@ function Assessment() {
         <div className="assessment-container">
           <BackButton />
 
-          {/* Page Header */}
+          {/* Page Top Header */}
           <div className="assessment-header text-center">
-            <span className="badge-pill">🩺 Health Risk Screening</span>
+            <span className="badge-pill">🩺 AI Diabetes Health Screening</span>
             <h1>{t("assessment.headerTitle") || "Health Risk Screening"}</h1>
             <p className="assessment-disclaimer">
-              ⚕️ This is a <strong>health risk awareness screening</strong> tool — not a clinical diagnosis.
-              Results are model-estimated statistical patterns. Always consult a healthcare professional.
+              ⚕️ This is an <strong>AI-assisted health risk screening</strong> tool — not a clinical diagnosis.
+              Results are statistical risk patterns based on medical datasets. Always consult a licensed healthcare professional.
             </p>
           </div>
 
-          {/* ── SMART TOOLBAR (Features 2 & 3) ── */}
-          <div className="smart-toolbar">
-            {/* Voice Assessment Card */}
-            <div className="smart-card voice-card">
-              <div className="smart-card-icon">🎤</div>
-              <div className="smart-card-body">
-                <h3>Voice Assessment</h3>
-                <p>Answer questions aloud using speech recognition</p>
-                {voiceMode ? (
-                  <div className="voice-active-state">
-                    <div className="voice-status-bar">
-                      {isListening && <span className="pulse-dot" />}
-                      <span>{voiceStatus || "Voice mode active"}</span>
+          {/* ══════════════════════════════════════════════════════════════════
+              MODE SELECTION LANDING SCREEN (Step 0)
+              ══════════════════════════════════════════════════════════════════ */}
+          {assessmentMode === null && (
+            <div className="mode-selection-landing">
+              <div className="landing-banner">
+                <h2>Choose how you want to complete your assessment</h2>
+                <p>
+                  Select one of the three options below. You can provide your health details naturally
+                  by voice, upload your existing medical report, or enter your information step by step.
+                </p>
+              </div>
+
+              <div className="mode-cards-grid">
+                {/* 1. Voice Assessment Card */}
+                <div className="mode-card voice-card">
+                  <div className="mode-card-icon-wrapper">
+                    <span className="mode-card-icon">🎙️</span>
+                  </div>
+                  <h3>Voice Assessment</h3>
+                  <p className="mode-card-desc">
+                    Speak your answers naturally and let DiaSense AI guide you through the assessment question by question.
+                  </p>
+                  <ul className="mode-features-list">
+                    <li>✓ Interactive spoken guidance</li>
+                    <li>✓ Speech recognition with confirmation</li>
+                    <li>✓ Automatic unit conversion & text fallback</li>
+                  </ul>
+                  <button
+                    className="mode-card-btn primary"
+                    onClick={() => applyModeSwitch("voice", true)}
+                  >
+                    Start Voice Assessment →
+                  </button>
+                  <span className="mode-card-meta">Recommended for quick spoken screening</span>
+                </div>
+
+                {/* 2. Medical Report Extraction Card */}
+                <div className="mode-card report-card">
+                  <div className="mode-card-icon-wrapper">
+                    <span className="mode-card-icon">📄</span>
+                  </div>
+                  <h3>Medical Report Extraction</h3>
+                  <p className="mode-card-desc">
+                    Upload a lab report or health checkup PDF/image. DiaSense AI automatically extracts available clinical values.
+                  </p>
+                  <ul className="mode-features-list">
+                    <li>✓ PDF, JPG, and PNG document support</li>
+                    <li>✓ Editable extracted clinical markers</li>
+                    <li>✓ Interactive missing data completion</li>
+                  </ul>
+                  <button
+                    className="mode-card-btn secondary"
+                    onClick={() => applyModeSwitch("report", true)}
+                  >
+                    Upload Medical Report →
+                  </button>
+                  <span className="mode-card-meta">Best if you have a recent blood test or lab report</span>
+                </div>
+
+                {/* 3. Manual Assessment Card */}
+                <div className="mode-card manual-card">
+                  <div className="mode-card-icon-wrapper">
+                    <span className="mode-card-icon">✍️</span>
+                  </div>
+                  <h3>Manual Assessment</h3>
+                  <p className="mode-card-desc">
+                    Enter your health details yourself step by step across personal, clinical, and lifestyle factors.
+                  </p>
+                  <ul className="mode-features-list">
+                    <li>✓ 3-step structured form</li>
+                    <li>✓ Automatic BMI calculation</li>
+                    <li>✓ Inline microphone assist on all fields</li>
+                  </ul>
+                  <button
+                    className="mode-card-btn tertiary"
+                    onClick={() => applyModeSwitch("manual", true)}
+                  >
+                    Start Manual Assessment →
+                  </button>
+                  <span className="mode-card-meta">Standard step-by-step entry</span>
+                </div>
+              </div>
+
+              {/* Data Safety Strip */}
+              <div className="privacy-strip">
+                <FaShieldAlt />
+                <span>
+                  <strong>Private & Secure:</strong> All reports and voice data are processed securely in memory
+                  and are never shared with unauthorized third parties.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════
+              OPTION 1: DEDICATED VOICE ASSESSMENT WORKFLOW
+              ══════════════════════════════════════════════════════════════════ */}
+          {assessmentMode === "voice" && (
+            <div className="workflow-container voice-workflow">
+              {/* Voice Progress Header */}
+              <div className="workflow-top-bar">
+                <div className="workflow-title-wrap">
+                  <span className="workflow-badge">🎙️ Voice Mode</span>
+                  <h2>Question {voiceIndex + 1} of {VOICE_QUESTION_KEYS.length}</h2>
+                </div>
+                <button
+                  className="switch-mode-btn"
+                  onClick={() => requestModeSwitch(null)}
+                  title="Switch to another assessment method"
+                >
+                  <FaExchangeAlt /> Change Method
+                </button>
+              </div>
+
+              {/* Voice Progress Bar */}
+              <div className="voice-progress-track">
+                <div
+                  className="voice-progress-fill"
+                  style={{ width: `${((voiceIndex + 1) / VOICE_QUESTION_KEYS.length) * 100}%` }}
+                />
+              </div>
+
+              {/* Active Voice Question Card */}
+              <div className="voice-hero-card">
+                <div className="voice-card-category">
+                  {activeVoiceDef?.group === "personal" && "Personal & Physical Profile"}
+                  {activeVoiceDef?.group === "clinical" && "Clinical & Laboratory Values"}
+                  {activeVoiceDef?.group === "lifestyle" && "Lifestyle & Daily Habits"}
+                </div>
+
+                <h3 className="voice-question-text">{activeVoiceDef?.question}</h3>
+                <p className="voice-question-hint">{activeVoiceDef?.hint}</p>
+
+                {/* Voice Action Controls */}
+                <div className="voice-actions-toolbar">
+                  {/* Speech Recognition Toggle */}
+                  <button
+                    type="button"
+                    className={`voice-action-btn listen-toggle ${isListening ? "active-listening" : ""}`}
+                    onClick={isListening ? () => { stopListening(); setIsListening(false); } : handleStartVoiceListening}
+                    disabled={!voiceInputEnabled}
+                    title={voiceInputEnabled ? "Start / Stop voice listening" : "Voice input is disabled"}
+                  >
+                    {isListening ? (
+                      <>
+                        <span className="pulse-indicator" />
+                        <FaStopCircle /> Stop Listening
+                      </>
+                    ) : (
+                      <>
+                        <FaMicrophone /> Speak Answer
+                      </>
+                    )}
+                  </button>
+
+                  {/* Text-To-Speech Repeat */}
+                  <button
+                    type="button"
+                    className="voice-action-btn repeat-btn"
+                    onClick={() => voiceOutputEnabled && speak(activeVoiceDef?.question, language || "en")}
+                    disabled={!voiceOutputEnabled}
+                    title={voiceOutputEnabled ? "Repeat question aloud" : "Voice output is disabled"}
+                  >
+                    <FaVolumeUp /> Repeat
+                  </button>
+
+                  {/* Voice INPUT Toggle (Speech Recognition) */}
+                  <button
+                    type="button"
+                    className={`voice-action-btn ${voiceInputEnabled ? "active-toggle" : "mute-btn"}`}
+                    onClick={() => {
+                      if (voiceInputEnabled && isListening) { stopListening(); setIsListening(false); }
+                      setVoiceInputEnabled(!voiceInputEnabled);
+                    }}
+                    title={voiceInputEnabled ? "Disable voice input (microphone)" : "Enable voice input (microphone)"}
+                  >
+                    {voiceInputEnabled ? <FaMicrophone /> : <FaMicrophoneSlash />}
+                    {voiceInputEnabled ? "Mic ON" : "Mic OFF"}
+                  </button>
+
+                  {/* Voice OUTPUT Toggle (Text-To-Speech) */}
+                  <button
+                    type="button"
+                    className={`voice-action-btn ${voiceOutputEnabled ? "active-toggle" : "mute-btn"}`}
+                    onClick={() => {
+                      if (!voiceOutputEnabled) { /* turning on — do nothing special */ }
+                      else stopSpeaking();
+                      setVoiceOutputEnabled(!voiceOutputEnabled);
+                    }}
+                    title={voiceOutputEnabled ? "Disable audio guidance (TTS)" : "Enable audio guidance (TTS)"}
+                  >
+                    {voiceOutputEnabled ? <FaVolumeUp /> : <FaVolumeMute />}
+                    {voiceOutputEnabled ? "Speaker ON" : "Speaker OFF"}
+                  </button>
+                </div>
+
+
+                {/* Live Listening Status */}
+                {voiceStatus && (
+                  <div className="voice-live-status">
+                    <span className="pulse-dot" />
+                    <span>{voiceStatus}</span>
+                  </div>
+                )}
+
+                {/* Voice Confirmation Card */}
+                {voiceConfirmation && (
+                  <div className="voice-inline-confirmation">
+                    <div className="vc-heard-row">
+                      <span>Heard:</span> <em>"{voiceConfirmation.heard}"</em>
                     </div>
-                    <button className="smart-btn stop-btn" onClick={stopVoiceAssessment}>
-                      <FaStopCircle /> Stop Voice Mode
+                    <div className="vc-interpreted-row">
+                      <span>Interpreted:</span>
+                      <strong>
+                        {activeVoiceDef.label}: {voiceConfirmation.displayValue}
+                      </strong>
+                    </div>
+                    <p className="vc-prompt">Is this correct?</p>
+                    <div className="vc-buttons">
+                      <button className="smart-btn primary" onClick={confirmVoiceAnswer}>
+                        <FaCheck /> Yes, That's Correct
+                      </button>
+                      <button className="smart-btn ghost" onClick={rejectVoiceAnswer}>
+                        <FaTimes /> Try Again
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Text Fallback Box */}
+                <div className="voice-fallback-box">
+                  <div className="fallback-divider">
+                    <span>or type your answer</span>
+                  </div>
+
+                  <div className="fallback-input-row">
+                    {activeVoiceDef?.type === "select" ? (
+                      <select
+                        value={voiceTextInput}
+                        onChange={(e) => setVoiceTextInput(e.target.value)}
+                        className="fallback-select"
+                      >
+                        <option value="">Select an option…</option>
+                        {activeVoiceDef.options?.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt === "0" ? "No" : opt === "1" ? "Yes" : opt}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={activeVoiceDef?.type || "text"}
+                        className="fallback-input"
+                        placeholder={activeVoiceDef?.placeholder || "Type value…"}
+                        value={voiceTextInput}
+                        onChange={(e) => setVoiceTextInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleManualVoiceSubmit()}
+                      />
+                    )}
+
+                    <button
+                      type="button"
+                      className="smart-btn secondary"
+                      onClick={handleManualVoiceSubmit}
+                    >
+                      Save & Next →
                     </button>
                   </div>
-                ) : (
-                  <button
-                    className="smart-btn primary"
-                    onClick={startVoiceAssessment}
-                    disabled={!isSpeechRecognitionSupported()}
-                  >
-                    <FaMicrophone />
-                    {isSpeechRecognitionSupported() ? "Start Voice Assessment" : "Browser Not Supported"}
-                  </button>
-                )}
-              </div>
-            </div>
+                </div>
 
-            {/* Medical Report Upload Card */}
-            <div className="smart-card report-card">
-              <div className="smart-card-icon">📄</div>
-              <div className="smart-card-body">
-                <h3>Upload Medical Report</h3>
-                <p>PDF, JPG, or PNG — In-memory OCR extracts clinical metrics</p>
-                <div className="report-upload-row">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                    onChange={handleFileSelect}
-                    style={{ display: "none" }}
-                    aria-label="Upload medical report"
-                  />
-                  <button className="smart-btn secondary" onClick={() => fileInputRef.current?.click()}>
-                    <FaFileUpload /> Choose File
+                {/* Question Navigation Controls */}
+                <div className="voice-nav-row">
+                  <button
+                    className="smart-btn ghost"
+                    onClick={prevVoiceQuestion}
+                    disabled={voiceIndex === 0}
+                  >
+                    <FaArrowLeft /> Previous Question
                   </button>
-                  {reportFile && (
-                    <>
-                      <span className="file-name-pill">
-                        <FaFileAlt /> {reportFile.name.length > 20 ? reportFile.name.slice(0, 20) + "…" : reportFile.name}
-                        <button
-                          onClick={() => {
-                            setReportFile(null);
-                            setShowExtracted(false);
-                            setOcrQualityWarning(null);
-                          }}
-                          aria-label="Remove file"
-                        >
-                          <FaTimesCircle />
-                        </button>
-                      </span>
-                      <button
-                        className="smart-btn primary"
-                        onClick={handleExtractReport}
-                        disabled={reportLoading}
-                      >
-                        {reportLoading ? "Extracting…" : "Extract Data"}
-                      </button>
-                    </>
+
+                  {!activeVoiceDef?.required && (
+                    <button
+                      className="smart-btn ghost"
+                      onClick={advanceVoiceQuestion}
+                    >
+                      Skip Question
+                    </button>
                   )}
                 </div>
-                {reportLoading && (
-                  <div className="extract-progress">
-                    <span className="progress-dot" />
-                    <span className="progress-dot" style={{ animationDelay: "0.2s" }} />
-                    <span className="progress-dot" style={{ animationDelay: "0.4s" }} />
-                    <span>Analyzing document & running OCR…</span>
-                  </div>
-                )}
               </div>
             </div>
-          </div>
+          )}
 
-          {/* ── EXTRACTED VALUES PANEL ── */}
-          {showExtracted && editableExtracted && Object.keys(editableExtracted).length > 0 && (
-            <div className="extracted-panel">
-              <div className="extracted-header">
-                <h3><FaFileAlt /> Extracted Information From Medical Report</h3>
-                <p>Review the extracted values. Low-confidence or unconfirmed items can be edited before confirming.</p>
+          {/* ══════════════════════════════════════════════════════════════════
+              OPTION 2: DEDICATED MEDICAL REPORT WORKFLOW
+              ══════════════════════════════════════════════════════════════════ */}
+          {assessmentMode === "report" && (
+            <div className="workflow-container report-workflow">
+              {/* Report Header */}
+              <div className="workflow-top-bar">
+                <div className="workflow-title-wrap">
+                  <span className="workflow-badge">📄 Medical Report Extraction</span>
+                  <h2>
+                    {reportStep === "upload" && "Upload Your Medical Report"}
+                    {reportStep === "review_extracted" && "Review Extracted Health Data"}
+                    {reportStep === "missing_qa" && "Complete Remaining Information"}
+                  </h2>
+                </div>
+                <button
+                  className="switch-mode-btn"
+                  onClick={() => requestModeSwitch(null)}
+                  title="Switch to another assessment method"
+                >
+                  <FaExchangeAlt /> Change Method
+                </button>
               </div>
 
-              {ocrQualityWarning && (
-                <div className="ocr-warning-box">
-                  <FaExclamationTriangle />
-                  <span>{ocrQualityWarning}</span>
+              {/* Sub-step 1: Upload */}
+              {reportStep === "upload" && (
+                <div className="report-upload-screen">
+                  <div
+                    className="report-dropzone"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                      onChange={handleReportFileSelect}
+                      style={{ display: "none" }}
+                    />
+                    <div className="dropzone-icon">📁</div>
+                    <h3>Drag & Drop or Click to Upload Medical Report</h3>
+                    <p>Supported Formats: PDF, JPG, JPEG, PNG (Max: 10 MB)</p>
+                    <button type="button" className="smart-btn secondary">
+                      <FaFileUpload /> Choose File
+                    </button>
+                  </div>
+
+                  {reportFile && (
+                    <div className="report-file-selected">
+                      <div className="file-info">
+                        <FaFileAlt className="file-icon" />
+                        <div>
+                          <strong>{reportFile.name}</strong>
+                          <small>{(reportFile.size / 1024 / 1024).toFixed(2)} MB</small>
+                        </div>
+                      </div>
+                      <button
+                        className="file-remove-btn"
+                        onClick={() => setReportFile(null)}
+                        title="Remove file"
+                      >
+                        <FaTimesCircle />
+                      </button>
+                    </div>
+                  )}
+
+                  {reportError && (
+                    <div className="report-error-card">
+                      <FaExclamationTriangle />
+                      <div className="error-body">
+                        <strong>Extraction Notice</strong>
+                        <p>{reportError}</p>
+                        <div className="error-actions">
+                          <button
+                            className="smart-btn ghost"
+                            onClick={() => { setReportFile(null); setReportError(null); }}
+                          >
+                            Try Another File
+                          </button>
+                          <button
+                            className="smart-btn primary"
+                            onClick={() => applyModeSwitch("manual", true)}
+                          >
+                            Enter Manually
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {reportLoading && (
+                    <div className="report-loading-state">
+                      <FaBrain className="spinner-brain" />
+                      <h4>Analyzing Medical Document…</h4>
+                      <p>DiaSense AI is identifying laboratory parameters and clinical biomarkers.</p>
+                      <div className="progress-dots-row">
+                        <span className="progress-dot" />
+                        <span className="progress-dot" style={{ animationDelay: "0.2s" }} />
+                        <span className="progress-dot" style={{ animationDelay: "0.4s" }} />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="report-upload-actions">
+                    <button
+                      className="smart-btn primary large-btn"
+                      onClick={handleExtractMedicalReport}
+                      disabled={!reportFile || reportLoading}
+                    >
+                      <FaFileAlt /> {reportLoading ? "Processing Document…" : "Extract Medical Data →"}
+                    </button>
+                  </div>
                 </div>
               )}
 
-              <div className="extracted-grid">
-                {Object.entries(editableExtracted).map(([field, info]) => {
-                  const def = CANONICAL_ASSESSMENT_SCHEMA[field];
-                  return (
-                    <div key={field} className={`extracted-item conf-${(info.confidence || "HIGH").toLowerCase()}`}>
-                      <div className="extracted-item-label">
-                        <span>{def?.label || field}</span>
-                        <span className={`conf-badge conf-${(info.confidence || "HIGH").toLowerCase()}`}>
-                          {info.confidence === "HIGH" ? "✓ High Confidence" : "⚠ Please Verify"}
-                        </span>
-                      </div>
-                      <div className="extracted-input-wrapper">
-                        <input
-                          type="text"
-                          value={info.value}
-                          onChange={(e) =>
-                            setEditableExtracted((prev) => ({
-                              ...prev,
-                              [field]: { ...prev[field], value: e.target.value },
-                            }))
-                          }
-                          className="extracted-input"
-                        />
-                        {def?.unit && <span className="extracted-unit">{def.unit}</span>}
-                      </div>
+              {/* Sub-step 2: Review Extracted Data */}
+              {reportStep === "review_extracted" && (
+                <div className="report-extracted-screen">
+                  <div className="extracted-intro">
+                    <h3>✅ Medical Information Identified</h3>
+                    <p>
+                      Review the values extracted from your report. Every field below is editable so you can
+                      correct any OCR or document misinterpretation.
+                    </p>
+                  </div>
+
+                  {ocrQualityWarning && (
+                    <div className="ocr-warning-box">
+                      <FaExclamationTriangle />
+                      <span>{ocrQualityWarning}</span>
                     </div>
-                  );
-                })}
+                  )}
+
+                  {/* Extracted Fields Grid */}
+                  <div className="extracted-fields-grid">
+                    {Object.entries(editableExtracted).map(([field, info]) => {
+                      const def = CANONICAL_ASSESSMENT_SCHEMA[field];
+                      return (
+                        <div key={field} className="extracted-card">
+                          <div className="extracted-card-header">
+                            <span className="extracted-label">{def?.label || field}</span>
+                            <span className={`conf-badge conf-${(info.confidence || "HIGH").toLowerCase()}`}>
+                              {info.confidence === "HIGH" ? "✓ High Confidence" : "⚠ Please Verify"}
+                            </span>
+                          </div>
+
+                          <div className="extracted-input-box">
+                            <input
+                              type="text"
+                              value={info.value}
+                              onChange={(e) =>
+                                setEditableExtracted((prev) => ({
+                                  ...prev,
+                                  [field]: { ...prev[field], value: e.target.value },
+                                }))
+                              }
+                              className="extracted-input"
+                            />
+                            {def?.unit && <span className="extracted-unit-tag">{def.unit}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Information Still Needed Box */}
+                  <div className="information-needed-box">
+                    <h4>⚠ Information Still Needed</h4>
+                    <p>The following fields were not detected in your report and will be gathered next:</p>
+                    <div className="missing-chips">
+                      {Object.keys(CANONICAL_ASSESSMENT_SCHEMA)
+                        .filter((k) => !editableExtracted[k] && !CANONICAL_ASSESSMENT_SCHEMA[k].autoCalculated)
+                        .map((k) => (
+                          <span key={k} className="needed-chip">
+                            {CANONICAL_ASSESSMENT_SCHEMA[k]?.label}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Extracted Confirmation Actions */}
+                  <div className="extracted-footer-actions">
+                    <button
+                      className="smart-btn primary large-btn"
+                      onClick={handleApplyExtractedValues}
+                    >
+                      <FaCheckDouble /> Confirm & Complete Missing Data →
+                    </button>
+                    <button
+                      className="smart-btn ghost"
+                      onClick={() => setReportStep("upload")}
+                    >
+                      Upload Different Report
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-step 3: Interactive Missing Data Completion */}
+              {reportStep === "missing_qa" && activeMissingDef && (
+                <div className="report-missing-screen">
+                  <div className="missing-progress-header">
+                    <span>
+                      Missing Field {missingIndex + 1} of {missingQueue.length}
+                    </span>
+                    <h4>{activeMissingDef.label}</h4>
+                  </div>
+
+                  <div className="missing-question-card">
+                    <h3>{activeMissingDef.question}</h3>
+                    <p>{activeMissingDef.hint}</p>
+
+                    <div className="missing-dual-input-row">
+                      {activeMissingDef.type === "select" ? (
+                        <select
+                          value={missingInput}
+                          onChange={(e) => setMissingInput(e.target.value)}
+                          className="missing-select"
+                        >
+                          <option value="">Select option…</option>
+                          {activeMissingDef.options?.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt === "0" ? "No" : opt === "1" ? "Yes" : opt}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={activeMissingDef.type || "text"}
+                          className="missing-input-field"
+                          placeholder={activeMissingDef.placeholder}
+                          value={missingInput}
+                          onChange={(e) => setMissingInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleSaveMissingAnswer("manual")}
+                        />
+                      )}
+
+                      {/* Voice Answer Button */}
+                      {isSpeechRecognitionSupported() && (
+                        <button
+                          type="button"
+                          className={`smart-btn voice-btn ${missingListening ? "stop-btn" : ""}`}
+                          onClick={handleMissingVoiceInput}
+                          disabled={missingListening}
+                          title="Speak your answer"
+                        >
+                          {missingListening ? (
+                            <>
+                              <FaStopCircle /> Listening…
+                            </>
+                          ) : (
+                            <>
+                              <FaMicrophone /> Speak
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                      <button
+                        className="smart-btn primary"
+                        onClick={() => handleSaveMissingAnswer("manual")}
+                      >
+                        Save & Next →
+                      </button>
+                    </div>
+
+                    {!activeMissingDef.required && (
+                      <div className="missing-skip-row">
+                        <button className="smart-btn ghost" onClick={advanceMissingQueue}>
+                          Skip this question
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════
+              OPTION 3: DEDICATED MANUAL ASSESSMENT WORKFLOW — ONE QUESTION AT A TIME
+              ══════════════════════════════════════════════════════════════════ */}
+          {assessmentMode === "manual" && (() => {
+            const manualKey = MANUAL_QUESTION_KEYS[manualQuestionIndex];
+            const manualDef = CANONICAL_ASSESSMENT_SCHEMA[manualKey];
+
+            const handleManualSave = () => {
+              if (!manualTextInput || String(manualTextInput).trim() === "") {
+                if (manualDef?.required) {
+                  toast.warning(`${manualDef.label} is required.`);
+                  return;
+                }
+                // Skip: advance without saving
+                if (manualQuestionIndex + 1 < MANUAL_QUESTION_KEYS.length) {
+                  setManualQuestionIndex((prev) => prev + 1);
+                  setManualTextInput("");
+                } else {
+                  toast.success("✅ Manual assessment complete! Reviewing your data.");
+                  setAssessmentMode("review");
+                }
+                return;
+              }
+
+              const { valid, message } = validateField(manualKey, manualTextInput);
+              if (!valid) { toast.error(message); return; }
+
+              updateField(manualKey, String(manualTextInput).trim(), "manual", "HIGH");
+
+              if (manualQuestionIndex + 1 < MANUAL_QUESTION_KEYS.length) {
+                setManualQuestionIndex((prev) => prev + 1);
+                setManualTextInput(formData[MANUAL_QUESTION_KEYS[manualQuestionIndex + 1]] || "");
+              } else {
+                toast.success("🎉 Manual assessment complete! Reviewing your data.");
+                setAssessmentMode("review");
+              }
+            };
+
+            const handleManualBack = () => {
+              if (manualQuestionIndex > 0) {
+                const prevKey = MANUAL_QUESTION_KEYS[manualQuestionIndex - 1];
+                setManualQuestionIndex((prev) => prev - 1);
+                setManualTextInput(formData[prevKey] || "");
+              }
+            };
+
+            const handleManualMic = () => {
+              if (!isSpeechRecognitionSupported()) {
+                toast.warning("Voice recognition is not supported in this browser. Please type your answer.");
+                return;
+              }
+              if (isListening) { stopListening(); setIsListening(false); return; }
+              setIsListening(true);
+              toast.info(`🎙️ Listening for ${manualDef?.label}…`);
+              startListening({
+                lang: language || "en",
+                onResult: (transcript) => {
+                  setIsListening(false);
+                  const interpreted = interpretTranscript(transcript, manualKey);
+                  if (interpreted) {
+                    setManualTextInput(String(interpreted.value));
+                    toast.success(`✅ Heard: ${interpreted.displayValue}`);
+                  } else {
+                    const numMatch = transcript.match(/(\d+(?:\.\d+)?)/);
+                    if (numMatch) setManualTextInput(numMatch[1]);
+                    else toast.warning(`Could not understand "${transcript}". Please type your answer.`);
+                  }
+                },
+                onError: (msg) => { setIsListening(false); toast.error(msg); },
+                onEnd: () => setIsListening(false),
+              });
+            };
+
+            if (!manualDef) return null;
+            const progressPct = ((manualQuestionIndex + 1) / MANUAL_QUESTION_KEYS.length) * 100;
+
+            return (
+              <div className="workflow-container manual-workflow">
+                {/* Header */}
+                <div className="workflow-top-bar">
+                  <div className="workflow-title-wrap">
+                    <span className="workflow-badge">✍️ Manual Mode</span>
+                    <h2>Question {manualQuestionIndex + 1} of {MANUAL_QUESTION_KEYS.length}</h2>
+                  </div>
+                  <button
+                    className="switch-mode-btn"
+                    onClick={() => requestModeSwitch(null)}
+                    title="Switch to another assessment method"
+                  >
+                    <FaExchangeAlt /> Change Method
+                  </button>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="voice-progress-track">
+                  <div className="voice-progress-fill" style={{ width: `${progressPct}%` }} />
+                </div>
+
+                {/* Question Card */}
+                <div className="voice-hero-card">
+                  <div className="voice-card-category">
+                    {manualDef.group === "personal" && "Personal & Physical Profile"}
+                    {manualDef.group === "clinical" && "Clinical & Laboratory Values"}
+                    {manualDef.group === "lifestyle" && "Lifestyle & Daily Habits"}
+                    {manualDef.required && <span className="required-chip">Required</span>}
+                    {!manualDef.required && <span className="optional-chip">Optional</span>}
+                  </div>
+
+                  <h3 className="voice-question-text">{manualDef.question}</h3>
+                  <p className="voice-question-hint">{manualDef.hint}</p>
+
+                  {/* Input Area */}
+                  <div className="manual-qa-input-area">
+                    {manualDef.type === "select" ? (
+                      <div className="manual-select-choices">
+                        {manualDef.options?.map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            className={`choice-btn ${manualTextInput === opt ? "selected" : ""}`}
+                            onClick={() => setManualTextInput(opt)}
+                          >
+                            {opt === "0" ? "No" : opt === "1" ? "Yes" : opt}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="manual-text-input-row">
+                        <div className="manual-input-wrapper">
+                          <input
+                            type={manualDef.type === "number" ? "number" : "text"}
+                            className="manual-qa-input"
+                            placeholder={manualDef.placeholder}
+                            value={manualTextInput}
+                            min={manualDef.min}
+                            max={manualDef.max}
+                            step={manualDef.type === "number" ? "any" : undefined}
+                            onChange={(e) => setManualTextInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleManualSave()}
+                            autoFocus
+                          />
+                          {manualDef.unit && (
+                            <span className="manual-qa-unit">{manualDef.unit}</span>
+                          )}
+                        </div>
+                        {/* Inline Mic */}
+                        <button
+                          type="button"
+                          className={`voice-action-btn ${isListening ? "active-listening" : ""}`}
+                          onClick={handleManualMic}
+                          title="Speak your answer"
+                        >
+                          {isListening ? <FaStopCircle /> : <FaMicrophone />}
+                          {isListening ? "Stop" : "Speak"}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* BMI Auto-preview */}
+                    {manualKey === "weight" && formData.height && manualTextInput && (
+                      <div className="bmi-preview-inline">
+                        📊 BMI preview: {(parseFloat(manualTextInput) / ((parseFloat(formData.height) / 100) ** 2)).toFixed(1)} kg/m²
+                      </div>
+                    )}
+
+                    {/* Current value reminder if already set */}
+                    {formData[manualKey] && String(formData[manualKey]).trim() !== "" && manualTextInput === "" && (
+                      <div className="current-value-hint">
+                        Current: <strong>{formData[manualKey]}</strong> {manualDef.unit || ""}
+                        <button
+                          className="use-current-btn"
+                          onClick={() => setManualTextInput(String(formData[manualKey]))}
+                        >Keep this value</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Navigation */}
+                  <div className="voice-nav-row">
+                    <button
+                      className="smart-btn ghost"
+                      onClick={handleManualBack}
+                      disabled={manualQuestionIndex === 0}
+                    >
+                      <FaArrowLeft /> Previous
+                    </button>
+
+                    {!manualDef.required && (
+                      <button
+                        className="smart-btn ghost"
+                        onClick={() => {
+                          if (manualQuestionIndex + 1 < MANUAL_QUESTION_KEYS.length) {
+                            setManualQuestionIndex((prev) => prev + 1);
+                            setManualTextInput(formData[MANUAL_QUESTION_KEYS[manualQuestionIndex + 1]] || "");
+                          } else {
+                            setAssessmentMode("review");
+                          }
+                        }}
+                      >
+                        Skip →
+                      </button>
+                    )}
+
+                    <button
+                      className="smart-btn primary"
+                      onClick={handleManualSave}
+                    >
+                      {manualQuestionIndex + 1 < MANUAL_QUESTION_KEYS.length
+                        ? <><FaArrowRight /> Continue</>
+                        : <><FaCheckCircle /> Finish & Review</>
+                      }
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ══════════════════════════════════════════════════════════════════
+              UNIFIED PRE-PREDICTION FINAL REVIEW SCREEN
+              ══════════════════════════════════════════════════════════════════ */}
+          {assessmentMode === "review" && (
+            <div className="review-workflow-container">
+              <div className="review-header-card">
+                <span className="badge-pill">📋 Assessment Review</span>
+                <h2>Verify Your Information Before AI Analysis</h2>
+                <p>
+                  Please review all personal, clinical, and lifestyle metrics below.
+                  All fields have been validated against medical boundaries.
+                </p>
+
+                {/* Data Sources Breakdown Stats */}
+                <div className="source-stats-banner">
+                  <span className="stat-item report-stat">
+                    📄 Report: {sourceStats.reportCount} field{sourceStats.reportCount !== 1 ? "s" : ""}
+                  </span>
+                  <span className="stat-item voice-stat">
+                    🎙️ Voice: {sourceStats.voiceCount} field{sourceStats.voiceCount !== 1 ? "s" : ""}
+                  </span>
+                  <span className="stat-item manual-stat">
+                    ✍️ Manual: {sourceStats.manualCount} field{sourceStats.manualCount !== 1 ? "s" : ""}
+                  </span>
+                </div>
               </div>
 
-              <div className="extracted-actions">
-                <button className="smart-btn primary" onClick={handleConfirmExtracted}>
-                  <FaCheckDouble /> Confirm & Apply to Assessment
+              {/* Review Sections */}
+              <div className="review-sections-grid">
+                {/* 1. Personal Information */}
+                <div className="review-group-card">
+                  <h3><FaUser /> Personal Information</h3>
+                  <div className="review-rows">
+                    <div className="review-row">
+                      <span className="row-label">Age</span>
+                      <span className="row-value">{formData.age || "–"} yrs</span>
+                      {sourceBadge("age")}
+                    </div>
+                    <div className="review-row">
+                      <span className="row-label">Gender</span>
+                      <span className="row-value">{formData.gender}</span>
+                      {sourceBadge("gender")}
+                    </div>
+                    <div className="review-row">
+                      <span className="row-label">Location Type</span>
+                      <span className="row-value">{formData.patientGroup}</span>
+                      {sourceBadge("patientGroup")}
+                    </div>
+                    <div className="review-row">
+                      <span className="row-label">Height</span>
+                      <span className="row-value">{formData.height || "–"} cm</span>
+                      {sourceBadge("height")}
+                    </div>
+                    <div className="review-row">
+                      <span className="row-label">Weight</span>
+                      <span className="row-value">{formData.weight || "–"} kg</span>
+                      {sourceBadge("weight")}
+                    </div>
+                    <div className="review-row highlight-row">
+                      <span className="row-label">BMI</span>
+                      <span className="row-value">{formData.bmi || "–"} kg/m²</span>
+                      <span className="source-badge src-manual">Auto</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Clinical Measurements */}
+                <div className="review-group-card">
+                  <h3><FaStethoscope /> Clinical Measurements</h3>
+                  <div className="review-rows">
+                    <div className="review-row">
+                      <span className="row-label">Blood Pressure</span>
+                      <span className="row-value">
+                        {formData.bloodPressure ? `${formData.bloodPressure} mmHg` : "Not provided (standard 120 used)"}
+                      </span>
+                      {sourceBadge("bloodPressure")}
+                    </div>
+                    <div className="review-row">
+                      <span className="row-label">HbA1c</span>
+                      <span className="row-value">
+                        {formData.hba1c ? `${formData.hba1c} %` : "Not provided"}
+                      </span>
+                      {sourceBadge("hba1c")}
+                    </div>
+                    <div className="review-row">
+                      <span className="row-label">Fasting Glucose</span>
+                      <span className="row-value">
+                        {formData.fastingGlucose ? `${formData.fastingGlucose} mg/dL` : "Not provided"}
+                      </span>
+                      {sourceBadge("fastingGlucose")}
+                    </div>
+                    <div className="review-row">
+                      <span className="row-label">Monthly Income</span>
+                      <span className="row-value">
+                        {formData.monthlyIncome ? `₹${formData.monthlyIncome}` : "Demographic default"}
+                      </span>
+                      {sourceBadge("monthlyIncome")}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Lifestyle & Habits */}
+                <div className="review-group-card">
+                  <h3><FaRunning /> Lifestyle Habits</h3>
+                  <div className="review-rows">
+                    <div className="review-row">
+                      <span className="row-label">Family History</span>
+                      <span className="row-value">
+                        {formData.familyHistory === "1" ? "Yes — Family History Present" : "No Family History"}
+                      </span>
+                      {sourceBadge("familyHistory")}
+                    </div>
+                    <div className="review-row">
+                      <span className="row-label">Physical Activity</span>
+                      <span className="row-value">
+                        {formData.physicalActivityHours ? `${formData.physicalActivityHours} hrs/day` : "0 hrs/day"}
+                      </span>
+                      {sourceBadge("physicalActivityHours")}
+                    </div>
+                    <div className="review-row">
+                      <span className="row-label">Daily Sugar Intake</span>
+                      <span className="row-value">
+                        {formData.dailySugarIntake ? `${formData.dailySugarIntake} g/day` : "Standard baseline"}
+                      </span>
+                      {sourceBadge("dailySugarIntake")}
+                    </div>
+                    <div className="review-row">
+                      <span className="row-label">Fast Food Frequency</span>
+                      <span className="row-value">
+                        {formData.fastFoodFrequency ? `${formData.fastFoodFrequency} meals/week` : "1 meal/week"}
+                      </span>
+                      {sourceBadge("fastFoodFrequency")}
+                    </div>
+                    <div className="review-row">
+                      <span className="row-label">Sleep Duration</span>
+                      <span className="row-value">
+                        {formData.sleepHours ? `${formData.sleepHours} hrs/night` : "7 hrs/night"}
+                      </span>
+                      {sourceBadge("sleepHours")}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="review-final-actions">
+                <button
+                  type="button"
+                  className="smart-btn ghost"
+                  onClick={() => applyModeSwitch("manual", true)}
+                >
+                  <FaEdit /> Edit Information Manually
                 </button>
-                <button className="smart-btn ghost" onClick={() => setShowExtracted(false)}>
-                  Cancel
+
+                <button
+                  type="button"
+                  className="smart-btn ghost"
+                  onClick={() => requestModeSwitch(null)}
+                >
+                  <FaExchangeAlt /> Change Assessment Method
+                </button>
+
+                <button
+                  type="button"
+                  className="smart-btn primary analyze-action-btn"
+                  onClick={handleConfirmAndAnalyze}
+                  disabled={loading}
+                >
+                  <FaBrain /> {loading ? "Evaluating with ML Model…" : "Confirm & Analyze"}
                 </button>
               </div>
             </div>
           )}
 
-          {/* ── CONFLICT RESOLUTION DIALOG ── */}
+          {/* ══════════════════════════════════════════════════════════════════
+              CONFLICT RESOLUTION MODAL
+              ══════════════════════════════════════════════════════════════════ */}
           {resolvingConflict && (
             <div className="conflict-overlay">
               <div className="conflict-dialog">
                 <FaExclamationTriangle className="conflict-icon" />
-                <h3>Data Conflict Detected</h3>
+                <h3>Different Values Detected</h3>
                 <p>
-                  You previously entered a different value for{" "}
-                  <strong>{CANONICAL_ASSESSMENT_SCHEMA[resolvingConflict.field]?.label || resolvingConflict.field}</strong>.
-                  Which value would you like to use?
+                  A conflicting value was found for{" "}
+                  <strong>
+                    {CANONICAL_ASSESSMENT_SCHEMA[resolvingConflict.field]?.label || resolvingConflict.field}
+                  </strong>
+                  . Which value would you like to use for your screening?
                 </p>
+
                 <div className="conflict-values">
                   <div className="conflict-val">
                     <span className="cval-label">Your Entered Value</span>
@@ -1066,11 +2066,18 @@ function Assessment() {
                     </span>
                   </div>
                 </div>
+
                 <div className="conflict-actions">
-                  <button className="smart-btn secondary" onClick={() => resolveConflict(false)}>
-                    Keep My Value ({resolvingConflict.manualVal})
+                  <button
+                    className="smart-btn secondary"
+                    onClick={() => resolveConflict(false)}
+                  >
+                    Use My Value ({resolvingConflict.manualVal})
                   </button>
-                  <button className="smart-btn primary" onClick={() => resolveConflict(true)}>
+                  <button
+                    className="smart-btn primary"
+                    onClick={() => resolveConflict(true)}
+                  >
                     Use Report Value ({resolvingConflict.reportVal})
                   </button>
                 </div>
@@ -1078,436 +2085,43 @@ function Assessment() {
             </div>
           )}
 
-          {/* ── VOICE CONFIRMATION DIALOG ── */}
-          {voiceConfirmation && (
-            <div className="voice-confirm-overlay">
-              <div className="voice-confirm-dialog">
-                <FaMicrophone className="vc-icon" />
-                <p className="vc-heard">Heard: <em>"{voiceConfirmation.heard}"</em></p>
-                <p className="vc-interpreted">
-                  {CANONICAL_ASSESSMENT_SCHEMA[voiceConfirmation.field]?.label}:{" "}
-                  <strong>{voiceConfirmation.displayValue}</strong>
+          {/* ══════════════════════════════════════════════════════════════════
+              SWITCH MODE CONFIRMATION MODAL
+              ══════════════════════════════════════════════════════════════════ */}
+          {showSwitchModal && (
+            <div className="conflict-overlay">
+              <div className="conflict-dialog">
+                <FaExchangeAlt className="conflict-icon" />
+                <h3>Change Assessment Method</h3>
+                <p>
+                  You have already entered some health information in this session.
+                  Would you like to keep your entered data or start fresh?
                 </p>
-                {voiceConfirmation.convertedFrom && (
-                  <p className="vc-converted">
-                    Converted from: {voiceConfirmation.convertedFrom}
-                  </p>
-                )}
-                <p className="vc-question">Is this accurate?</p>
-                <div className="vc-actions">
-                  <button className="smart-btn primary" onClick={confirmVoiceValue}>
-                    <FaCheck /> Confirm
-                  </button>
-                  <button className="smart-btn ghost" onClick={rejectVoiceValue}>
-                    <FaTimes /> Try Again
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
-          {/* ── MISSING DATA Q&A PANEL ── */}
-          {missingQA && (
-            <div className="missing-data-panel">
-              <div className="missing-data-header">
-                <FaRobot className="missing-icon" />
-                <div>
-                  <h3>Missing Information Assistant</h3>
-                  <p>
-                    {missingQA.def.label} (Priority {missingQA.def.priority}) —{" "}
-                    {missingQA.def.required ? "Required for screening" : "Helps calibrate risk model"}
-                  </p>
-                </div>
-              </div>
-              <p className="missing-question">{missingQA.def.question}</p>
-
-              <div className="missing-answer-row">
-                {isSpeechRecognitionSupported() && (
+                <div className="conflict-actions">
                   <button
-                    className={`smart-btn ${missingListening ? "stop-btn" : "voice-btn"}`}
-                    onClick={handleMissingVoice}
-                    disabled={missingListening}
+                    className="smart-btn primary"
+                    onClick={() => applyModeSwitch(pendingModeSwitch, true)}
                   >
-                    {missingListening ? <><FaMicrophoneSlash /> Listening…</> : <><FaMicrophone /> Speak Answer</>}
+                    Keep Information & Switch
                   </button>
-                )}
-                <span className="or-divider">or</span>
-                <div className="missing-input-row">
-                  {missingQA.def.type === "select" ? (
-                    <select
-                      value={missingTextInput}
-                      onChange={(e) => setMissingTextInput(e.target.value)}
-                      className="missing-input"
-                    >
-                      <option value="">Select option…</option>
-                      {missingQA.def.options?.map((o) => (
-                        <option key={o} value={o}>
-                          {o === "0" ? "No" : o === "1" ? "Yes" : o}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="number"
-                      className="missing-input"
-                      placeholder={missingQA.def.placeholder}
-                      value={missingTextInput}
-                      onChange={(e) => setMissingTextInput(e.target.value)}
-                      min={missingQA.def.min}
-                      max={missingQA.def.max}
-                      onKeyDown={(e) => e.key === "Enter" && submitMissingAnswer(missingTextInput)}
-                    />
-                  )}
-                  <button className="smart-btn primary" onClick={() => submitMissingAnswer(missingTextInput)}>
-                    Save & Continue →
+                  <button
+                    className="smart-btn secondary"
+                    onClick={() => applyModeSwitch(pendingModeSwitch, false)}
+                  >
+                    Start Fresh
                   </button>
-                  {!missingQA.def.required && (
-                    <button className="smart-btn ghost" onClick={skipMissingField}>
-                      Skip
-                    </button>
-                  )}
+                  <button
+                    className="smart-btn ghost"
+                    onClick={() => setShowSwitchModal(false)}
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Stepper Progress Bar */}
-          <div className="stepper-bar">
-            {["Personal & Physical", "Clinical Values", "Lifestyle Habits"].map((label, idx) => (
-              <div key={idx} className={`step-item ${step > idx + 1 ? "completed" : ""} ${step === idx + 1 ? "active" : ""}`}>
-                <div className="step-circle">{step > idx + 1 ? <FaCheckCircle /> : idx + 1}</div>
-                <span>{label}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Form Card */}
-          <div className="assessment-card">
-            {/* ── STEP 1: Personal & Physical ── */}
-            {step === 1 && (
-              <div className="form-step-content">
-                <h2><FaUser /> Personal & Physical Information</h2>
-                <p className="step-subtitle">Your basic health profile calibrates the screening model.</p>
-
-                <div className="input-grid">
-                  <div className="input-group">
-                    <label>Full Name {sourceBadge("fullName")}</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Priya Sharma"
-                      value={formData.fullName}
-                      onChange={(e) => updateField("fullName", e.target.value)}
-                    />
-                  </div>
-
-                  <div className="input-group">
-                    <label>
-                      Age (years) * {sourceBadge("age")}
-                      {validationErrors.age && <span className="error-text">{validationErrors.age}</span>}
-                    </label>
-                    <div className="input-mic-row">
-                      <input
-                        type="number"
-                        placeholder="e.g. 42"
-                        min="1"
-                        max="110"
-                        value={formData.age}
-                        onChange={(e) => updateField("age", e.target.value)}
-                      />
-                      <MicBtn field="age" />
-                    </div>
-                  </div>
-
-                  <div className="input-group">
-                    <label>Gender * {sourceBadge("gender")}</label>
-                    <select value={formData.gender} onChange={(e) => updateField("gender", e.target.value)}>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                    </select>
-                  </div>
-
-                  <div className="input-group">
-                    <label>Location Type * {sourceBadge("patientGroup")}</label>
-                    <select value={formData.patientGroup} onChange={(e) => updateField("patientGroup", e.target.value)}>
-                      <option value="Urban">Urban</option>
-                      <option value="Semi-Urban">Semi-Urban</option>
-                      <option value="Rural">Rural</option>
-                    </select>
-                  </div>
-
-                  <div className="input-group">
-                    <label>
-                      Height (cm) * {sourceBadge("height")}
-                      {validationErrors.height && <span className="error-text">{validationErrors.height}</span>}
-                    </label>
-                    <div className="input-mic-row">
-                      <input
-                        type="number"
-                        placeholder="e.g. 170"
-                        min="100"
-                        max="250"
-                        value={formData.height}
-                        onChange={(e) => updateField("height", e.target.value)}
-                      />
-                      <MicBtn field="height" />
-                    </div>
-                  </div>
-
-                  <div className="input-group">
-                    <label>
-                      Weight (kg) * {sourceBadge("weight")}
-                      {validationErrors.weight && <span className="error-text">{validationErrors.weight}</span>}
-                    </label>
-                    <div className="input-mic-row">
-                      <input
-                        type="number"
-                        placeholder="e.g. 75"
-                        min="20"
-                        max="250"
-                        value={formData.weight}
-                        onChange={(e) => updateField("weight", e.target.value)}
-                      />
-                      <MicBtn field="weight" />
-                    </div>
-                  </div>
-
-                  <div className="input-group bmi-auto-group">
-                    <label><FaCalculator /> BMI (auto-calculated)</label>
-                    <div className="bmi-display">
-                      <span>{formData.bmi || "–"}</span> kg/m²
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── STEP 2: Clinical / Lab Values ── */}
-            {step === 2 && (
-              <div className="form-step-content">
-                <h2><FaStethoscope /> Clinical & Laboratory Measurements</h2>
-                <p className="step-subtitle">
-                  Enter your blood test measurements if available. Sourced automatically from medical reports, voice, or manual entry.
-                </p>
-
-                <div className="input-grid">
-                  <div className="input-group">
-                    <label>
-                      Fasting Blood Glucose (mg/dL) {sourceBadge("fastingGlucose")}
-                      <span className="tooltip-badge" title="Normal: < 100 mg/dL | Pre-diabetic: 100–125 | Elevated: ≥ 126">
-                        <FaInfoCircle /> 70–125 normal
-                      </span>
-                    </label>
-                    <div className="input-mic-row">
-                      <input
-                        type="number"
-                        placeholder="e.g. 108 (optional)"
-                        value={formData.fastingGlucose}
-                        onChange={(e) => updateField("fastingGlucose", e.target.value)}
-                      />
-                      <MicBtn field="fastingGlucose" />
-                    </div>
-                  </div>
-
-                  <div className="input-group">
-                    <label>
-                      HbA1c (%) {sourceBadge("hba1c")}
-                      <span className="tooltip-badge" title="Normal: < 5.7% | Pre-diabetic: 5.7–6.4% | Elevated: ≥ 6.5%">
-                        <FaInfoCircle /> 4.0–6.4% normal
-                      </span>
-                    </label>
-                    <div className="input-mic-row">
-                      <input
-                        type="number"
-                        placeholder="e.g. 5.8 (optional)"
-                        step="0.1"
-                        value={formData.hba1c}
-                        onChange={(e) => updateField("hba1c", e.target.value)}
-                      />
-                      <MicBtn field="hba1c" />
-                    </div>
-                  </div>
-
-                  <div className="input-group">
-                    <label>
-                      Systolic Blood Pressure (mmHg) {sourceBadge("bloodPressure")}
-                      <span className="tooltip-badge" title="Systolic pressure. Normal: < 120 mmHg">
-                        <FaInfoCircle /> systolic
-                      </span>
-                    </label>
-                    <div className="input-mic-row">
-                      <input
-                        type="number"
-                        placeholder="e.g. 125 (optional)"
-                        value={formData.bloodPressure}
-                        onChange={(e) => updateField("bloodPressure", e.target.value)}
-                      />
-                      <MicBtn field="bloodPressure" />
-                    </div>
-                  </div>
-
-                  <div className="input-group">
-                    <label>Family History of Diabetes {sourceBadge("familyHistory")}</label>
-                    <select
-                      value={formData.familyHistory}
-                      onChange={(e) => updateField("familyHistory", e.target.value)}
-                    >
-                      <option value="0">No — No immediate family history</option>
-                      <option value="1">Yes — Parent or sibling has diabetes</option>
-                    </select>
-                  </div>
-
-                  <div className="input-group">
-                    <label>Monthly Household Income (₹) {sourceBadge("monthlyIncome")}</label>
-                    <div className="input-mic-row">
-                      <input
-                        type="number"
-                        placeholder="e.g. 35000 (optional)"
-                        value={formData.monthlyIncome}
-                        onChange={(e) => updateField("monthlyIncome", e.target.value)}
-                      />
-                      <MicBtn field="monthlyIncome" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── STEP 3: Lifestyle Habits ── */}
-            {step === 3 && (
-              <div className="form-step-content">
-                <h2><FaRunning /> Lifestyle & Daily Habits</h2>
-                <p className="step-subtitle">
-                  Lifestyle habits represent significant predictive patterns. Honest answers maximize screening relevance.
-                </p>
-
-                <div className="input-grid">
-                  <div className="input-group">
-                    <label>
-                      Physical Activity (hours/day) {sourceBadge("physicalActivityHours")}
-                      <span className="tooltip-badge" title="WHO recommends ≥ 150 min/week">
-                        <FaInfoCircle /> WHO: 2.1+ hrs
-                      </span>
-                    </label>
-                    <div className="input-mic-row">
-                      <input
-                        type="number"
-                        placeholder="e.g. 3.0"
-                        step="0.5"
-                        min="0"
-                        max="20"
-                        value={formData.physicalActivityHours}
-                        onChange={(e) => updateField("physicalActivityHours", e.target.value)}
-                      />
-                      <MicBtn field="physicalActivityHours" />
-                    </div>
-                  </div>
-
-                  <div className="input-group">
-                    <label>
-                      Daily Sugar Intake (grams) {sourceBadge("dailySugarIntake")}
-                      <span className="tooltip-badge" title="Sugar from tea, beverages, sweets, processed foods">
-                        <FaInfoCircle /> WHO: &lt;50g
-                      </span>
-                    </label>
-                    <div className="input-mic-row">
-                      <input
-                        type="number"
-                        placeholder="e.g. 50"
-                        min="0"
-                        max="200"
-                        value={formData.dailySugarIntake}
-                        onChange={(e) => updateField("dailySugarIntake", e.target.value)}
-                      />
-                      <MicBtn field="dailySugarIntake" />
-                    </div>
-                  </div>
-
-                  <div className="input-group">
-                    <label>
-                      <FaAppleAlt /> Fast Food Frequency (meals/week) {sourceBadge("fastFoodFrequency")}
-                      <span className="tooltip-badge" title="Fast food or deep-fried meals per week">
-                        <FaInfoCircle /> meals/week
-                      </span>
-                    </label>
-                    <div className="input-mic-row">
-                      <input
-                        type="number"
-                        placeholder="e.g. 2"
-                        min="0"
-                        max="15"
-                        value={formData.fastFoodFrequency}
-                        onChange={(e) => updateField("fastFoodFrequency", e.target.value)}
-                      />
-                      <MicBtn field="fastFoodFrequency" />
-                    </div>
-                  </div>
-
-                  <div className="input-group">
-                    <label>Sleep Duration (hours/night) {sourceBadge("sleepHours")}</label>
-                    <div className="input-mic-row">
-                      <input
-                        type="number"
-                        placeholder="e.g. 7"
-                        step="0.5"
-                        min="2"
-                        max="14"
-                        value={formData.sleepHours}
-                        onChange={(e) => updateField("sleepHours", e.target.value)}
-                      />
-                      <MicBtn field="sleepHours" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI Missing Data Check Banner */}
-                <div className="missing-check-banner">
-                  <FaRobot />
-                  <div>
-                    <strong>AI Schema-Based Completeness Check</strong>
-                    <p>Detect any remaining missing fields before running the risk model.</p>
-                  </div>
-                  <button className="smart-btn secondary small" onClick={detectMissingFields}>
-                    Check Missing Information
-                  </button>
-                </div>
-
-                {/* Summary Preview */}
-                <div className="summary-preview">
-                  <h4>📋 Assessment Summary</h4>
-                  <div className="summary-chips">
-                    <span>Age: {formData.age} yrs</span>
-                    <span>BMI: {formData.bmi}</span>
-                    <span>Activity: {formData.physicalActivityHours} hrs/day</span>
-                    <span>Sugar: {formData.dailySugarIntake}g/day</span>
-                    <span>Sleep: {formData.sleepHours} hrs</span>
-                    {formData.familyHistory === "1" && <span className="risk-chip">Family History Present</span>}
-                    {formData.fastingGlucose && <span>Glucose: {formData.fastingGlucose} mg/dL</span>}
-                    {formData.hba1c && <span>HbA1c: {formData.hba1c}%</span>}
-                    {formData.bloodPressure && <span>BP: {formData.bloodPressure} mmHg</span>}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Stepper Navigation Buttons */}
-            <div className="stepper-actions">
-              {step > 1 && (
-                <button className="btn-step secondary" onClick={() => setStep(step - 1)}>
-                  ← Previous
-                </button>
-              )}
-              {step < 3 && (
-                <button className="btn-step primary" onClick={handleNextStep}>
-                  Next →
-                </button>
-              )}
-              {step === 3 && (
-                <button className="btn-step primary predict-btn" onClick={handleNextStep} disabled={loading}>
-                  <FaBrain /> {loading ? "Evaluating..." : "Run Health Screening →"}
-                </button>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -1516,8 +2130,8 @@ function Assessment() {
         <div className="ai-loading-overlay">
           <div className="loading-card">
             <FaBrain className="spinner-brain" />
-            <h3>Evaluating health profile...</h3>
-            <p>Running verified DiaSense risk model v2</p>
+            <h3>Evaluating health profile…</h3>
+            <p>Running verified DiaSense risk screening model</p>
             <small>⚕️ This is an AI screening model, not a medical diagnosis.</small>
           </div>
         </div>

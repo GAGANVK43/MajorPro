@@ -8,8 +8,6 @@ from app.repositories.diet_repository import DietRepository
 from app.schemas.user_schema import UserProfileResponse
 from app.schemas.assessment_schema import AssessmentResponse
 from app.schemas.prediction_schema import PredictionResponse
-from app.ml.prediction import predict_diabetes_risk
-
 
 class DashboardService:
     """
@@ -34,10 +32,8 @@ class DashboardService:
         health_score = 90
 
         if latest_pred:
-            # Safely unpack 5-tuple from ML prediction engine
-            _, _, _, recommendation, _ = predict_diabetes_risk({})
+            # Use the stored prediction data directly — no need to re-run ML model
             pred_res = PredictionResponse.model_validate(latest_pred)
-            pred_res.recommendation = recommendation
             latest_pred_data = pred_res.model_dump()
 
             if latest_pred.prediction == "Diabetic" or latest_pred.risk_percentage >= 50.0:
