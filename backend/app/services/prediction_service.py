@@ -16,7 +16,7 @@ from app.ml.prediction import predict_diabetes_risk
 
 class PredictionService:
     """
-    Business Logic Layer for 96.8% High-Accuracy ML Prediction and Indian Diet Plan Generation.
+    Business Logic Layer for Indian Diabetes ML Risk Prediction and Tailored Indian Diet Plan Generation.
     """
     def __init__(self, db: Session):
         self.db = db
@@ -24,21 +24,30 @@ class PredictionService:
         self.prediction_repo = PredictionRepository(db)
         self.diet_repo = DietRepository(db)
 
+    def _extract_assessment_dict(self, obj) -> dict:
+        return {
+            "patient_group": getattr(obj, "patient_group", "Urban") or "Urban",
+            "gender": getattr(obj, "gender", "Male") or "Male",
+            "age": getattr(obj, "age", 35) or 35,
+            "bmi": getattr(obj, "bmi", 24.5) or 24.5,
+            "physical_activity_hours": getattr(obj, "physical_activity_hours", 2.0) or 2.0,
+            "daily_sugar_intake": getattr(obj, "daily_sugar_intake", 30.0) or 30.0,
+            "fast_food_frequency": getattr(obj, "fast_food_frequency", 2.0) or 2.0,
+            "sleep_hours": getattr(obj, "sleep_hours", 7.0) or 7.0,
+            "family_history": getattr(obj, "family_history", 0.0) or 0.0,
+            "blood_pressure": getattr(obj, "blood_pressure", 120.0) or 120.0,
+            "hba1c": getattr(obj, "hba1c", 5.7) or 5.7,
+            "fasting_glucose": getattr(obj, "fasting_glucose", None) or getattr(obj, "glucose", 100.0) or 100.0,
+            "monthly_income": getattr(obj, "monthly_income", 35000.0) or 35000.0,
+            "month": getattr(obj, "month", 6.0) or 6.0,
+        }
+
     def create_prediction(self, user: Optional[User], request: PredictionRequest) -> PredictionResponse:
+        assessment_dict = self._extract_assessment_dict(request)
+
         # Handle Guest (Unauthenticated) Assessment Submissions
         if user is None:
-            assessment_data = {
-                "pregnancies": request.pregnancies or 0,
-                "glucose": request.glucose or 120.0,
-                "blood_pressure": request.blood_pressure or 70.0,
-                "skin_thickness": request.skin_thickness or 20.0,
-                "insulin": request.insulin or 80.0,
-                "bmi": request.bmi or 25.0,
-                "diabetes_pedigree_function": request.diabetes_pedigree_function or 0.47,
-                "age": request.age or 30,
-            }
-            pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_data)
-
+            pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_dict)
             return PredictionResponse(
                 id=1,
                 assessment_id=1,
@@ -61,33 +70,35 @@ class PredictionService:
                 )
 
         if not assessment:
-            # Auto-create assessment if not existing
+            # Auto-create assessment record
             assessment = Assessment(
                 user_id=user.id,
-                pregnancies=request.pregnancies or 0,
-                glucose=request.glucose or 120.0,
-                blood_pressure=request.blood_pressure or 70.0,
-                skin_thickness=request.skin_thickness or 20.0,
-                insulin=request.insulin or 80.0,
-                bmi=request.bmi or 25.0,
-                diabetes_pedigree_function=request.diabetes_pedigree_function or 0.47,
-                age=request.age or user.age or 30,
+                patient_group=assessment_dict["patient_group"],
+                gender=assessment_dict["gender"] or user.gender or "Male",
+                age=assessment_dict["age"] or user.age or 35,
+                bmi=assessment_dict["bmi"],
+                blood_pressure=assessment_dict["blood_pressure"],
+                hba1c=assessment_dict["hba1c"],
+                fasting_glucose=assessment_dict["fasting_glucose"],
+                physical_activity_hours=assessment_dict["physical_activity_hours"],
+                daily_sugar_intake=assessment_dict["daily_sugar_intake"],
+                fast_food_frequency=assessment_dict["fast_food_frequency"],
+                sleep_hours=assessment_dict["sleep_hours"],
+                family_history=assessment_dict["family_history"],
+                monthly_income=assessment_dict["monthly_income"],
+                month=assessment_dict["month"],
+                # Legacy fields mapping
+                glucose=assessment_dict["fasting_glucose"],
+                pregnancies=getattr(request, "pregnancies", 0) or 0,
+                skin_thickness=getattr(request, "skin_thickness", 20.0) or 20.0,
+                insulin=getattr(request, "insulin", 80.0) or 80.0,
+                diabetes_pedigree_function=getattr(request, "diabetes_pedigree_function", 0.45) or 0.45,
             )
             assessment = self.assessment_repo.create(assessment)
 
-        # Step 2: Extract attributes & run ML inference
-        assessment_data = {
-            "pregnancies": assessment.pregnancies,
-            "glucose": assessment.glucose,
-            "blood_pressure": assessment.blood_pressure,
-            "skin_thickness": assessment.skin_thickness,
-            "insulin": assessment.insulin,
-            "bmi": assessment.bmi,
-            "diabetes_pedigree_function": assessment.diabetes_pedigree_function,
-            "age": assessment.age,
-        }
-
-        pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_data)
+        # Step 2: Run ML inference
+        pred_dict = self._extract_assessment_dict(assessment)
+        pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(pred_dict)
 
         # Step 3: Save Prediction entity
         prediction_obj = Prediction(
@@ -99,7 +110,14 @@ class PredictionService:
         saved_prediction = self.prediction_repo.create(prediction_obj)
 
         # Step 4: Automatically generate & store Tailored Indian Diet Plan
-        self._generate_and_save_diet_plan(saved_prediction.id, pred_label, risk_pct, assessment.glucose, assessment.bmi)
+        self._generate_and_save_diet_plan(
+            saved_prediction.id,
+            pred_label,
+            risk_pct,
+            assessment_dict["fasting_glucose"],
+            assessment_dict["hba1c"],
+            assessment_dict["bmi"]
+        )
 
         return PredictionResponse(
             id=saved_prediction.id,
@@ -120,21 +138,11 @@ class PredictionService:
                 detail="No prediction records found for user",
             )
         
-        assessment_data = {}
+        assessment_dict = {}
         if latest.assessment:
-            a = latest.assessment
-            assessment_data = {
-                "pregnancies": a.pregnancies,
-                "glucose": a.glucose,
-                "blood_pressure": a.blood_pressure,
-                "skin_thickness": a.skin_thickness,
-                "insulin": a.insulin,
-                "bmi": a.bmi,
-                "diabetes_pedigree_function": a.diabetes_pedigree_function,
-                "age": a.age,
-            }
+            assessment_dict = self._extract_assessment_dict(latest.assessment)
 
-        pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_data)
+        pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_dict)
 
         return PredictionResponse(
             id=latest.id,
@@ -152,12 +160,12 @@ class PredictionService:
         items = []
         for p in predictions:
             item = PredictionResponse.model_validate(p)
-            item.recommendation = "Follow medical recommendations provided."
+            item.recommendation = "Follow medical lifestyle recommendations provided."
             items.append(item)
         return PredictionListResponse(total=len(items), predictions=items)
 
-    def _generate_and_save_diet_plan(self, prediction_id: int, label: str, risk_pct: float, glucose: float, bmi: float) -> DietPlan:
-        if label == "Diabetic" or risk_pct >= 50.0 or glucose >= 140.0:
+    def _generate_and_save_diet_plan(self, prediction_id: int, label: str, risk_pct: float, glucose: float, hba1c: float, bmi: float) -> DietPlan:
+        if label == "Diabetic" or risk_pct >= 45.0 or glucose >= 126.0 or hba1c >= 6.5:
             breakfast = "Oats & Ragi Dosa (2 pcs) with Mint Chutney, 1 Boiled Egg / Paneer Bhurji (Low-GI Indian Breakfast)."
             lunch = "Moong Dal & Spinach Khichdi with 1 cup Cucumber Raita and Sprouted Chana Salad."
             dinner = "Palak Paneer with 2 Bajra/Multigrain Rotis and Steamed Lauki/Turai Subzi."

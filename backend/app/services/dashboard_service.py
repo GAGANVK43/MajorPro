@@ -34,7 +34,8 @@ class DashboardService:
         health_score = 90
 
         if latest_pred:
-            _, _, _, recommendation = predict_diabetes_risk({})
+            # Safely unpack 5-tuple from ML prediction engine
+            _, _, _, recommendation, _ = predict_diabetes_risk({})
             pred_res = PredictionResponse.model_validate(latest_pred)
             pred_res.recommendation = recommendation
             latest_pred_data = pred_res.model_dump()
@@ -65,14 +66,17 @@ class DashboardService:
         history_data = [AssessmentResponse.model_validate(a).model_dump() for a in assessments]
 
         # 4. Health Summary Overview
+        latest_a = assessments[0] if assessments else None
+        latest_glu = getattr(latest_a, "fasting_glucose", None) or getattr(latest_a, "glucose", None) if latest_a else None
+
         health_summary = {
             "health_score": health_score,
             "risk_level": risk_level,
             "total_assessments": len(assessments),
-            "latest_bmi": assessments[0].bmi if assessments else None,
-            "latest_glucose": assessments[0].glucose if assessments else None,
-            "latest_blood_pressure": assessments[0].blood_pressure if assessments else None,
-            "last_assessed_at": assessments[0].created_at.isoformat() if assessments else None,
+            "latest_bmi": latest_a.bmi if latest_a else None,
+            "latest_glucose": latest_glu,
+            "latest_blood_pressure": latest_a.blood_pressure if latest_a else None,
+            "last_assessed_at": latest_a.created_at.isoformat() if latest_a else None,
         }
 
         return {
