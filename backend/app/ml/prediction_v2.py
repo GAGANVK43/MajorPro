@@ -114,7 +114,7 @@ def analyze_contributing_factors(assessment_data: Dict[str, Any]) -> List[Dict[s
                 "value": f"{g:.0f} mg/dL",
                 "impact": "High Risk",
                 "description": (
-                    "Fasting glucose ≥ 126 mg/dL meets the ADA clinical threshold "
+                    "Fasting glucose >= 126 mg/dL meets the ADA clinical threshold "
                     "for elevated diabetes risk. A confirmatory test is strongly recommended."
                 ),
             })
@@ -124,7 +124,7 @@ def analyze_contributing_factors(assessment_data: Dict[str, Any]) -> List[Dict[s
                 "value": f"{g:.0f} mg/dL",
                 "impact": "Moderate Risk",
                 "description": (
-                    "Fasting glucose 100–125 mg/dL (impaired fasting glucose / pre-diabetic range). "
+                    "Fasting glucose 100-125 mg/dL (impaired fasting glucose / pre-diabetic range). "
                     "Lifestyle changes and regular monitoring are advised."
                 ),
             })
@@ -146,7 +146,7 @@ def analyze_contributing_factors(assessment_data: Dict[str, Any]) -> List[Dict[s
                 "value": f"{h:.1f}%",
                 "impact": "High Risk",
                 "description": (
-                    "HbA1c ≥ 6.5% is consistent with elevated long-term blood sugar levels. "
+                    "HbA1c >= 6.5% is consistent with elevated long-term blood sugar levels. "
                     "This warrants prompt medical consultation."
                 ),
             })
@@ -156,7 +156,7 @@ def analyze_contributing_factors(assessment_data: Dict[str, Any]) -> List[Dict[s
                 "value": f"{h:.1f}%",
                 "impact": "Moderate Risk",
                 "description": (
-                    "HbA1c 5.7–6.4% falls in the pre-diabetic range. "
+                    "HbA1c 5.7-6.4% falls in the pre-diabetic range. "
                     "Dietary adjustments and physical activity can help."
                 ),
             })
@@ -178,7 +178,7 @@ def analyze_contributing_factors(assessment_data: Dict[str, Any]) -> List[Dict[s
                 "value": f"{b:.1f}",
                 "impact": "High Risk",
                 "description": (
-                    "BMI ≥ 30 is classified as obesity. Excess weight significantly "
+                    "BMI >= 30 is classified as obesity. Excess weight significantly "
                     "increases insulin resistance and diabetes risk."
                 ),
             })
@@ -187,14 +187,14 @@ def analyze_contributing_factors(assessment_data: Dict[str, Any]) -> List[Dict[s
                 "factor": "BMI (Body Mass Index)",
                 "value": f"{b:.1f}",
                 "impact": "Moderate Risk",
-                "description": "BMI 25–29.9 (overweight range). Weight management is recommended.",
+                "description": "BMI 25-29.9 (overweight range). Weight management is recommended.",
             })
         else:
             factors.append({
                 "factor": "BMI (Body Mass Index)",
                 "value": f"{b:.1f}",
                 "impact": "Good",
-                "description": "BMI within healthy range (18.5–24.9).",
+                "description": "BMI within healthy range (18.5-24.9).",
             })
 
     # ── Daily Sugar Intake ───────────────────────────────────────────────────
@@ -217,7 +217,7 @@ def analyze_contributing_factors(assessment_data: Dict[str, Any]) -> List[Dict[s
                 "value": f"{s:.0f} g/day",
                 "impact": "Moderate Risk",
                 "description": (
-                    "Sugar intake above WHO recommended levels (< 25–50 g/day). "
+                    "Sugar intake above WHO recommended levels (< 25-50 g/day). "
                     "Consider reducing sugary drinks and snacks."
                 ),
             })
@@ -239,7 +239,7 @@ def analyze_contributing_factors(assessment_data: Dict[str, Any]) -> List[Dict[s
                 "value": f"{a:.1f} hrs/day",
                 "impact": "High Risk",
                 "description": (
-                    "Very low physical activity level. Regular exercise (≥ 150 min/week) "
+                    "Very low physical activity level. Regular exercise (>= 150 min/week) "
                     "substantially reduces diabetes risk."
                 ),
             })

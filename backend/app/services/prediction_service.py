@@ -71,29 +71,60 @@ class PredictionService:
         self.diet_repo = DietRepository(db)
 
     def _extract_assessment_dict(self, obj) -> dict:
+        fh = getattr(obj, "family_history", None)
+        if fh is None:
+            fh_val = 0.0
+        elif isinstance(fh, str):
+            fh_val = 1.0 if fh.strip().lower() in ("yes", "true", "1", "positive") else 0.0
+        else:
+            try:
+                fh_val = float(fh)
+            except (ValueError, TypeError):
+                fh_val = 0.0
+
+        def _val(attr_name, default):
+            v = getattr(obj, attr_name, None)
+            if v is None:
+                return default
+            try:
+                return float(v)
+            except (ValueError, TypeError):
+                return default
+
+        fasting_glu = getattr(obj, "fasting_glucose", None)
+        if fasting_glu is None:
+            fasting_glu = getattr(obj, "glucose", None)
+        if fasting_glu is None:
+            fasting_glu = 100.0
+        else:
+            try:
+                fasting_glu = float(fasting_glu)
+            except (ValueError, TypeError):
+                fasting_glu = 100.0
+
         return {
-            "patient_group": getattr(obj, "patient_group", "Urban") or "Urban",
-            "gender": getattr(obj, "gender", "Male") or "Male",
-            "age": getattr(obj, "age", 35) or 35,
-            "bmi": getattr(obj, "bmi", 24.5) or 24.5,
-            "physical_activity_hours": getattr(obj, "physical_activity_hours", 2.0) or 2.0,
-            "daily_sugar_intake": getattr(obj, "daily_sugar_intake", 30.0) or 30.0,
-            "fast_food_frequency": getattr(obj, "fast_food_frequency", 2.0) or 2.0,
-            "sleep_hours": getattr(obj, "sleep_hours", 7.0) or 7.0,
-            "family_history": getattr(obj, "family_history", 0.0) or 0.0,
-            "blood_pressure": getattr(obj, "blood_pressure", 120.0) or 120.0,
-            "hba1c": getattr(obj, "hba1c", 5.7) or 5.7,
-            "fasting_glucose": getattr(obj, "fasting_glucose", None) or getattr(obj, "glucose", 100.0) or 100.0,
-            "monthly_income": getattr(obj, "monthly_income", 35000.0) or 35000.0,
-            "month": getattr(obj, "month", 6.0) or 6.0,
+            "patient_group": getattr(obj, "patient_group", None) or "Urban",
+            "gender": getattr(obj, "gender", None) or "Male",
+            "age": int(_val("age", 35)),
+            "bmi": _val("bmi", 24.5),
+            "physical_activity_hours": _val("physical_activity_hours", 2.0),
+            "daily_sugar_intake": _val("daily_sugar_intake", 30.0),
+            "fast_food_frequency": _val("fast_food_frequency", 2.0),
+            "sleep_hours": _val("sleep_hours", 7.0),
+            "family_history": fh_val,
+            "blood_pressure": _val("blood_pressure", 120.0),
+            "hba1c": _val("hba1c", 5.7),
+            "fasting_glucose": fasting_glu,
+            "monthly_income": _val("monthly_income", 35000.0),
+            "month": _val("month", 6.0),
         }
 
-    def create_prediction(self, user: Optional[User], request: PredictionRequest) -> PredictionResponse:
+    def create_prediction(self, user: Optional[User], request: PredictionRequest, lang: str = "en") -> PredictionResponse:
         assessment_dict = self._extract_assessment_dict(request)
 
         # Handle Guest (Unauthenticated) Assessment Submissions
         if user is None:
-            pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_dict)
+            pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_dict, lang=lang)
             return PredictionResponse(
                 id=0,
                 assessment_id=0,
@@ -145,7 +176,7 @@ class PredictionService:
 
         # Step 2: Run ML inference
         pred_dict = self._extract_assessment_dict(assessment)
-        pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(pred_dict)
+        pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(pred_dict, lang=lang)
 
         # Step 3: Save Prediction entity
         prediction_obj = Prediction(
@@ -157,14 +188,17 @@ class PredictionService:
         saved_prediction = self.prediction_repo.create(prediction_obj)
 
         # Step 4: Automatically generate & store Tailored Indian Diet Plan
-        self._generate_and_save_diet_plan(
-            saved_prediction.id,
-            pred_label,
-            risk_pct,
-            assessment_dict["fasting_glucose"],
-            assessment_dict["hba1c"],
-            assessment_dict["bmi"]
-        )
+        try:
+            self._generate_and_save_diet_plan(
+                saved_prediction.id,
+                pred_label,
+                risk_pct,
+                assessment_dict["fasting_glucose"],
+                assessment_dict["hba1c"],
+                assessment_dict["bmi"]
+            )
+        except Exception:
+            pass
 
         return PredictionResponse(
             id=saved_prediction.id,
@@ -189,7 +223,7 @@ class PredictionService:
         if latest.assessment:
             assessment_dict = self._extract_assessment_dict(latest.assessment)
 
-        pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_dict)
+        pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_dict, lang=lang)
 
         return PredictionResponse(
             id=latest.id,
@@ -212,7 +246,7 @@ class PredictionService:
         return PredictionListResponse(total=len(items), predictions=items)
 
     def _generate_and_save_diet_plan(self, prediction_id: int, label: str, risk_pct: float, glucose: float, hba1c: float, bmi: float) -> DietPlan:
-        if label == "Diabetic" or risk_pct >= 45.0 or glucose >= 126.0 or hba1c >= 6.5:
+        if label == "Diabetic" or label == "Higher Risk Pattern" or risk_pct >= 45.0 or glucose >= 126.0 or hba1c >= 6.5:
             breakfast = "Oats & Ragi Dosa (2 pcs) with Mint Chutney, 1 Boiled Egg / Paneer Bhurji (Low-GI Indian Breakfast)."
             lunch = "Moong Dal & Spinach Khichdi with 1 cup Cucumber Raita and Sprouted Chana Salad."
             dinner = "Palak Paneer with 2 Bajra/Multigrain Rotis and Steamed Lauki/Turai Subzi."
@@ -229,11 +263,11 @@ class PredictionService:
 
         diet_plan = DietPlan(
             prediction_id=prediction_id,
-            breakfast=localized_en["breakfast"],
-            lunch=localized_en["lunch"],
-            dinner=localized_en["dinner"],
-            snacks=localized_en["snacks"],
-            exercise=localized_en["exercise"],
-            tips=localized_en["tips"],
+            breakfast=breakfast,
+            lunch=lunch,
+            dinner=dinner,
+            snacks=snacks,
+            exercise=exercise,
+            tips=tips,
         )
         return self.diet_repo.create(diet_plan)
