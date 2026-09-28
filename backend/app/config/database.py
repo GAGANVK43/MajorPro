@@ -3,20 +3,54 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from app.config.settings import settings
 from app.utils.logger import logger
 
+
+def _fix_database_url(url: str) -> str:
+    """
+    Supabase provides 'postgres://' or 'postgresql://' URLs.
+    SQLAlchemy requires 'postgresql+psycopg2://' for psycopg2 driver.
+    """
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif url.startswith("postgresql://") and "+psycopg2" not in url:
+        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    return url
+
+
 def _create_engine_with_fallback():
     url = settings.DATABASE_URL
+
     if url.startswith("sqlite"):
-        return create_engine(url, connect_args={"check_same_thread": False}, pool_pre_ping=True, echo=False)
-    
-    # Try remote database with connect_timeout
+        return create_engine(
+            url,
+            connect_args={"check_same_thread": False},
+            pool_pre_ping=True,
+            echo=False,
+        )
+
+    # PostgreSQL (Supabase / Render Postgres / any hosted DB)
+    fixed_url = _fix_database_url(url)
     try:
-        eng = create_engine(url, connect_args={"connect_timeout": 3}, pool_pre_ping=True, echo=False)
+        eng = create_engine(
+            fixed_url,
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10,
+            pool_timeout=30,
+            echo=False,
+        )
         with eng.connect() as conn:
             pass
+        logger.info(f"Connected to PostgreSQL database successfully.")
         return eng
     except Exception as e:
-        logger.warning(f"Remote database unreachable ({e}). Falling back to local SQLite database.")
-        return create_engine("sqlite:///./diasense.db", connect_args={"check_same_thread": False}, pool_pre_ping=True, echo=False)
+        logger.warning(f"PostgreSQL connection failed ({e}). Falling back to local SQLite.")
+        return create_engine(
+            "sqlite:///./diasense.db",
+            connect_args={"check_same_thread": False},
+            pool_pre_ping=True,
+            echo=False,
+        )
+
 
 engine = _create_engine_with_fallback()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
