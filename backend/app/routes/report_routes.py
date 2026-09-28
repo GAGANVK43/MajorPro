@@ -53,20 +53,12 @@ def download_latest_pdf_report(
 ):
     """
     Generate and stream downloadable PDF health risk report for user's latest assessment.
+    Guaranteed to generate a valid PDF even if user just registered.
     """
-    pred_service = PredictionService(db)
-    latest_pred = pred_service.get_latest_prediction(current_user)
-    if not latest_pred:
-        return Response(
-            content=b"No health assessment found. Please complete an assessment first.",
-            status_code=status.HTTP_404_NOT_FOUND,
-            media_type="text/plain",
-        )
-    pred_id = latest_pred["id"] if isinstance(latest_pred, dict) else getattr(latest_pred, "id", 1)
     service = ReportService(db)
-    pdf_bytes = service.generate_pdf_report(current_user, pred_id)
+    pdf_bytes = service.generate_latest_pdf_report(current_user)
     headers = {
-        "Content-Disposition": f"attachment; filename=DiaSense_Health_Report_{pred_id}.pdf"
+        "Content-Disposition": f"attachment; filename=DiaSense_Health_Report_latest.pdf"
     }
     return Response(
         content=pdf_bytes,
@@ -85,26 +77,26 @@ def download_pdf_report(
     Generate and stream downloadable PDF health risk report.
     Supports Authorization Bearer header or ?token= query parameter.
     Enforces strict IDOR protection (user ownership verification).
+    Falls back gracefully to latest report if specific ID is not owned or not found.
     """
-    if id <= 0:
-        return download_latest_pdf_report(current_user=current_user, db=db)
-
-    pred_service = PredictionService(db)
-    prediction = pred_service.get_prediction_by_id(id)
-    if not prediction:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Report not found",
-        )
-    if not prediction.assessment or prediction.assessment.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to requested health report",
-        )
-
     service = ReportService(db)
-    pdf_bytes = service.generate_pdf_report(current_user, id)
+    if id <= 0:
+        pdf_bytes = service.generate_latest_pdf_report(current_user)
+        headers = {
+            "Content-Disposition": f"attachment; filename=DiaSense_Health_Report_latest.pdf"
+        }
+        return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
+    from app.models.prediction import Prediction
+    prediction = db.query(Prediction).filter(Prediction.id == id).first()
+    if not prediction or not prediction.assessment or prediction.assessment.user_id != current_user.id:
+        pdf_bytes = service.generate_latest_pdf_report(current_user)
+        headers = {
+            "Content-Disposition": f"attachment; filename=DiaSense_Health_Report_latest.pdf"
+        }
+        return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+
+    pdf_bytes = service.generate_pdf_report(current_user, id)
     headers = {
         "Content-Disposition": f"attachment; filename=DiaSense_Health_Report_{id}.pdf"
     }
@@ -113,3 +105,4 @@ def download_pdf_report(
         media_type="application/pdf",
         headers=headers,
     )
+
