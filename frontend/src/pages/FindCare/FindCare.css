@@ -116,10 +116,15 @@
 }
 
 .location-inputs-grid {
-  display: grid;
-  grid-template-columns: auto auto 1fr;
+  display: flex;
   align-items: center;
   gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.location-inputs-grid .manual-location-form {
+  flex: 1;
+  min-width: 260px;
 }
 
 .btn-use-location {
@@ -374,7 +379,7 @@
 /* Facilities Grid (List View) */
 .facilities-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 1.35rem;
 }
 

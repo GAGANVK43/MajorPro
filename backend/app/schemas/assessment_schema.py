@@ -1,3 +1,7 @@
+"""
+Assessment Schema v2 — India Diabetes Patient Dataset fields.
+Replaces old Pima-style schema (pregnancies / insulin / skin_thickness / dpf).
+"""
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field

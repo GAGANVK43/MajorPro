@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db
@@ -16,14 +16,15 @@ router = APIRouter(prefix="/api/prediction", tags=["Prediction"])
 def create_prediction(
     request: PredictionRequest,
     current_user: Optional[User] = Depends(get_optional_current_user),
+    accept_language: str = Header(default="en", alias="Accept-Language"),
     db: Session = Depends(get_db),
 ):
     """
-    Execute ML prediction pipeline on assessment data and return risk analysis.
+    Execute ML prediction pipeline on assessment data and return risk analysis with multilingual output.
     Supports authenticated users and guest submissions.
     """
     service = PredictionService(db)
-    result = service.create_prediction(current_user, request)
+    result = service.create_prediction(current_user, request, lang=accept_language)
     return success_response(
         data=result,
         message="ML Diabetes Risk Prediction generated successfully",
@@ -33,13 +34,14 @@ def create_prediction(
 @router.get("/latest", status_code=status.HTTP_200_OK)
 def get_latest_prediction(
     current_user: User = Depends(get_current_user),
+    accept_language: str = Header(default="en", alias="Accept-Language"),
     db: Session = Depends(get_db),
 ):
     """
-    Retrieve latest prediction record for authenticated user.
+    Retrieve latest prediction record for authenticated user in requested language.
     """
     service = PredictionService(db)
-    result = service.get_latest_prediction(current_user)
+    result = service.get_latest_prediction(current_user, lang=accept_language)
     return success_response(
         data=result,
         message="Latest prediction retrieved successfully",
@@ -62,13 +64,14 @@ def get_model_accuracy():
 @router.get("/history", status_code=status.HTTP_200_OK)
 def get_prediction_history(
     current_user: User = Depends(get_current_user),
+    accept_language: str = Header(default="en", alias="Accept-Language"),
     db: Session = Depends(get_db),
 ):
     """
     Retrieve prediction history for authenticated user.
     """
     service = PredictionService(db)
-    result = service.get_prediction_history(current_user)
+    result = service.get_prediction_history(current_user, lang=accept_language)
     return success_response(
         data=result,
         message="Prediction history retrieved successfully",

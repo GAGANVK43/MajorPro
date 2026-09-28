@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaArrowRight, FaBrain, FaShieldAlt, FaChartLine } from "react-icons/fa";
 import { predictionService } from "../../services/api";
+import { useTranslation } from "../../context/LanguageContext";
 
 function Hero() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [modelMetrics, setModelMetrics] = useState({
     accuracy_percentage: "99.20%",
     dataset_samples: 2500,
@@ -188,28 +190,32 @@ function Hero() {
         </svg>
       </div>
 
-      {/* Main Foreground Container (Text & Controls Untouched) */}
+      {/* Main Foreground Container */}
       <div className="hero-container">
         <div className="hero-badge">
           <FaBrain className="badge-icon" />
-          <span>AI-Assisted Diabetes Risk Screening</span>
+          <span>{t("home.heroBadge")}</span>
         </div>
 
         <h1 className="hero-title">
-          Predict Diabetes Risk Earlier With <span className="gradient-text">Artificial Intelligence</span>
+          {t("home.heroTitle")}{" "}
+          <span className="gradient-text">{t("home.heroTitleHighlight")}</span>
         </h1>
 
-        <p className="hero-description">
-          Assess your physiological health markers, evaluate risk indicators powered by machine learning, 
-          and receive actionable, personalized lifestyle and nutritional recommendations.
-        </p>
+        <p className="hero-description">{t("home.heroDesc")}</p>
 
         <div className="hero-cta-group">
-          <button className="cta-btn primary" onClick={() => navigate("/assessment")}>
-            Start AI Risk Assessment <FaArrowRight />
+          <button
+            className="cta-btn primary"
+            onClick={() => navigate("/assessment")}
+          >
+            {t("home.startAssessment")} <FaArrowRight />
           </button>
-          <button className="cta-btn secondary" onClick={() => navigate("/dashboard")}>
-            Explore Dashboard
+          <button
+            className="cta-btn secondary"
+            onClick={() => navigate("/dashboard")}
+          >
+            {t("home.exploreDashboard")}
           </button>
         </div>
 
@@ -221,7 +227,7 @@ function Hero() {
             </div>
             <div className="stat-content">
               <h3>{modelMetrics.accuracy_percentage}</h3>
-              <p>Model Accuracy Score (XGBoost)</p>
+              <p>{t("home.accuracyScore")}</p>
             </div>
           </div>
 
@@ -231,7 +237,7 @@ function Hero() {
             </div>
             <div className="stat-content">
               <h3>{modelMetrics.dataset_samples}</h3>
-              <p>Clinical Dataset Records (2,500 Samples)</p>
+              <p>{t("home.datasetRecords")}</p>
             </div>
           </div>
 
@@ -241,7 +247,7 @@ function Hero() {
             </div>
             <div className="stat-content">
               <h3>{modelMetrics.roc_auc}</h3>
-              <p>ROC-AUC Discrimination Index</p>
+              <p>{t("home.rocAuc")}</p>
             </div>
           </div>
         </div>

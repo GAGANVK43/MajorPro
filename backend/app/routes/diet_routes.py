@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Header, status
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db
@@ -13,13 +13,14 @@ router = APIRouter(prefix="/api/diet", tags=["Diet Plan"])
 @router.get("/latest", status_code=status.HTTP_200_OK)
 def get_latest_diet_plan(
     current_user: User = Depends(get_current_user),
+    accept_language: str = Header(default="en", alias="Accept-Language"),
     db: Session = Depends(get_db),
 ):
     """
-    Retrieve latest personalized diet and exercise plan for authenticated user.
+    Retrieve latest personalized diet and exercise plan for authenticated user in requested language.
     """
     service = DietService(db)
-    result = service.get_latest_diet_plan(current_user)
+    result = service.get_latest_diet_plan(current_user, lang=accept_language)
     return success_response(
         data=result,
         message="Latest diet plan retrieved successfully",
@@ -30,13 +31,14 @@ def get_latest_diet_plan(
 def get_diet_plan_by_prediction(
     prediction_id: int,
     current_user: User = Depends(get_current_user),
+    accept_language: str = Header(default="en", alias="Accept-Language"),
     db: Session = Depends(get_db),
 ):
     """
-    Retrieve personalized diet plan for a specific prediction ID.
+    Retrieve personalized diet plan for a specific prediction ID in requested language.
     """
     service = DietService(db)
-    result = service.get_diet_plan_by_prediction_id(current_user, prediction_id)
+    result = service.get_diet_plan_by_prediction_id(current_user, prediction_id, lang=accept_language)
     return success_response(
         data=result,
         message="Diet plan retrieved successfully",

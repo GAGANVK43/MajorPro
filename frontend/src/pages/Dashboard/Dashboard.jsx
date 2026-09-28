@@ -7,9 +7,11 @@ import Navbar from "../../components/Navbar/Navbar";
 import BackButton from "../../components/BackButton/BackButton";
 import Footer from "../../components/Footer/Footer";
 import { dashboardService, predictionService } from "../../services/api";
+import { useTranslation } from "../../context/LanguageContext";
 
 function Dashboard() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
 
   const [snapshot, setSnapshot] = useState({
@@ -57,6 +59,13 @@ function Dashboard() {
     fetchDashboard();
   }, []);
 
+  const getSnapshotRiskLabel = (level) => {
+    if (level === "Low Risk") return t("result.lowRisk");
+    if (level === "Moderate Risk") return t("result.moderateRisk");
+    if (level === "High Risk") return t("result.highRisk");
+    return level;
+  };
+
   return (
     <>
       <Navbar />
@@ -68,65 +77,64 @@ function Dashboard() {
           {/* Hero Header */}
           <section className="dashboard-hero">
             <div className="hero-badge">
-              <FaHeartbeat /> Healthcare Analytics Dashboard
+              <FaHeartbeat /> {t("dashboard.heroBadge")}
             </div>
 
             <h1>
-              AI Health Risk Overview & <span className="gradient-text">Analytics</span>
+              {t("dashboard.heroTitle")}{" "}
+              <span className="gradient-text">{t("dashboard.heroTitleHighlight")}</span>
             </h1>
 
-            <p>
-              Monitor your longitudinal diabetes risk scores, review automated clinical predictions, and access your custom diet and exercise prescriptions.
-            </p>
+            <p>{t("dashboard.heroDesc")}</p>
 
             <div className="hero-action-buttons">
               <button className="btn-dash primary" onClick={() => navigate("/assessment")}>
-                <FaPlusCircle /> Start New Assessment
+                <FaPlusCircle /> {t("dashboard.startNewAssessment")}
               </button>
               <button className="btn-dash secondary" onClick={() => navigate("/result")}>
-                <FaFileAlt /> View Latest Report
+                <FaFileAlt /> {t("dashboard.viewLatestReport")}
               </button>
             </div>
           </section>
 
           {/* Real Backend Snapshot Metric Cards */}
           <section className="snapshot-section">
-            <h2 className="section-heading">Health Metrics Overview</h2>
+            <h2 className="section-heading">{t("dashboard.overviewTitle")}</h2>
 
             <div className="snapshot-grid">
               <div className="snapshot-card" onClick={() => navigate("/result")}>
                 <div className="snap-icon-box">❤️</div>
                 <div className="snap-details">
-                  <h3>Health Score</h3>
+                  <h3>{t("dashboard.healthScore")}</h3>
                   <span className="snap-value">{snapshot.healthScore} / 100</span>
-                  <p className="snap-status">Optimal Range</p>
+                  <p className="snap-status">{t("dashboard.optimalRange")}</p>
                 </div>
               </div>
 
               <div className="snapshot-card" onClick={() => navigate("/result")}>
                 <div className="snap-icon-box cyan">🩸</div>
                 <div className="snap-details">
-                  <h3>Diabetes Risk</h3>
-                  <span className="snap-value">{snapshot.riskLevel}</span>
-                  <p className="snap-status">Probability: {snapshot.riskPercentage}</p>
+                  <h3>{t("dashboard.diabetesRisk")}</h3>
+                  <span className="snap-value">{getSnapshotRiskLabel(snapshot.riskLevel)}</span>
+                  <p className="snap-status">{t("dashboard.probability")}: {snapshot.riskPercentage}</p>
                 </div>
               </div>
 
               <div className="snapshot-card" onClick={() => navigate("/assessment")}>
                 <div className="snap-icon-box emerald">⚖️</div>
                 <div className="snap-details">
-                  <h3>BMI Score</h3>
+                  <h3>{t("dashboard.bmiScore")}</h3>
                   <span className="snap-value">{snapshot.bmi}</span>
-                  <p className="snap-status">kg/m² (Standard)</p>
+                  <p className="snap-status">kg/m²</p>
                 </div>
               </div>
 
               <div className="snapshot-card" onClick={() => navigate("/result")}>
                 <div className="snap-icon-box purple">📅</div>
                 <div className="snap-details">
-                  <h3>Last Screening</h3>
-                  <span className="snap-value">{snapshot.lastAssessment}</span>
-                  <p className="snap-status">Verified</p>
+                  <h3>{t("dashboard.lastScreening")}</h3>
+                  <span className="snap-value">{snapshot.lastAssessment === "Today" ? t("dashboard.today") : snapshot.lastAssessment}</span>
+                  <p className="snap-status">{t("dashboard.verified")}</p>
                 </div>
               </div>
             </div>
@@ -134,43 +142,43 @@ function Dashboard() {
 
           {/* AI Services Grid */}
           <section className="services-section">
-            <h2 className="section-heading">Core AI Modules</h2>
+            <h2 className="section-heading">{t("dashboard.coreModules")}</h2>
 
             <div className="services-grid">
               <div className="dash-service-card" onClick={() => navigate("/assessment")}>
                 <div className="service-icon"><FaBrain /></div>
-                <h3>AI Prediction Engine</h3>
-                <p>Execute fresh ML risk screening on physiological markers.</p>
+                <h3>{t("dashboard.modPredictionTitle")}</h3>
+                <p>{t("dashboard.modPredictionDesc")}</p>
               </div>
 
               <div className="dash-service-card" onClick={() => navigate("/diet-plan")}>
                 <div className="service-icon utensils"><FaUtensils /></div>
-                <h3>Personalized Diet Plan</h3>
-                <p>View customized meal prescriptions tailored to your risk level.</p>
+                <h3>{t("dashboard.modDietTitle")}</h3>
+                <p>{t("dashboard.modDietDesc")}</p>
               </div>
 
               <div className="dash-service-card" onClick={() => navigate("/diet-plan")}>
                 <div className="service-icon running"><FaRunning /></div>
-                <h3>Exercise Intelligence</h3>
-                <p>Risk-aware physical activity and workout recommendations.</p>
+                <h3>{t("dashboard.modExerciseTitle")}</h3>
+                <p>{t("dashboard.modExerciseDesc")}</p>
               </div>
 
               <div className="dash-service-card" onClick={() => navigate("/find-care")}>
                 <div className="service-icon findcare"><FaMapMarkerAlt /></div>
-                <h3>Find Care Near You</h3>
-                <p>Locate nearby hospitals and diabetes diagnostic laboratories.</p>
+                <h3>{t("dashboard.modCareTitle")}</h3>
+                <p>{t("dashboard.modCareDesc")}</p>
               </div>
 
               <div className="dash-service-card" onClick={() => navigate("/food-analyzer")}>
                 <div className="service-icon food"><FaCamera /></div>
-                <h3>Food Image & Nutrition</h3>
-                <p>Scan meals for glycemic index, net carbs, and calorie breakdowns.</p>
+                <h3>{t("dashboard.modFoodTitle")}</h3>
+                <p>{t("dashboard.modFoodDesc")}</p>
               </div>
 
               <div className="dash-service-card" onClick={() => navigate("/result")}>
                 <div className="service-icon report"><FaFileAlt /></div>
-                <h3>Clinical Reports</h3>
-                <p>Download official PDF risk assessment documentation.</p>
+                <h3>{t("dashboard.modReportsTitle")}</h3>
+                <p>{t("dashboard.modReportsDesc")}</p>
               </div>
             </div>
           </section>
@@ -178,17 +186,17 @@ function Dashboard() {
           {/* Assessment History Table */}
           {historyList.length > 0 && (
             <section className="history-section">
-              <h2 className="section-heading"><FaHistory /> Assessment History Log</h2>
+              <h2 className="section-heading"><FaHistory /> {t("dashboard.historyTitle")}</h2>
 
               <div className="history-table-wrapper">
                 <table className="history-table">
                   <thead>
                     <tr>
-                      <th>Assessment Date</th>
-                      <th>Risk Classification</th>
-                      <th>Risk Probability</th>
-                      <th>Model Confidence</th>
-                      <th>Actions</th>
+                      <th>{t("dashboard.date")}</th>
+                      <th>{t("dashboard.classification")}</th>
+                      <th>{t("dashboard.probability")}</th>
+                      <th>{t("dashboard.confidence")}</th>
+                      <th>{t("dashboard.actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -197,14 +205,14 @@ function Dashboard() {
                         <td>{new Date(item.created_at).toLocaleDateString()}</td>
                         <td>
                           <span className={`risk-pill ${item.prediction === "Diabetic" ? "high" : "low"}`}>
-                            {item.prediction}
+                            {item.prediction === "Diabetic" ? t("result.diabetic") : t("result.nonDiabetic")}
                           </span>
                         </td>
                         <td><strong>{item.risk_percentage}%</strong></td>
                         <td>{item.confidence}%</td>
                         <td>
                           <button className="tbl-btn" onClick={() => navigate("/result")}>
-                            View Report
+                            {t("common.viewReport")}
                           </button>
                         </td>
                       </tr>
@@ -219,10 +227,8 @@ function Dashboard() {
           <section className="daily-tip-banner">
             <div className="tip-icon"><FaLightbulb /></div>
             <div className="tip-content">
-              <h3>Daily Metabolic Health Insight</h3>
-              <p>
-                Maintaining regular physical activity for at least 30 minutes daily combined with low-glycemic high-fiber meals improves insulin sensitivity and glycemic stability.
-              </p>
+              <h3>{t("dashboard.dailyTipTitle")}</h3>
+              <p>{t("dashboard.dailyTipDesc")}</p>
             </div>
           </section>
         </div>

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException, status
+from fastapi import APIRouter, File, UploadFile, Header, HTTPException, status
 from app.schemas.food_schema import FoodAnalysisRequest, FoodAnalysisResponse
 from app.services.food_analyzer_service import FoodAnalyzerService
 from app.utils.response import success_response
@@ -8,12 +8,14 @@ food_service = FoodAnalyzerService()
 
 
 @router.post("/analyze-text", status_code=status.HTTP_200_OK)
-def analyze_meal_text(request: FoodAnalysisRequest):
+def analyze_meal_text(
+    request: FoodAnalysisRequest,
+    accept_language: str = Header(default="en", alias="Accept-Language"),
+):
     """
-    Analyzes entered meal description and returns exact nutritional facts:
-    Calories, Carbs, Protein, Fiber, Net Carbs, Glycemic Index, Portion & Diabetic Suitability.
+    Analyzes entered meal description and returns exact nutritional facts in requested language.
     """
-    analysis = food_service.analyze_meal_text(request.query)
+    analysis = food_service.analyze_meal_text(request.query, lang=accept_language)
     return success_response(
         data=analysis.model_dump(),
         message="Meal nutritional analysis completed successfully.",
@@ -21,10 +23,12 @@ def analyze_meal_text(request: FoodAnalysisRequest):
 
 
 @router.post("/analyze-image", status_code=status.HTTP_200_OK)
-async def analyze_food_image(file: UploadFile = File(...)):
+async def analyze_food_image(
+    file: UploadFile = File(...),
+    accept_language: str = Header(default="en", alias="Accept-Language"),
+):
     """
-    Upload a food image (.jpg, .png, .jpeg, .webp) -> AI Vision identifies the food item,
-    calculates nutritional information, and determines diabetic suitability.
+    Upload a food image -> AI Vision identifies the food item in requested language.
     """
     if not file.content_type.startswith("image/"):
         raise HTTPException(
@@ -39,7 +43,7 @@ async def analyze_food_image(file: UploadFile = File(...)):
             detail="Uploaded image file is empty",
         )
 
-    analysis = food_service.analyze_food_image(contents, file.filename or "food.jpg")
+    analysis = food_service.analyze_food_image(contents, file.filename or "food.jpg", lang=accept_language)
     return success_response(
         data=analysis.model_dump(),
         message="AI Food Image Recognition analysis completed successfully.",

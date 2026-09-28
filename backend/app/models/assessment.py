@@ -1,3 +1,8 @@
+"""
+SQLAlchemy Assessment Model v2
+Migrated from Pima-style features to India Diabetes Dataset features.
+Old columns are preserved as nullable for rollback compatibility.
+"""
 from datetime import datetime
 from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
@@ -6,7 +11,7 @@ from app.config.database import Base
 
 class Assessment(Base):
     """
-    SQLAlchemy Assessment Model.
+    SQLAlchemy Assessment Model — India Diabetes Dataset schema.
     Table: assessments
     Supports both new Indian Diabetes Patient Dataset fields and legacy Pima fields for zero data loss.
     """
@@ -46,4 +51,7 @@ class Assessment(Base):
 
     # Relationships
     user = relationship("User", back_populates="assessments")
-    prediction = relationship("Prediction", back_populates="assessment", uselist=False, cascade="all, delete-orphan")
+    prediction = relationship(
+        "Prediction", back_populates="assessment",
+        uselist=False, cascade="all, delete-orphan"
+    )

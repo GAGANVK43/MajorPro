@@ -1,3 +1,7 @@
+"""
+Prediction Service v2 — India Diabetes Dataset
+Uses the new v2 pipeline (diabetes_pipeline_v2.pkl) and new assessment schema.
+"""
 from datetime import datetime
 from typing import List, Optional
 from fastapi import HTTPException, status
@@ -11,13 +15,55 @@ from app.repositories.assessment_repository import AssessmentRepository
 from app.repositories.prediction_repository import PredictionRepository
 from app.repositories.diet_repository import DietRepository
 from app.schemas.prediction_schema import PredictionRequest, PredictionResponse, PredictionListResponse
-from app.ml.prediction import predict_diabetes_risk
+from app.ml.prediction_v2 import predict_diabetes_risk
+from app.utils.i18n import localize_recommendation, localize_diet_plan, normalize_lang
+
+
+def _build_assessment_data(request) -> dict:
+    """Map PredictionRequest (new schema) to the dict expected by prediction_v2."""
+    return {
+        "patient_group":            getattr(request, "patient_group", None),
+        "age":                      getattr(request, "age", None),
+        "gender":                   getattr(request, "gender", None),
+        "bmi":                      getattr(request, "bmi", None),
+        "blood_pressure":           getattr(request, "blood_pressure", None),
+        "physical_activity_hours":  getattr(request, "physical_activity_hours", None),
+        "daily_sugar_intake":       getattr(request, "daily_sugar_intake", None),
+        "fast_food_frequency":      getattr(request, "fast_food_frequency", None),
+        "sleep_hours":              getattr(request, "sleep_hours", None),
+        "hba1c":                    getattr(request, "hba1c", None),
+        "fasting_glucose":          getattr(request, "fasting_glucose", None),
+        "family_history":           getattr(request, "family_history", None),
+        "monthly_income":           getattr(request, "monthly_income", None),
+        "month":                    getattr(request, "month", None),
+    }
+
+
+def _assessment_obj_to_data(assessment: Assessment) -> dict:
+    """Extract assessment ORM object fields into a data dict for inference."""
+    return {
+        "patient_group":            assessment.patient_group,
+        "age":                      assessment.age,
+        "gender":                   assessment.gender,
+        "bmi":                      assessment.bmi,
+        "blood_pressure":           assessment.blood_pressure,
+        "physical_activity_hours":  assessment.physical_activity_hours,
+        "daily_sugar_intake":       assessment.daily_sugar_intake,
+        "fast_food_frequency":      assessment.fast_food_frequency,
+        "sleep_hours":              assessment.sleep_hours,
+        "hba1c":                    assessment.hba1c,
+        "fasting_glucose":          assessment.fasting_glucose,
+        "family_history":           assessment.family_history,
+        "monthly_income":           assessment.monthly_income,
+        "month":                    assessment.month,
+    }
 
 
 class PredictionService:
     """
     Business Logic Layer for Indian Diabetes ML Risk Prediction and Tailored Indian Diet Plan Generation.
     """
+
     def __init__(self, db: Session):
         self.db = db
         self.assessment_repo = AssessmentRepository(db)
@@ -49,8 +95,8 @@ class PredictionService:
         if user is None:
             pred_label, risk_pct, confidence, recommendation, contributing_factors = predict_diabetes_risk(assessment_dict)
             return PredictionResponse(
-                id=1,
-                assessment_id=1,
+                id=0,
+                assessment_id=0,
                 prediction=pred_label,
                 risk_percentage=risk_pct,
                 confidence=confidence,
@@ -59,9 +105,10 @@ class PredictionService:
                 created_at=datetime.utcnow(),
             )
 
-        # Step 1: Resolve Assessment Record for Authenticated User
+        # ── Authenticated path ───────────────────────────────────────────────
+        # Step 1: Resolve or create Assessment
         assessment = None
-        if request.assessment_id:
+        if getattr(request, "assessment_id", None):
             assessment = self.assessment_repo.get_by_id(request.assessment_id)
             if assessment and assessment.user_id != user.id:
                 raise HTTPException(
@@ -130,7 +177,7 @@ class PredictionService:
             created_at=saved_prediction.created_at,
         )
 
-    def get_latest_prediction(self, user: User) -> PredictionResponse:
+    def get_latest_prediction(self, user: User, lang: str = "en") -> PredictionResponse:
         latest = self.prediction_repo.get_latest_by_user_id(user.id)
         if not latest:
             raise HTTPException(
@@ -155,7 +202,7 @@ class PredictionService:
             created_at=latest.created_at,
         )
 
-    def get_prediction_history(self, user: User) -> PredictionListResponse:
+    def get_prediction_history(self, user: User, lang: str = "en") -> PredictionListResponse:
         predictions = self.prediction_repo.get_history_by_user_id(user.id)
         items = []
         for p in predictions:
@@ -182,11 +229,11 @@ class PredictionService:
 
         diet_plan = DietPlan(
             prediction_id=prediction_id,
-            breakfast=breakfast,
-            lunch=lunch,
-            dinner=dinner,
-            snacks=snacks,
-            exercise=exercise,
-            tips=tips,
+            breakfast=localized_en["breakfast"],
+            lunch=localized_en["lunch"],
+            dinner=localized_en["dinner"],
+            snacks=localized_en["snacks"],
+            exercise=localized_en["exercise"],
+            tips=localized_en["tips"],
         )
         return self.diet_repo.create(diet_plan)

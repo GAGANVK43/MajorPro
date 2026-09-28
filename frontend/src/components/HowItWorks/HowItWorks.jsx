@@ -1,43 +1,44 @@
 import "./HowItWorks.css";
 import { FaUserEdit, FaMicrochip, FaChartBar, FaFileDownload } from "react-icons/fa";
+import { useTranslation } from "../../context/LanguageContext";
 
 function HowItWorks() {
+  const { t } = useTranslation();
+
   const steps = [
     {
       number: "01",
       icon: <FaUserEdit />,
-      title: "Input Health Data",
-      desc: "Provide physiological markers including Fasting Glucose, Blood Pressure, BMI, Insulin, and Family History."
+      title: t("home.step1Title"),
+      desc: t("home.step1Desc"),
     },
     {
       number: "02",
       icon: <FaMicrochip />,
-      title: "AI Inference Engine",
-      desc: "Our pre-trained XGBoost Classifier analyzes your input features against clinical decision thresholds."
+      title: t("home.step2Title"),
+      desc: t("home.step2Desc"),
     },
     {
       number: "03",
       icon: <FaChartBar />,
-      title: "Risk & Factor Analysis",
-      desc: "View your risk classification, statistical probability score, and high-impact contributing factor breakdowns."
+      title: t("home.step3Title"),
+      desc: t("home.step3Desc"),
     },
     {
       number: "04",
       icon: <FaFileDownload />,
-      title: "Plan & Download Report",
-      desc: "Access your tailored diet/exercise recommendations and download an official PDF medical summary."
-    }
+      title: t("home.step4Title"),
+      desc: t("home.step4Desc"),
+    },
   ];
 
   return (
     <section className="how-it-works-section">
       <div className="how-container">
         <div className="section-header text-center">
-          <span className="section-subtitle">Workflow Journey</span>
-          <h2 className="section-title">How DiaSense AI Works</h2>
-          <p className="section-desc">
-            A seamless four-step screening process connecting patient inputs to clinical machine learning insights.
-          </p>
+          <span className="section-subtitle">{t("home.howSubtitle")}</span>
+          <h2 className="section-title">{t("home.howTitle")}</h2>
+          <p className="section-desc">{t("home.howDesc")}</p>
         </div>
 
         <div className="steps-grid">

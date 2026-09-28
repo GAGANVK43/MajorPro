@@ -1,9 +1,19 @@
+"""
+Prediction Schema v2 — India Diabetes Dataset fields.
+PredictionRequest now uses the new feature set.
+"""
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
 
 class PredictionRequest(BaseModel):
+    """
+    Request body for POST /api/prediction.
+    All fields match the India Diabetes Patient Dataset features.
+    Fields are Optional so the pipeline's imputers can handle missing values.
+    """
+    # Optional reference to existing assessment record
     assessment_id: Optional[int] = Field(None, example=1)
 
     # Demographic & Lifestyle (India Dataset)
@@ -37,10 +47,13 @@ class PredictionRequest(BaseModel):
 class PredictionResponse(BaseModel):
     id: Optional[int] = None
     assessment_id: Optional[int] = None
-    prediction: str
+    prediction: str   # "Higher Risk Pattern" or "Lower Risk Pattern"
     risk_percentage: float
     confidence: float
-    recommendation: Optional[str] = "Consult a healthcare professional for clinical guidance and personalized lifestyle management."
+    recommendation: Optional[str] = (
+        "This is a health awareness screening result. "
+        "Please consult a qualified healthcare professional for clinical guidance."
+    )
     contributing_factors: Optional[List[Dict[str, Any]]] = None
     created_at: Optional[datetime] = None
 

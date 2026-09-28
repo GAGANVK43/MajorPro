@@ -20,6 +20,7 @@ from app.routes.report_routes import router as report_router
 from app.routes.chatbot_routes import router as chatbot_router
 from app.routes.food_routes import router as food_router
 from app.routes.nearby_care_routes import router as nearby_care_router
+from app.routes.smart_assessment_routes import router as smart_assessment_router
 
 
 @asynccontextmanager
@@ -72,6 +73,7 @@ app.include_router(report_router)
 app.include_router(chatbot_router)
 app.include_router(food_router)
 app.include_router(nearby_care_router)
+app.include_router(smart_assessment_router)
 
 
 # Exception Handlers
