@@ -135,7 +135,10 @@ function Result() {
     return impact;
   };
 
-  const isHighRisk = predictionData.prediction === "Diabetic" || (predictionData.risk_percentage >= 50.0);
+  const isHighRisk =
+    predictionData.prediction === "Diabetic" ||
+    predictionData.prediction === "Higher Risk Pattern" ||
+    (typeof predictionData.risk_percentage === "number" && predictionData.risk_percentage >= 31.0);
   const fallbackSchedule = getLocalizedWeeklyDietPlan(currentLanguage, "Vegetarian", isHighRisk).Monday;
 
   const currentBreakfast = dietPlan?.breakfast || fallbackSchedule.breakfast;
@@ -176,9 +179,10 @@ function Result() {
           <div className="report-score-grid">
             <RiskGauge
               riskPercentage={predictionData.risk_percentage}
-              riskLevel={predictionData.prediction === "Diabetic" ? t("result.diabetic") : t("result.nonDiabetic")}
+              riskLevel={isHighRisk ? t("result.diabetic") : t("result.nonDiabetic")}
               confidence={predictionData.confidence}
             />
+
 
             <div className="score-summary-card">
               <div className="card-top">

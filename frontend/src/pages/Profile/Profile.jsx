@@ -590,11 +590,11 @@ function Profile() {
                   <span className="stat-name">{t("profile.latestRisk")}</span>
                   <span
                     className={`risk-status-pill ${
-                      stats.latestPrediction === "Diabetic" ? "diabetic" : "non-diabetic"
+                      (stats.latestPrediction === "Diabetic" || stats.latestPrediction === "Higher Risk Pattern") ? "diabetic" : "non-diabetic"
                     }`}
                   >
                     {stats.latestPrediction
-                      ? stats.latestPrediction === "Diabetic"
+                      ? (stats.latestPrediction === "Diabetic" || stats.latestPrediction === "Higher Risk Pattern")
                         ? t("result.diabetic")
                         : t("result.nonDiabetic")
                       : t("profile.pending")}

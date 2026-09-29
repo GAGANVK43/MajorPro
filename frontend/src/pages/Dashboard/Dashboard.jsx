@@ -204,8 +204,8 @@ function Dashboard() {
                       <tr key={idx}>
                         <td>{new Date(item.created_at).toLocaleDateString()}</td>
                         <td>
-                          <span className={`risk-pill ${item.prediction === "Diabetic" ? "high" : "low"}`}>
-                            {item.prediction === "Diabetic" ? t("result.diabetic") : t("result.nonDiabetic")}
+                          <span className={`risk-pill ${(item.prediction === "Diabetic" || item.prediction === "Higher Risk Pattern" || item.risk_percentage >= 31.0) ? "high" : "low"}`}>
+                            {(item.prediction === "Diabetic" || item.prediction === "Higher Risk Pattern" || item.risk_percentage >= 31.0) ? t("result.diabetic") : t("result.nonDiabetic")}
                           </span>
                         </td>
                         <td><strong>{item.risk_percentage}%</strong></td>

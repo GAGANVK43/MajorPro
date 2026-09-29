@@ -323,8 +323,8 @@ def predict_diabetes_risk(
     # Apply the stored threshold (not hardcoded 0.5)
     is_higher_risk = risk_prob >= threshold
 
-    # Use safe, non-diagnostic labels
-    prediction_label = "Higher Risk Pattern" if is_higher_risk else "Lower Risk Pattern"
+    # Prediction label matching system schema ('Diabetic' / 'Non-Diabetic')
+    prediction_label = "Diabetic" if is_higher_risk else "Non-Diabetic"
 
     # Recommendation
     if is_higher_risk:

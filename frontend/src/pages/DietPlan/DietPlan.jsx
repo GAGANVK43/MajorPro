@@ -163,8 +163,11 @@ function DietPlan() {
     toast.success(`🔥 ${t("dietPlan.streakUpgradedToast", { count: newStreak })}`);
   };
 
-  const isHighRisk = patientStatus?.prediction === "Diabetic" || (patientStatus?.risk_percentage >= 50.0);
-  const isModerateRisk = !isHighRisk && (patientStatus?.risk_percentage >= 25.0);
+  const isHighRisk =
+    patientStatus?.prediction === "Diabetic" ||
+    patientStatus?.prediction === "Higher Risk Pattern" ||
+    (typeof patientStatus?.risk_percentage === "number" && patientStatus?.risk_percentage >= 31.0);
+  const isModerateRisk = !isHighRisk && (patientStatus?.risk_percentage >= 20.0);
 
   // Dynamically build 100% localized 7-day meal plan based on current language
   const activePlanDataset = getLocalizedWeeklyDietPlan(currentLanguage, dietType, isHighRisk);
