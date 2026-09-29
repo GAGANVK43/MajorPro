@@ -399,16 +399,21 @@ function Assessment() {
   // ─────────────────────────────────────────────────────────────────────────
   // UNIFIED MISSING-DATA ENGINE
   // ─────────────────────────────────────────────────────────────────────────
-  const getMissingFields = useCallback(() => {
+  const getMissingFields = useCallback((dataToCheck) => {
+    const target = dataToCheck || formData;
+    const hasBmi = target.bmi && String(target.bmi).trim() !== "";
     return Object.values(CANONICAL_ASSESSMENT_SCHEMA)
       .sort((a, b) => a.priority - b.priority)
       .filter((def) => {
         if (def.autoCalculated) return false;
-        const val = formData[def.key];
+        // If BMI is already present (e.g. from report), height and weight are not needed
+        if (hasBmi && (def.key === "height" || def.key === "weight")) return false;
+        const val = target[def.key];
         return val === null || val === undefined || String(val).trim() === "";
       })
       .map((def) => def.key);
   }, [formData]);
+
 
   // ─────────────────────────────────────────────────────────────────────────
   // UNIFIED VALIDATION ENGINE
@@ -796,8 +801,10 @@ function Assessment() {
       }
     });
 
-    // Apply non-conflicting values to unified state
+    // Merge into updated state object immediately so we check missing fields with fresh data
+    const nextFormData = { ...formData };
     Object.entries(toApply).forEach(([field, data]) => {
+      nextFormData[field] = data.value;
       updateField(field, data.value, "report", data.confidence);
     });
 
@@ -805,7 +812,7 @@ function Assessment() {
       setConflicts(newConflicts);
       setResolvingConflict(newConflicts[0]);
     } else {
-      checkReportMissingFields();
+      checkReportMissingFields(nextFormData);
     }
   };
 
@@ -817,6 +824,7 @@ function Assessment() {
     const chosenSrc = useReport ? "report" : "manual";
 
     updateField(field, chosenVal, chosenSrc, "HIGH");
+    const nextFormData = { ...formData, [field]: chosenVal };
 
     const remaining = conflicts.filter((c) => c.field !== field);
     setConflicts(remaining);
@@ -826,12 +834,12 @@ function Assessment() {
     } else {
       setResolvingConflict(null);
       toast.success("✅ All conflicts resolved.");
-      checkReportMissingFields();
+      checkReportMissingFields(nextFormData);
     }
   };
 
-  const checkReportMissingFields = () => {
-    const missing = getMissingFields();
+  const checkReportMissingFields = (currentData) => {
+    const missing = getMissingFields(currentData || formData);
     if (missing.length > 0) {
       setMissingQueue(missing);
       setMissingIndex(0);
@@ -1531,19 +1539,36 @@ function Assessment() {
                   </div>
 
                   {/* Information Still Needed Box */}
-                  <div className="information-needed-box">
-                    <h4>⚠ Information Still Needed</h4>
-                    <p>The following fields were not detected in your report and will be gathered next:</p>
-                    <div className="missing-chips">
-                      {Object.keys(CANONICAL_ASSESSMENT_SCHEMA)
-                        .filter((k) => !editableExtracted[k] && !CANONICAL_ASSESSMENT_SCHEMA[k].autoCalculated)
-                        .map((k) => (
-                          <span key={k} className="needed-chip">
-                            {CANONICAL_ASSESSMENT_SCHEMA[k]?.label}
-                          </span>
-                        ))}
-                    </div>
-                  </div>
+                  {(() => {
+                    const neededKeys = Object.keys(CANONICAL_ASSESSMENT_SCHEMA).filter((k) => {
+                      const def = CANONICAL_ASSESSMENT_SCHEMA[k];
+                      if (def.autoCalculated) return false;
+                      // If BMI is extracted, height and weight are not needed
+                      if (editableExtracted.bmi && (k === "height" || k === "weight")) return false;
+                      return !editableExtracted[k] && (!formData[k] || String(formData[k]).trim() === "");
+                    });
+                    if (neededKeys.length === 0) {
+                      return (
+                        <div className="information-needed-box complete-box" style={{ borderColor: "#10b981", background: "rgba(16, 185, 129, 0.08)" }}>
+                          <h4 style={{ color: "#10b981" }}>✅ All Necessary Metrics Ready</h4>
+                          <p style={{ margin: 0, color: "#94a3b8" }}>All required clinical and demographic parameters have been extracted from your report. Click Confirm to proceed directly to analysis.</p>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="information-needed-box">
+                        <h4>⚠ Information Still Needed</h4>
+                        <p>The following fields were not detected in your report and will be gathered next:</p>
+                        <div className="missing-chips">
+                          {neededKeys.map((k) => (
+                            <span key={k} className="needed-chip">
+                              {CANONICAL_ASSESSMENT_SCHEMA[k]?.label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Extracted Confirmation Actions */}
                   <div className="extracted-footer-actions">
