@@ -53,9 +53,23 @@ FAMILY_HISTORY_NO  = {"no", "negative", "absent", "0", "false", "none", "nil", "
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _extract_text_from_pdf(file_bytes: bytes) -> str:
-    """Extract native text from digital PDF using pdfplumber, falling back to PyMuPDF."""
+    """Extract native text from digital PDF using pypdf, pdfplumber, and PyMuPDF."""
     text = ""
-    # 1. pdfplumber
+    # 1. pypdf (pure Python, zero OS dependencies, fast & reliable)
+    try:
+        import pypdf
+        reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+        for page in reader.pages:
+            t = page.extract_text()
+            if t:
+                text += t + "\n"
+        if text.strip():
+            logger.info("PDF text extracted via pypdf (%d characters)", len(text))
+            return text
+    except Exception as exc:
+        logger.warning("pypdf extraction failed: %s", exc)
+
+    # 2. pdfplumber
     try:
         import pdfplumber
         with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
@@ -69,9 +83,12 @@ def _extract_text_from_pdf(file_bytes: bytes) -> str:
     except Exception as exc:
         logger.warning("pdfplumber extraction failed: %s", exc)
 
-    # 2. PyMuPDF fallback
+    # 3. PyMuPDF fallback
     try:
-        import fitz
+        try:
+            import pymupdf as fitz
+        except ImportError:
+            import fitz
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         for page in doc:
             text += page.get_text() + "\n"
@@ -83,6 +100,7 @@ def _extract_text_from_pdf(file_bytes: bytes) -> str:
         logger.warning("PyMuPDF fallback failed: %s", exc)
 
     return text
+
 
 
 def _extract_text_from_image(file_bytes: bytes) -> str:
@@ -202,9 +220,9 @@ def _extract_glucose(text: str) -> Optional[Dict[str, Any]]:
 
 
 def _extract_hba1c(text: str) -> Optional[Dict[str, Any]]:
-    """Extract HbA1c (Glycated Hemoglobin), handling % and IFCC mmol/mol."""
+    """Extract HbA1c (Glycated Hemoglobin), handling %, Level label, and IFCC mmol/mol."""
     patterns = [
-        r"(?:hba1c|glycated\s*h[ae]moglobin|glycosylated\s*h[ae]moglobin|h[ae]moglobin\s*a1c|a1c)[\s:=-]+(\d+(?:\.\d+)?)\s*(%|percent|mmol\s*/?\s*mol)?",
+        r"(?:hba1c(?:\s*level)?|glycated\s*h[ae]moglobin|glycosylated\s*h[ae]moglobin|h[ae]moglobin\s*a1c|a1c)[\s:=-]+(\d+(?:\.\d+)?)\s*(%|percent|mmol\s*/?\s*mol)?",
     ]
     for pat in patterns:
         m = re.search(pat, text, re.IGNORECASE)
@@ -248,8 +266,8 @@ def _extract_blood_pressure(text: str) -> Optional[Dict[str, Any]]:
                 "details": f"{int(systolic)}/{int(diastolic)} mmHg",
             }
 
-    # Standalone systolic
-    single_pattern = r"(?:systolic\s*(?:blood\s*pressure|bp)?|systolic)[\s:=-]+(\d{2,3})\s*(mm\s*hg)?"
+    # Standalone systolic or general single-value Blood Pressure (e.g. Blood Pressure 120 mmHg)
+    single_pattern = r"(?:blood\s*pressure|b\.?p\.?|systolic(?:\s*(?:blood\s*pressure|bp))?|systolic)[\s:=-]+(\d{2,3})\s*(mm\s*hg)?"
     sm = re.search(single_pattern, text, re.IGNORECASE)
     if sm:
         systolic = float(sm.group(1))
@@ -267,7 +285,7 @@ def _extract_blood_pressure(text: str) -> Optional[Dict[str, Any]]:
 
 def _extract_bmi(text: str) -> Optional[Dict[str, Any]]:
     """Extract BMI (Body Mass Index)."""
-    pattern = r"(?:body\s*mass\s*index|b\.?m\.?i\.?|bmi)[\s:=-]+(\d+(?:\.\d+)?)\s*(kg\s*/?\s*m[\u00b2²2]?)?"
+    pattern = r"(?:bmi\s*(?:\([^)]*\))?|body\s*mass\s*index|b\.?m\.?i\.?)[\s:=-]+(\d+(?:\.\d+)?)\s*(kg\s*/?\s*m[\u00b2²2]?)?"
     m = re.search(pattern, text, re.IGNORECASE)
     if m:
         val = float(m.group(1))
@@ -281,6 +299,7 @@ def _extract_bmi(text: str) -> Optional[Dict[str, Any]]:
                 "raw": m.group(0).strip(),
             }
     return None
+
 
 
 def _extract_height_weight(text: str) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
@@ -321,25 +340,46 @@ def _extract_height_weight(text: str) -> Tuple[Optional[Dict[str, Any]], Optiona
 
 
 def _extract_demographics_and_lifestyle(text: str) -> Dict[str, Dict[str, Any]]:
-    """Extract Age, Gender, Patient Group, Family History, Lifestyle habits."""
+    """Extract Age, Gender, Full Name, Patient Group, Family History, Lifestyle habits."""
     results = {}
 
-    # Age
-    age_match = re.search(r"\b(?:age|years\s*old)[\s:=-]+(\d{1,3})\s*(?:years?|yrs?)?\b", text, re.IGNORECASE)
-    if age_match:
-        age_val = float(age_match.group(1))
+    # Combined Age / Gender: "Age / Gender: 21 yrs / Male" or "Age: 45 / Female"
+    combo = re.search(r"age\s*(?:/\s*gender)?[\s:=-]+(\d{1,3})\s*(?:years?|yrs?)?\s*/?\s*(male|female)", text, re.IGNORECASE)
+    if combo:
+        age_val = float(combo.group(1))
         if 1 <= age_val <= 110:
-            results["age"] = {"value": age_val, "unit": "years", "confidence": "HIGH", "raw": age_match.group(0).strip()}
+            results["age"] = {"value": age_val, "unit": "years", "confidence": "HIGH", "raw": combo.group(0).strip()}
+        g_val = combo.group(2).lower()
+        if g_val in GENDER_MAP:
+            results["gender"] = {"value": GENDER_MAP[g_val], "unit": "", "confidence": "HIGH", "raw": combo.group(0).strip()}
 
-    # Gender
-    gender_match = re.search(r"\b(?:gender|sex)[\s:=-]+(\w+)\b", text, re.IGNORECASE)
-    if gender_match:
-        g = gender_match.group(1).lower()
-        if g in GENDER_MAP:
-            results["gender"] = {"value": GENDER_MAP[g], "unit": "", "confidence": "HIGH", "raw": gender_match.group(0).strip()}
+    # Standalone Age if not captured by combo
+    if "age" not in results:
+        age_match = re.search(r"\b(?:age|years\s*old)[\s:=-]+(\d{1,3})\s*(?:years?|yrs?)?\b", text, re.IGNORECASE)
+        if age_match:
+            age_val = float(age_match.group(1))
+            if 1 <= age_val <= 110:
+                results["age"] = {"value": age_val, "unit": "years", "confidence": "HIGH", "raw": age_match.group(0).strip()}
 
-    # Family History
-    fh_match = re.search(r"(?:family\s*history(?:\s*of\s*diabetes)?|diabetic\s*heredity)[\s:=-]+([a-zA-Z0-9]+)", text, re.IGNORECASE)
+    # Standalone Gender if not captured by combo
+    if "gender" not in results:
+        gender_match = re.search(r"\b(?:gender|sex)[\s:=-]+(\w+)\b", text, re.IGNORECASE)
+        if gender_match:
+            g = gender_match.group(1).lower()
+            if g in GENDER_MAP:
+                results["gender"] = {"value": GENDER_MAP[g], "unit": "", "confidence": "HIGH", "raw": gender_match.group(0).strip()}
+
+    # Full Name: "Patient Name: Gagan"
+    name_match = re.search(r"(?:patient\s*name|name\s*of\s*patient)[\s:=-]+([a-zA-Z\s]{2,40})", text, re.IGNORECASE)
+    if name_match:
+        name_val = name_match.group(1).strip()
+        # Ensure it doesn't grab trailing keywords
+        name_val = re.sub(r"(report\s*id|id|age|date).*", "", name_val, flags=re.IGNORECASE).strip()
+        if len(name_val) >= 2:
+            results["fullName"] = {"value": name_val, "unit": "", "confidence": "HIGH", "raw": name_match.group(0).strip()}
+
+    # Family History: "Family History Negative (No)" or "Family History: Yes"
+    fh_match = re.search(r"(?:family\s*history(?:\s*of\s*diabetes)?|diabetic\s*heredity)[\s:=-]+([a-zA-Z0-9\(\)\s]+)", text, re.IGNORECASE)
     if fh_match:
         ans = fh_match.group(1).strip().lower()
         if any(w in ans for w in FAMILY_HISTORY_YES):
@@ -359,29 +399,29 @@ def _extract_demographics_and_lifestyle(text: str) -> Dict[str, Dict[str, Any]]:
             val = "Urban"
         results["patient_group"] = {"value": val, "unit": "", "confidence": "MEDIUM", "raw": loc_match.group(0).strip()}
 
-    # Sleep Hours
-    sleep_match = re.search(r"(?:sleep\s*duration|sleep\s*hours|sleep)[\s:=-]+(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)?", text, re.IGNORECASE)
+    # Sleep Hours: "Daily Sleep 7.0 hrs/night" or "Sleep: 8 hours"
+    sleep_match = re.search(r"(?:daily\s*sleep|sleep\s*duration|sleep\s*hours|sleep)[\s:=-]+(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)?", text, re.IGNORECASE)
     if sleep_match:
         s_val = float(sleep_match.group(1))
         if 2 <= s_val <= 14:
             results["sleep_hours"] = {"value": s_val, "unit": "hours", "confidence": "HIGH", "raw": sleep_match.group(0).strip()}
 
-    # Physical Activity
+    # Physical Activity: "Physical Activity 1.0 hrs/week"
     act_match = re.search(r"(?:physical\s*activity|exercise|workout)[\s:=-]+(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)?", text, re.IGNORECASE)
     if act_match:
         act_val = float(act_match.group(1))
         if 0 <= act_val <= 20:
             results["physical_activity_hours"] = {"value": act_val, "unit": "hours/day", "confidence": "HIGH", "raw": act_match.group(0).strip()}
 
-    # Daily Sugar Intake
-    sugar_match = re.search(r"(?:sugar\s*intake|daily\s*sugar)[\s:=-]+(\d+(?:\.\d+)?)\s*(?:grams?|g)?", text, re.IGNORECASE)
+    # Daily Sugar Intake: "Daily Sugar Intake 30 g/day"
+    sugar_match = re.search(r"(?:daily\s*sugar(?:\s*intake)?|sugar\s*intake)[\s:=-]+(\d+(?:\.\d+)?)\s*(?:grams?|g)?", text, re.IGNORECASE)
     if sugar_match:
         sug_val = float(sugar_match.group(1))
         if 0 <= sug_val <= 200:
             results["daily_sugar_intake"] = {"value": sug_val, "unit": "grams", "confidence": "HIGH", "raw": sugar_match.group(0).strip()}
 
-    # Fast food frequency
-    ff_match = re.search(r"(?:fast\s*food|junk\s*food)[\s:=-]+(\d+(?:\.\d+)?)\s*(?:meals?|times?)?", text, re.IGNORECASE)
+    # Fast food frequency: "Fast Food Frequency 2 meals/week"
+    ff_match = re.search(r"(?:fast\s*food(?:\s*frequency)?|junk\s*food)[\s:=-]+(\d+(?:\.\d+)?)\s*(?:meals?|times?)?", text, re.IGNORECASE)
     if ff_match:
         ff_val = float(ff_match.group(1))
         if 0 <= ff_val <= 15:
@@ -395,6 +435,7 @@ def _extract_demographics_and_lifestyle(text: str) -> Dict[str, Dict[str, Any]]:
             results["monthly_income"] = {"value": inc_val, "unit": "₹", "confidence": "HIGH", "raw": inc_match.group(0).strip()}
 
     return results
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
