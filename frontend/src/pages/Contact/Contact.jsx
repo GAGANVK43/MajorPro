@@ -126,7 +126,7 @@ function Contact() {
                   />
                 </div>
 
-                <button type="submit" className="submit-btn" disabled={loading}>
+                <button type="submit" className="contact-submit-btn" disabled={loading}>
                   {loading ? t("contact.submittingBtn") : t("contact.submitBtn")}
                 </button>
               </form>

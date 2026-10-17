@@ -58,7 +58,7 @@ function Footer() {
               </li>
               <li>
                 <a
-                  href="http://localhost:8000/docs"
+                  href={`${import.meta.env.VITE_API_BASE_URL || ""}/docs`}
                   target="_blank"
                   rel="noreferrer"
                 >

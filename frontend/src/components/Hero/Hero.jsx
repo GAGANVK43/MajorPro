@@ -16,19 +16,13 @@ function Hero() {
 
   useEffect(() => {
     predictionService
-      .getLatest()
-      .then(() => {})
-      .catch(() => {});
-
-    // Fetch real trained model metrics
-    fetch("http://localhost:8000/api/prediction/accuracy")
-      .then((res) => res.json())
+      .getAccuracy()
       .then((resData) => {
         if (resData && resData.data) {
           setModelMetrics({
-            accuracy_percentage: resData.data.accuracy_percentage || "99.20%",
-            dataset_samples: resData.data.dataset_samples || 2500,
-            roc_auc: resData.data.roc_auc || 0.9993,
+            accuracy_percentage: resData.data.accuracy_percentage || "82.27%",
+            dataset_samples: resData.data.dataset_samples || 25500,
+            roc_auc: resData.data.roc_auc || 0.8862,
           });
         }
       })

@@ -66,6 +66,7 @@ export const predictionService = {
   createPrediction: (data) => api.post("/api/prediction", data),
   getLatest: () => api.get("/api/prediction/latest"),
   getHistory: () => api.get("/api/prediction/history"),
+  getAccuracy: () => api.get("/api/prediction/accuracy"),
 };
 
 export const dashboardService = {

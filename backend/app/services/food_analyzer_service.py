@@ -220,12 +220,13 @@ class FoodAnalyzerService:
             logger.warning(f"Image compression failed: {e}")
             compressed_bytes = image_bytes
 
-        # 2. Call Google Gemini-3.5 Vision Model with the compressed image
+        # 2. Call Google Gemini Vision Model with the compressed image
         if self.api_key:
-            ai_vision_res = self._query_gemini_image_vision(compressed_bytes, "models/gemini-3.5-flash", lang)
-            if ai_vision_res:
-                logger.info(f"[AI_VISION_SUCCESS] Identified dish: {ai_vision_res.dish_name}")
-                return ai_vision_res
+            for model_name in ["models/gemini-2.5-flash", "models/gemini-2.0-flash", "models/gemini-1.5-flash"]:
+                ai_vision_res = self._query_gemini_image_vision(compressed_bytes, model_name, lang)
+                if ai_vision_res:
+                    logger.info(f"[AI_VISION_SUCCESS] Identified dish with {model_name}: {ai_vision_res.dish_name}")
+                    return ai_vision_res
 
         # 3. Fallback to smart heuristic if API is unavailable
         fn_lower = filename.lower().strip()
@@ -241,13 +242,15 @@ class FoodAnalyzerService:
             target_dish = "Ragi Roti with Mixed Veg Subzi"
         elif any(w in fn_lower for w in ["sweet", "jamun", "dessert"]):
             target_dish = "Gulab Jamun"
+        elif any(w in fn_lower for w in ["salad", "greens"]):
+            target_dish = "Avocado Quinoa Salad"
         else:
-            target_dish = "Avocado Quinoa Salad Bowl with Sprouts"
+            target_dish = "Moong Dal Khichdi"
 
-        return self.analyze_meal_text(target_dish, lang)
+        res = self.analyze_meal_text(target_dish, lang)
+        return res
 
     def _query_gemini_food_nutrition(self, query: str, lang: str = "en") -> Optional[FoodAnalysisResponse]:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={self.api_key}"
         norm_lang = normalize_lang(lang)
         lang_name = LANGUAGE_NAMES.get(norm_lang, "English")
 
@@ -288,17 +291,20 @@ class FoodAnalyzerService:
         }}
         """
 
-        try:
-            payload = {"contents": [{"parts": [{"text": prompt}]}]}
-            res = httpx.post(url, json=payload, timeout=20.0)
-            if res.status_code == 200:
-                data = res.json()
-                text = data["candidates"][0]["content"]["parts"][0]["text"]
-                clean_json = text.replace("```json", "").replace("```", "").strip()
-                parsed = json.loads(clean_json)
-                return FoodAnalysisResponse(**parsed)
-        except Exception as e:
-            logger.warning(f"Text nutrition analysis error: {e}")
+        models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        for model in models_to_try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
+            try:
+                payload = {"contents": [{"parts": [{"text": prompt}]}]}
+                res = httpx.post(url, json=payload, timeout=15.0)
+                if res.status_code == 200:
+                    data = res.json()
+                    text = data["candidates"][0]["content"]["parts"][0]["text"]
+                    clean_json = text.replace("```json", "").replace("```", "").strip()
+                    parsed = json.loads(clean_json)
+                    return FoodAnalysisResponse(**parsed)
+            except Exception as e:
+                logger.warning(f"Text nutrition analysis error with {model}: {e}")
 
         return None
 

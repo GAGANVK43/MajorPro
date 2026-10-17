@@ -30,7 +30,8 @@ async def lifespan(app: FastAPI):
     init_db()
     
     # Initialize & Pre-load ML Prediction Model & log Accuracy Score
-    from app.ml.prediction import get_model_metrics
+    from app.ml.prediction_v2 import get_model_metrics, load_pipeline_bundle
+    load_pipeline_bundle()
     metrics = get_model_metrics()
     acc_pct = metrics.get("accuracy_percentage", "N/A")
     acc = metrics.get("accuracy", "N/A")

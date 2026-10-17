@@ -16,10 +16,9 @@ class ChatbotService:
         self.api_key = os.getenv("GEMINI_API_KEY", "").strip()
         # Active generative model names in priority order
         self.models_to_try = [
-            "gemini-3.5-flash",
-            "gemma-4-26b-a4b-it",
-            "gemini-flash-latest",
-            "gemini-3.1-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
         ]
 
     def process_message(self, message: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

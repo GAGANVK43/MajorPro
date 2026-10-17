@@ -89,12 +89,16 @@ def download_pdf_report(
 
     from app.models.prediction import Prediction
     prediction = db.query(Prediction).filter(Prediction.id == id).first()
-    if not prediction or not prediction.assessment or prediction.assessment.user_id != current_user.id:
-        pdf_bytes = service.generate_latest_pdf_report(current_user)
-        headers = {
-            "Content-Disposition": f"attachment; filename=DiaSense_Health_Report_latest.pdf"
-        }
-        return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+    if not prediction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Health report record not found",
+        )
+    if not prediction.assessment or prediction.assessment.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to requested health report",
+        )
 
     pdf_bytes = service.generate_pdf_report(current_user, id)
     headers = {

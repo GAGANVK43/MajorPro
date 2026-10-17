@@ -155,6 +155,7 @@ export function LanguageProvider({ children }) {
 
   const value = {
     currentLanguage,
+    language: currentLanguage, // compatibility alias
     changeLanguage,
     languages: SUPPORTED_LANGUAGES,
     currentLangConfig,
