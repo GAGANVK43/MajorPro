@@ -67,7 +67,7 @@ function FoodAnalyzer() {
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files && e.target.files[0];
     if (file) {
       if (!file.type.startsWith("image/")) {
         toast.error(t("foodAnalyzer.invalidImageToast") || "Please upload a valid image file.");
@@ -82,12 +82,16 @@ function FoodAnalyzer() {
       setSelectedFile(file);
       setImagePreview(URL.createObjectURL(file));
       setAnalysisResult(null); // Clear stale results immediately
+
+      // Automatically trigger analysis on newly selected photo
+      handleImageSubmit(null, file);
     }
   };
 
-  const handleImageSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedFile) {
+  const handleImageSubmit = async (e, fileToAnalyze = null) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const file = fileToAnalyze || selectedFile;
+    if (!file) {
       toast.error(t("foodAnalyzer.selectImageToast") || "Please select an image first.");
       return;
     }
@@ -103,8 +107,9 @@ function FoodAnalyzer() {
     currentRequestIdRef.current = reqId;
 
     setLoading(true);
+    setAnalysisResult(null); // Ensure previous result is wiped during scanning
     const formData = new FormData();
-    formData.append("file", selectedFile);
+    formData.append("file", file);
     formData.append("client_request_id", reqId);
 
     try {
@@ -268,6 +273,9 @@ function FoodAnalyzer() {
                     type="file"
                     accept="image/*"
                     onChange={handleFileChange}
+                    onClick={(e) => {
+                      e.target.value = null;
+                    }}
                     id="food-image-input"
                     className="file-input-hidden"
                   />

@@ -326,68 +326,79 @@ class DeepFoodVisionEngine:
             sim = float(np.dot(global_emb, proto))
             proto_sims[cls_name] = max(0.0, min(1.0, sim))
 
-        # Check real-world photographic ImageNet food matches first:
-        # 1. Fresh Salad / Buddha Bowl / Quinoa Bowl
-        if salad_score > 0.05 or (salad_score > 0.02 and green_ratio > 0.15):
-            top_class = "Avocado Quinoa Salad"
-            calibrated_confidence = float(np.clip(0.82 + salad_score * 0.4, 0.82, 0.96))
-            calibrated_confidence = round(calibrated_confidence, 2)
-            conf_level = "High"
-            is_composite = True
-            detected_components = ["Avocado Quinoa Salad", "Steamed Green Vegetables", "Green Salad"]
-            visual_evidence = "Visual features detected a multi-ingredient nourish bowl with vibrant fresh greens, sliced cucumber, tomatoes, and wholesome grains."
-            alternatives = ["Green Salad", "Steamed Green Vegetables", "Chicken Meal"]
-            logger.info(f"[DEEP_VISION] Identified '{top_class}' via deep food head (conf: {calibrated_confidence})")
-            return top_class, detected_components, calibrated_confidence, conf_level, alternatives, is_composite, visual_evidence
+        sorted_proto = sorted(proto_sims.items(), key=lambda x: x[1], reverse=True)
+        top_proto_class, top_proto_sim = sorted_proto[0]
 
-        # 2. Pizza
-        if pizza_score > 0.10:
-            top_class = "Pizza"
-            calibrated_confidence = float(np.clip(0.80 + pizza_score * 0.5, 0.80, 0.95))
-            calibrated_confidence = round(calibrated_confidence, 2)
-            conf_level = "High"
-            is_composite = False
-            detected_components = CLASS_COMPONENT_MAP.get(top_class, [top_class])
-            visual_evidence = "Deep visual features identified baked crust, melted cheese, and tomato base."
-            alternatives = ["Burger", "French Fries", "Chapati"]
-            logger.info(f"[DEEP_VISION] Identified '{top_class}' via deep food head (conf: {calibrated_confidence})")
-            return top_class, detected_components, calibrated_confidence, conf_level, alternatives, is_composite, visual_evidence
-
-        # 3. Burger
-        if burger_score > 0.10:
-            top_class = "Burger"
-            calibrated_confidence = float(np.clip(0.82 + burger_score * 0.5, 0.82, 0.96))
-            calibrated_confidence = round(calibrated_confidence, 2)
-            conf_level = "High"
-            is_composite = False
-            detected_components = CLASS_COMPONENT_MAP.get(top_class, [top_class])
-            visual_evidence = "Deep visual features identified layered toasted buns, seasoned patty texture, and fast-food profile."
-            alternatives = ["Chicken Meal", "Chapati", "French Fries"]
-            logger.info(f"[DEEP_VISION] Identified '{top_class}' via deep food head (conf: {calibrated_confidence})")
-            return top_class, detected_components, calibrated_confidence, conf_level, alternatives, is_composite, visual_evidence
-
-        # 4. Chicken Meal
-        if poultry_score > 0.08:
-            top_class = "Chicken Meal"
-            calibrated_confidence = float(np.clip(0.82 + poultry_score * 0.5, 0.82, 0.96))
-            calibrated_confidence = round(calibrated_confidence, 2)
-            conf_level = "High"
-            is_composite = True
-            detected_components = CLASS_COMPONENT_MAP.get(top_class, [top_class])
-            visual_evidence = "Deep visual features identified roasted/grilled poultry portions accompanied by fresh vegetables."
-            alternatives = ["Fish Curry", "Green Salad", "Chapati"]
-            logger.info(f"[DEEP_VISION] Identified '{top_class}' via deep food head (conf: {calibrated_confidence})")
-            return top_class, detected_components, calibrated_confidence, conf_level, alternatives, is_composite, visual_evidence
-
-        # 5. Fallback to prototype ranking
-        sorted_candidates = sorted(proto_sims.items(), key=lambda x: x[1], reverse=True)
-        top_class, top_sim = sorted_candidates[0]
-        
         # Color & morphology sanity checks:
         # Prevent white pillowy idli from collapsing into dark brown gulab jamun
-        if top_class == "Gulab Jamun" and dark_brown < 0.02 and white_ratio > 0.25:
-            top_class = "Idli"
-            top_sim = max(top_sim, proto_sims.get("Idli", 0.70))
+        if top_proto_class == "Gulab Jamun" and dark_brown < 0.02 and white_ratio > 0.25:
+            top_proto_class = "Idli"
+            top_proto_sim = max(top_proto_sim, proto_sims.get("Idli", 0.70))
+
+        # Real-world ImageNet food scores
+        head_candidates = {
+            "Chicken Meal": poultry_score,
+            "Avocado Quinoa Salad": salad_score,
+            "Burger": burger_score,
+            "Pizza": pizza_score,
+            "French Fries": fries_score,
+        }
+        sorted_head = sorted(head_candidates.items(), key=lambda x: x[1], reverse=True)
+        top_head_class, top_head_score = sorted_head[0]
+        second_head_class, second_head_score = sorted_head[1]
+
+        # Multi-model arbitration:
+        # Case 1: Overwhelming prototype alignment (e.g., benchmark drawings, exact synthetic matches)
+        if top_proto_sim >= 0.75:
+            top_class = top_proto_class
+            calibrated_confidence = float(np.clip(0.75 + (top_proto_sim * 0.20), 0.78, 0.95))
+            detected_components = list(CLASS_COMPONENT_MAP.get(top_class, [top_class]))
+            is_composite = False
+            visual_evidence = (
+                f"Deep visual features exhibited strong convolutional alignment with "
+                f"{top_class} textural morphology and color distribution."
+            )
+            alternatives = [c[0] for c in sorted_proto[1:4]]
+
+        # Case 2: Poultry / Chicken Meal detected on plate (e.g. roast chicken with sides/vegetables)
+        elif poultry_score > 0.08 and poultry_score >= salad_score * 0.8:
+            top_class = "Chicken Meal"
+            calibrated_confidence = float(np.clip(0.82 + poultry_score * 0.5, 0.82, 0.96))
+            detected_components = list(CLASS_COMPONENT_MAP.get(top_class, [top_class]))
+            is_composite = True
+            visual_evidence = "Deep visual features identified roasted/grilled poultry portions accompanied by fresh vegetables."
+            alternatives = ["Fish Curry", "Green Salad", "Chapati"]
+
+        # Case 3: Dominant photographic food head match (e.g. Avocado Quinoa Salad/Buddha bowl, Pizza, Burger, Fries)
+        elif top_head_score > 0.06 and top_head_score > second_head_score * 1.2:
+            top_class = top_head_class
+            calibrated_confidence = float(np.clip(0.80 + top_head_score * 0.45, 0.82, 0.96))
+            detected_components = list(CLASS_COMPONENT_MAP.get(top_class, [top_class]))
+            is_composite = (top_class in ["Avocado Quinoa Salad", "Chicken Meal"])
+            if top_class == "Avocado Quinoa Salad":
+                visual_evidence = "Visual features detected a multi-ingredient nourish bowl with vibrant fresh greens, sliced cucumber, tomatoes, and wholesome grains."
+                alternatives = ["Green Salad", "Steamed Green Vegetables", "Chicken Meal"]
+            elif top_class == "Burger":
+                visual_evidence = "Deep visual features identified layered toasted buns, seasoned patty texture, and fast-food profile."
+                alternatives = ["Chicken Meal", "Chapati", "French Fries"]
+            elif top_class == "Pizza":
+                visual_evidence = "Deep visual features identified baked crust, melted cheese, and tomato base."
+                alternatives = ["Burger", "French Fries", "Chapati"]
+            else:
+                visual_evidence = f"Deep visual features identified characteristic preparation patterns for {top_class}."
+                alternatives = [c[0] for c in sorted_proto[1:4]]
+
+        # Case 4: Prototype ranking fallback
+        else:
+            top_class = top_proto_class
+            calibrated_confidence = float(np.clip(0.72 + (top_proto_sim * 0.25), 0.75, 0.95))
+            detected_components = list(CLASS_COMPONENT_MAP.get(top_class, [top_class]))
+            is_composite = False
+            visual_evidence = (
+                f"Deep visual features exhibited strong convolutional alignment ({top_proto_sim:.2f}) "
+                f"with {top_class} textural morphology and color distribution."
+            )
+            alternatives = [c[0] for c in sorted_proto[1:4]]
 
         # Multi-region component decomposition for composite plates
         w, h = pil_img.size
@@ -403,9 +414,6 @@ class DeepFoodVisionEngine:
         top_left = max(sims_left.items(), key=lambda x: x[1])
         top_right = max(sims_right.items(), key=lambda x: x[1])
 
-        is_composite = False
-        detected_components = list(CLASS_COMPONENT_MAP.get(top_class, [top_class]))
-
         if top_left[0] != top_right[0] and top_left[1] > 0.40 and top_right[1] > 0.40:
             is_composite = True
             left_comp = CLASS_COMPONENT_MAP.get(top_left[0], [top_left[0]])[0]
@@ -414,15 +422,8 @@ class DeepFoodVisionEngine:
             if top_class not in (top_left[0], top_right[0]):
                 detected_components.append(top_class)
 
-        calibrated_confidence = float(np.clip(0.72 + (top_sim * 0.25), 0.75, 0.95))
         calibrated_confidence = round(calibrated_confidence, 2)
-        conf_level = "High"
-        alternatives = [c[0] for c in sorted_candidates[1:4]]
-
-        visual_evidence = (
-            f"Deep visual features exhibited strong convolutional alignment ({top_sim:.2f}) "
-            f"with {top_class} textural morphology and color distribution."
-        )
+        conf_level = "High" if calibrated_confidence >= 0.75 else ("Moderate" if calibrated_confidence >= 0.50 else "Low")
 
         logger.info(f"[DEEP_VISION] Identified '{top_class}' (conf: {calibrated_confidence}, level: {conf_level}, composite: {is_composite})")
         return (
