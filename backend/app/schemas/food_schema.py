@@ -36,3 +36,7 @@ class FoodAnalysisResponse(BaseModel):
     suggested_portion: str
     nutritional_details: List[FoodItemNutritionalDetail]
     clinical_recommendation: str
+    confidence_score: Optional[float] = 0.85
+    detection_source: Optional[str] = "knowledge_base"
+    candidate_alternatives: List[str] = Field(default_factory=list)
+    is_ambiguous: Optional[bool] = False

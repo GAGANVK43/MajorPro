@@ -476,15 +476,15 @@ function Assessment() {
         age:                     formData.age ? parseInt(formData.age, 10) : null,
         gender:                  formData.gender || "Male",
         bmi:                     formData.bmi ? parseFloat(formData.bmi) : null,
-        blood_pressure:          formData.bloodPressure ? parseFloat(formData.bloodPressure) : 120.0,
-        physical_activity_hours: formData.physicalActivityHours ? parseFloat(formData.physicalActivityHours) : 2.0,
-        daily_sugar_intake:      formData.dailySugarIntake ? parseFloat(formData.dailySugarIntake) : 30.0,
-        fast_food_frequency:     formData.fastFoodFrequency ? parseFloat(formData.fastFoodFrequency) : 2.0,
-        sleep_hours:             formData.sleepHours ? parseFloat(formData.sleepHours) : 7.0,
-        hba1c:                   formData.hba1c ? parseFloat(formData.hba1c) : 5.7,
-        fasting_glucose:         formData.fastingGlucose ? parseFloat(formData.fastingGlucose) : null,
-        family_history:          parseFloat(formData.familyHistory) || 0.0,
-        monthly_income:          formData.monthlyIncome ? parseFloat(formData.monthlyIncome) : 35000.0,
+        blood_pressure:          (formData.bloodPressure !== "" && formData.bloodPressure != null) ? parseFloat(formData.bloodPressure) : null,
+        physical_activity_hours: (formData.physicalActivityHours !== "" && formData.physicalActivityHours != null) ? parseFloat(formData.physicalActivityHours) : null,
+        daily_sugar_intake:      (formData.dailySugarIntake !== "" && formData.dailySugarIntake != null) ? parseFloat(formData.dailySugarIntake) : null,
+        fast_food_frequency:     (formData.fastFoodFrequency !== "" && formData.fastFoodFrequency != null) ? parseFloat(formData.fastFoodFrequency) : null,
+        sleep_hours:             (formData.sleepHours !== "" && formData.sleepHours != null) ? parseFloat(formData.sleepHours) : null,
+        hba1c:                   (formData.hba1c !== "" && formData.hba1c != null) ? parseFloat(formData.hba1c) : null,
+        fasting_glucose:         (formData.fastingGlucose !== "" && formData.fastingGlucose != null) ? parseFloat(formData.fastingGlucose) : null,
+        family_history:          (formData.familyHistory !== "" && formData.familyHistory != null) ? parseFloat(formData.familyHistory) : null,
+        monthly_income:          (formData.monthlyIncome !== "" && formData.monthlyIncome != null) ? parseFloat(formData.monthlyIncome) : null,
         month:                   new Date().getMonth() + 1,
       };
 
@@ -1960,7 +1960,7 @@ function Assessment() {
                     <div className="review-row">
                       <span className="row-label">Blood Pressure</span>
                       <span className="row-value">
-                        {formData.bloodPressure ? `${formData.bloodPressure} mmHg` : "Not provided (standard 120 used)"}
+                        {formData.bloodPressure ? `${formData.bloodPressure} mmHg` : "Not provided"}
                       </span>
                       {sourceBadge("bloodPressure")}
                     </div>
@@ -1981,7 +1981,7 @@ function Assessment() {
                     <div className="review-row">
                       <span className="row-label">Monthly Income</span>
                       <span className="row-value">
-                        {formData.monthlyIncome ? `₹${formData.monthlyIncome}` : "Demographic default"}
+                        {formData.monthlyIncome ? `₹${formData.monthlyIncome}` : "Not provided"}
                       </span>
                       {sourceBadge("monthlyIncome")}
                     </div>
@@ -1995,35 +1995,35 @@ function Assessment() {
                     <div className="review-row">
                       <span className="row-label">Family History</span>
                       <span className="row-value">
-                        {formData.familyHistory === "1" ? "Yes — Family History Present" : "No Family History"}
+                        {formData.familyHistory === "1" ? "Yes — Family History Present" : (formData.familyHistory === "0" ? "No Family History" : "Not provided")}
                       </span>
                       {sourceBadge("familyHistory")}
                     </div>
                     <div className="review-row">
                       <span className="row-label">Physical Activity</span>
                       <span className="row-value">
-                        {formData.physicalActivityHours ? `${formData.physicalActivityHours} hrs/day` : "0 hrs/day"}
+                        {formData.physicalActivityHours ? `${formData.physicalActivityHours} hrs/day` : "Not provided"}
                       </span>
                       {sourceBadge("physicalActivityHours")}
                     </div>
                     <div className="review-row">
                       <span className="row-label">Daily Sugar Intake</span>
                       <span className="row-value">
-                        {formData.dailySugarIntake ? `${formData.dailySugarIntake} g/day` : "Standard baseline"}
+                        {formData.dailySugarIntake ? `${formData.dailySugarIntake} g/day` : "Not provided"}
                       </span>
                       {sourceBadge("dailySugarIntake")}
                     </div>
                     <div className="review-row">
                       <span className="row-label">Fast Food Frequency</span>
                       <span className="row-value">
-                        {formData.fastFoodFrequency ? `${formData.fastFoodFrequency} meals/week` : "1 meal/week"}
+                        {formData.fastFoodFrequency ? `${formData.fastFoodFrequency} meals/week` : "Not provided"}
                       </span>
                       {sourceBadge("fastFoodFrequency")}
                     </div>
                     <div className="review-row">
                       <span className="row-label">Sleep Duration</span>
                       <span className="row-value">
-                        {formData.sleepHours ? `${formData.sleepHours} hrs/night` : "7 hrs/night"}
+                        {formData.sleepHours ? `${formData.sleepHours} hrs/night` : "Not provided"}
                       </span>
                       {sourceBadge("sleepHours")}
                     </div>

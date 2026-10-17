@@ -28,8 +28,8 @@ class DashboardService:
         latest_pred = self.prediction_repo.get_latest_by_user_id(user.id)
         latest_pred_data = None
         diet_plan_data = None
-        risk_level = "Normal"
-        health_score = 90
+        risk_level = None
+        health_score = None
 
         if latest_pred:
             # Use the stored prediction data directly — no need to re-run ML model

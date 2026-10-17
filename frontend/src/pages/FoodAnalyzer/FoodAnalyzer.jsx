@@ -40,6 +40,12 @@ function FoodAnalyzer() {
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [customDishInput, setCustomDishInput] = useState("");
+
+  const handleTabSwitch = (tab) => {
+    setActiveTab(tab);
+    setAnalysisResult(null);
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -99,6 +105,12 @@ function FoodAnalyzer() {
     }
   };
 
+  const handleCustomCorrection = async () => {
+    if (!customDishInput.trim()) return;
+    await handleTextSubmit(customDishInput.trim());
+    setCustomDishInput("");
+  };
+
   const getSuitabilityBadge = (suitability, color) => {
     let localizedLabel = suitability;
     if (color === "emerald" || suitability?.toLowerCase().includes("friendly") || suitability?.toLowerCase().includes("ಸ್ನೇಹಿ")) {
@@ -143,13 +155,13 @@ function FoodAnalyzer() {
           <div className="analyzer-tabs">
             <button
               className={`tab-btn ${activeTab === "image" ? "active" : ""}`}
-              onClick={() => setActiveTab("image")}
+              onClick={() => handleTabSwitch("image")}
             >
               <FaCamera /> 📸 {t("foodAnalyzer.tabImage")}
             </button>
             <button
               className={`tab-btn ${activeTab === "text" ? "active" : ""}`}
-              onClick={() => setActiveTab("text")}
+              onClick={() => handleTabSwitch("text")}
             >
               <FaSearch /> 🔍 {t("foodAnalyzer.tabText")}
             </button>
@@ -252,9 +264,48 @@ function FoodAnalyzer() {
                 <div>
                   <span className="dish-eyebrow">{t("foodAnalyzer.identifiedDish")}</span>
                   <h2>{analysisResult.dish_name}</h2>
+                  {analysisResult.confidence_score && (
+                    <div className="confidence-pill-row">
+                      <span className="confidence-pill">
+                        <FaCheckCircle /> {Math.round(analysisResult.confidence_score * 100)}% Match
+                        {analysisResult.detection_source ? ` (${analysisResult.detection_source.replace(/_/g, " ")})` : ""}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {getSuitabilityBadge(analysisResult.overall_suitability, analysisResult.suitability_color)}
               </div>
+
+              {/* Ambiguity Alert Banner */}
+              {analysisResult.is_ambiguous && (
+                <div className="ambiguity-alert-box">
+                  <FaExclamationTriangle className="ambiguity-icon" />
+                  <div className="ambiguity-text">
+                    <strong>Low Visual Certainty:</strong>
+                    <p>Image features subtle colors or lighting patterns. Please verify the detected dish below or select an alternative.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Candidate Alternatives Bar */}
+              {analysisResult.candidate_alternatives && analysisResult.candidate_alternatives.length > 0 && (
+                <div className="candidate-alternatives-bar">
+                  <span className="alt-label"><FaLightbulb /> Suggested Alternatives:</span>
+                  <div className="alt-chips">
+                    {analysisResult.candidate_alternatives.map((alt, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="alt-chip-btn"
+                        onClick={() => handleTextSubmit(alt)}
+                        disabled={loading}
+                      >
+                        {alt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* 4 Essential Metrics Summary */}
               <div className="nutrition-stats-grid">
@@ -307,6 +358,31 @@ function FoodAnalyzer() {
                   <p>{analysisResult.clinical_recommendation}</p>
                 </div>
               )}
+
+              {/* Dish Correction Box */}
+              <div className="dish-correction-box">
+                <label htmlFor="dish-correction-input" className="correction-label">
+                  <FaUtensils /> Not the right dish? Enter correct name to recalculate:
+                </label>
+                <div className="correction-input-group">
+                  <input
+                    id="dish-correction-input"
+                    type="text"
+                    placeholder="e.g. Moong Dal Khichdi, Oats Dosa, Upma, Palak Paneer..."
+                    value={customDishInput}
+                    onChange={(e) => setCustomDishInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleCustomCorrection()}
+                  />
+                  <button
+                    type="button"
+                    className="recalc-btn"
+                    onClick={handleCustomCorrection}
+                    disabled={loading || !customDishInput.trim()}
+                  >
+                    {loading ? <FaSpinner className="spin-icon" /> : "Recalculate"}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

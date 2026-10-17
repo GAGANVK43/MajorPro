@@ -43,7 +43,13 @@ async def analyze_food_image(
             detail="Uploaded image file is empty",
         )
 
-    analysis = food_service.analyze_food_image(contents, file.filename or "food.jpg", lang=accept_language)
+    try:
+        analysis = food_service.analyze_food_image(contents, file.filename or "food.jpg", lang=accept_language)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     return success_response(
         data=analysis.model_dump(),
         message="AI Food Image Recognition analysis completed successfully.",

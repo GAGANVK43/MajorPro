@@ -23,13 +23,7 @@ function Result() {
   const { t, currentLanguage } = useTranslation();
   const [userProfile, setUserProfile] = useState(null);
   const [userName, setUserName] = useState("Patient");
-
-  const trendData = [
-    { month: t("result.assess1"), risk: 45 },
-    { month: t("result.assess2"), risk: 52 },
-    { month: t("result.assess3"), risk: 65 },
-    { month: t("result.currentAssess"), risk: 78 },
-  ];
+  const [historyTrend, setHistoryTrend] = useState([]);
 
   const [predictionData, setPredictionData] = useState({
     id: null,
@@ -77,7 +71,7 @@ function Result() {
       } catch (e) {}
     }
 
-    // 3. Fetch latest prediction & diet plan from API with current language
+    // 3. Fetch latest prediction, history & diet plan from API with current language
     async function fetchLatestData() {
       try {
         const res = await predictionService.getLatest();
@@ -92,6 +86,23 @@ function Result() {
             recommendation: d.recommendation,
             contributing_factors: d.contributing_factors || []
           });
+        }
+
+        // Fetch real historical assessments for longitudinal trend
+        try {
+          const histRes = await predictionService.getHistory();
+          if (histRes.data && Array.isArray(histRes.data.predictions) && histRes.data.predictions.length > 0) {
+            const chronological = [...histRes.data.predictions].reverse();
+            const points = chronological.map((p, idx) => ({
+              month: p.created_at
+                ? new Date(p.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+                : `Assessment #${idx + 1}`,
+              risk: typeof p.risk_percentage === "number" ? Math.round(p.risk_percentage) : 0,
+            }));
+            setHistoryTrend(points);
+          }
+        } catch (histErr) {
+          console.warn("Could not load prediction history for chart:", histErr);
         }
 
         const dietRes = await dietService.getLatestDiet();
@@ -179,7 +190,7 @@ function Result() {
           <div className="report-score-grid">
             <RiskGauge
               riskPercentage={predictionData.risk_percentage}
-              riskLevel={isHighRisk ? t("result.diabetic") : t("result.nonDiabetic")}
+              riskLevel={isHighRisk ? "Elevated Risk Pattern" : "Lower Risk Pattern"}
               confidence={predictionData.confidence}
             />
 
@@ -233,21 +244,36 @@ function Result() {
           {/* Health Risk Trajectory Graph */}
           <div className="content-card">
             <h2><FaChartLine /> {t("result.trajectoryTitle")}</h2>
-            <p className="card-subtitle">{t("result.trajectoryDesc")}</p>
+            <p className="card-subtitle">
+              {historyTrend.length > 1
+                ? t("result.trajectoryDesc")
+                : "Initial baseline screening recorded. Your longitudinal risk trajectory will track here across future screenings."}
+            </p>
 
-            <div className="chart-wrapper">
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="month" stroke="#94a3b8" />
-                  <YAxis domain={[0, 100]} stroke="#94a3b8" />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#1e293b", borderColor: "rgba(255,255,255,0.1)", borderRadius: "12px", color: "#f8fafc" }}
-                  />
-                  <Line type="monotone" dataKey="risk" stroke="#0ea5e9" strokeWidth={3} dot={{ r: 6, fill: "#0ea5e9" }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            {historyTrend.length > 1 ? (
+              <div className="chart-wrapper">
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={historyTrend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis dataKey="month" stroke="#94a3b8" />
+                    <YAxis domain={[0, 100]} stroke="#94a3b8" unit="%" />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#1e293b", borderColor: "rgba(255,255,255,0.1)", borderRadius: "12px", color: "#f8fafc" }}
+                      formatter={(val) => [`${val}% Risk Probability`, "Diabetes Screening Score"]}
+                    />
+                    <Line type="monotone" dataKey="risk" stroke="#0ea5e9" strokeWidth={3} dot={{ r: 6, fill: "#0ea5e9" }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="baseline-trend-card" style={{ padding: "1.5rem", background: "rgba(15, 23, 42, 0.4)", borderRadius: "12px", border: "1px dashed rgba(255,255,255,0.15)", textAlign: "center", color: "#94a3b8" }}>
+                <p style={{ margin: "0 0 0.5rem 0", color: "#38bdf8", fontWeight: 600 }}>🎯 Baseline Screening Established</p>
+                <p style={{ margin: 0, fontSize: "0.9rem" }}>
+                  Current Assessment Risk Probability: <strong>{predictionData.risk_percentage}%</strong> ({isHighRisk ? "Elevated Risk Pattern" : "Lower Risk Pattern"}).
+                  Subsequent assessments will render your comparative progress over time.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Recommended Diet & Exercise Guidance */}

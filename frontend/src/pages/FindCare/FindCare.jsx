@@ -481,7 +481,7 @@ function FindCare() {
                         </div>
                         <p className="sidebar-address">{fac.address}</p>
                         <a
-                          href={fac.mapsUrl}
+                          href={fac.maps_url || fac.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${fac.latitude},${fac.longitude}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="sidebar-dir-link"
@@ -510,7 +510,7 @@ function FindCare() {
                       </div>
                       <div className="preview-action-row">
                         <a
-                          href={selectedFacility.mapsUrl}
+                          href={selectedFacility.maps_url || selectedFacility.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${selectedFacility.latitude},${selectedFacility.longitude}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="btn-directions-sm"

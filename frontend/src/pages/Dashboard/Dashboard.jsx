@@ -13,13 +13,14 @@ function Dashboard() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
+  const [hasScreening, setHasScreening] = useState(false);
 
   const [snapshot, setSnapshot] = useState({
-    healthScore: 82,
-    riskLevel: "Low Risk",
-    riskPercentage: "24.5%",
-    bmi: "24.5",
-    lastAssessment: "Today",
+    healthScore: null,
+    riskLevel: null,
+    riskPercentage: null,
+    bmi: null,
+    lastAssessment: null,
   });
 
   const [historyList, setHistoryList] = useState([]);
@@ -33,15 +34,17 @@ function Dashboard() {
         if (data && data.health_summary) {
           const hs = data.health_summary;
           const latestPred = data.latest_prediction;
+          const hasData = (hs.total_assessments > 0) || (hs.health_score !== null) || (latestPred !== null);
+          setHasScreening(Boolean(hasData));
 
           setSnapshot({
-            healthScore: hs.health_score || 82,
-            riskLevel: hs.risk_level || "Low Risk",
-            riskPercentage: latestPred ? `${latestPred.risk_percentage}%` : "24.5%",
-            bmi: hs.latest_bmi ? hs.latest_bmi.toFixed(1) : "24.5",
+            healthScore: hs.health_score,
+            riskLevel: hs.risk_level,
+            riskPercentage: latestPred ? `${latestPred.risk_percentage}%` : null,
+            bmi: hs.latest_bmi ? hs.latest_bmi.toFixed(1) : null,
             lastAssessment: hs.last_assessed_at
               ? new Date(hs.last_assessed_at).toLocaleDateString()
-              : "Today",
+              : null,
           });
         }
 
@@ -49,9 +52,12 @@ function Dashboard() {
         const historyRes = await predictionService.getHistory();
         if (historyRes.data && historyRes.data.predictions) {
           setHistoryList(historyRes.data.predictions);
+          if (historyRes.data.predictions.length > 0) {
+            setHasScreening(true);
+          }
         }
       } catch (err) {
-        // Fallback snapshot if unauthenticated
+        setHasScreening(false);
       } finally {
         setLoading(false);
       }
@@ -60,9 +66,10 @@ function Dashboard() {
   }, []);
 
   const getSnapshotRiskLabel = (level) => {
-    if (level === "Low Risk") return t("result.lowRisk");
-    if (level === "Moderate Risk") return t("result.moderateRisk");
-    if (level === "High Risk") return t("result.highRisk");
+    if (!level) return "Not Screened";
+    if (level === "Low Risk" || level === "Low") return t("result.lowRisk") || "Low Risk";
+    if (level === "Moderate Risk" || level === "Moderate") return t("result.moderateRisk") || "Moderate Risk";
+    if (level === "High Risk" || level === "High") return t("result.highRisk") || "High Risk";
     return level;
   };
 
@@ -97,26 +104,56 @@ function Dashboard() {
             </div>
           </section>
 
+          {/* Onboarding Empty State Banner for New/Unassessed Users */}
+          {!loading && !hasScreening && (
+            <section className="onboarding-banner-card">
+              <div className="onboarding-badge">
+                <FaHeartbeat /> Baseline Screening Recommended
+              </div>
+              <div className="onboarding-content">
+                <h2>Establish Your Personal Metabolic Baseline</h2>
+                <p>
+                  You haven't completed an assessment yet. Complete our comprehensive 2-minute screening
+                  to calculate your verified clinical health score, diabetes risk trajectory, and personalized meal plan.
+                </p>
+                <div className="onboarding-btn-row">
+                  <button className="btn-dash primary" onClick={() => navigate("/assessment")}>
+                    <FaPlusCircle /> Start Health Screening Now
+                  </button>
+                  <button className="btn-dash secondary" onClick={() => navigate("/food-analyzer")}>
+                    <FaCamera /> Try Food AI Analyzer
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Real Backend Snapshot Metric Cards */}
           <section className="snapshot-section">
             <h2 className="section-heading">{t("dashboard.overviewTitle")}</h2>
 
             <div className="snapshot-grid">
-              <div className="snapshot-card" onClick={() => navigate("/result")}>
+              <div className="snapshot-card" onClick={() => navigate(hasScreening ? "/result" : "/assessment")}>
                 <div className="snap-icon-box">❤️</div>
                 <div className="snap-details">
                   <h3>{t("dashboard.healthScore")}</h3>
-                  <span className="snap-value">{snapshot.healthScore} / 100</span>
-                  <p className="snap-status">{t("dashboard.optimalRange")}</p>
+                  <span className="snap-value">
+                    {snapshot.healthScore !== null ? `${snapshot.healthScore} / 100` : "--"}
+                  </span>
+                  <p className="snap-status">
+                    {snapshot.healthScore !== null ? t("dashboard.optimalRange") : "Complete assessment to compute"}
+                  </p>
                 </div>
               </div>
 
-              <div className="snapshot-card" onClick={() => navigate("/result")}>
+              <div className="snapshot-card" onClick={() => navigate(hasScreening ? "/result" : "/assessment")}>
                 <div className="snap-icon-box cyan">🩸</div>
                 <div className="snap-details">
                   <h3>{t("dashboard.diabetesRisk")}</h3>
                   <span className="snap-value">{getSnapshotRiskLabel(snapshot.riskLevel)}</span>
-                  <p className="snap-status">{t("dashboard.probability")}: {snapshot.riskPercentage}</p>
+                  <p className="snap-status">
+                    {snapshot.riskPercentage ? `${t("dashboard.probability")}: ${snapshot.riskPercentage}` : "Screening required"}
+                  </p>
                 </div>
               </div>
 
@@ -124,17 +161,21 @@ function Dashboard() {
                 <div className="snap-icon-box emerald">⚖️</div>
                 <div className="snap-details">
                   <h3>{t("dashboard.bmiScore")}</h3>
-                  <span className="snap-value">{snapshot.bmi}</span>
-                  <p className="snap-status">kg/m²</p>
+                  <span className="snap-value">{snapshot.bmi !== null ? snapshot.bmi : "--"}</span>
+                  <p className="snap-status">{snapshot.bmi !== null ? "kg/m²" : "Pending measurement"}</p>
                 </div>
               </div>
 
-              <div className="snapshot-card" onClick={() => navigate("/result")}>
+              <div className="snapshot-card" onClick={() => navigate(hasScreening ? "/result" : "/assessment")}>
                 <div className="snap-icon-box purple">📅</div>
                 <div className="snap-details">
                   <h3>{t("dashboard.lastScreening")}</h3>
-                  <span className="snap-value">{snapshot.lastAssessment === "Today" ? t("dashboard.today") : snapshot.lastAssessment}</span>
-                  <p className="snap-status">{t("dashboard.verified")}</p>
+                  <span className="snap-value">
+                    {snapshot.lastAssessment ? (snapshot.lastAssessment === "Today" ? t("dashboard.today") : snapshot.lastAssessment) : "No Record"}
+                  </span>
+                  <p className="snap-status">
+                    {snapshot.lastAssessment ? t("dashboard.verified") : "Not established"}
+                  </p>
                 </div>
               </div>
             </div>
