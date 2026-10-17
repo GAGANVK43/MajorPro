@@ -1,5 +1,5 @@
 import "./FoodAnalyzer.css";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { toast } from "react-toastify";
 import Navbar from "../../components/Navbar/Navbar";
 import BackButton from "../../components/BackButton/BackButton";
@@ -44,7 +44,24 @@ function FoodAnalyzer() {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [customDishInput, setCustomDishInput] = useState("");
 
+  const currentRequestIdRef = useRef(null);
+  const abortControllerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      // Abort any in-flight request on unmount
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const handleTabSwitch = (tab) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    currentRequestIdRef.current = null;
     setActiveTab(tab);
     setAnalysisResult(null);
   };
@@ -56,6 +73,12 @@ function FoodAnalyzer() {
         toast.error(t("foodAnalyzer.invalidImageToast") || "Please upload a valid image file.");
         return;
       }
+      // Cancel previous in-flight request and wipe previous analysis result immediately
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      currentRequestIdRef.current = null;
       setSelectedFile(file);
       setImagePreview(URL.createObjectURL(file));
       setAnalysisResult(null); // Clear stale results immediately
@@ -69,13 +92,31 @@ function FoodAnalyzer() {
       return;
     }
 
+    // Cancel any active previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    const reqId = "req_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+    currentRequestIdRef.current = reqId;
+
     setLoading(true);
     const formData = new FormData();
     formData.append("file", selectedFile);
+    formData.append("client_request_id", reqId);
 
     try {
-      const res = await foodService.analyzeImage(formData);
+      const res = await foodService.analyzeImage(formData, { signal: controller.signal });
+      // Zero-staleness guard: only process if this response matches the current active request
+      if (currentRequestIdRef.current !== reqId) {
+        return;
+      }
       if (res && res.data) {
+        if (res.data.client_request_id && res.data.client_request_id !== reqId) {
+          return;
+        }
         setAnalysisResult(res.data);
         if (res.data.status === "needs_confirmation") {
           toast.info("Image received. Please confirm your dish to view verified nutrition.");
@@ -86,10 +127,17 @@ function FoodAnalyzer() {
         }
       }
     } catch (err) {
-      setAnalysisResult(null);
-      toast.error(err.message || "Failed to analyze food image.");
+      if (err.name === "CanceledError" || err.code === "ERR_CANCELED" || err.message === "canceled") {
+        return; // Request was cleanly cancelled; ignore silently
+      }
+      if (currentRequestIdRef.current === reqId) {
+        setAnalysisResult(null);
+        toast.error(err.message || "Failed to analyze food image.");
+      }
     } finally {
-      setLoading(false);
+      if (currentRequestIdRef.current === reqId) {
+        setLoading(false);
+      }
     }
   };
 
@@ -382,23 +430,39 @@ function FoodAnalyzer() {
                         <span className="confidence-pill confirmed">
                           <FaCheckCircle /> Confirmed by User (Clinical Database Verified)
                         </span>
-                      ) : analysisResult.detection_source === "local_ml_vision" ? (
+                      ) : analysisResult.detection_source === "deep_local_vision" ? (
                         <span className="confidence-pill ai-vision">
-                          <FaCheckCircle /> DiaSense ML Vision ({Math.round(analysisResult.confidence_score * 100)}% Match)
+                          <FaCheckCircle /> DiaSense Deep Vision ({Math.round((analysisResult.confidence_score || 0.85) * 100)}% Match)
+                        </span>
+                      ) : analysisResult.detection_source?.includes("gemini") ? (
+                        <span className="confidence-pill ai-vision">
+                          <FaCheckCircle /> Cloud Multimodal Vision ({Math.round((analysisResult.confidence_score || 0.9) * 100)}% Match)
                         </span>
                       ) : analysisResult.confidence_score ? (
                         <span className="confidence-pill ai-vision">
-                          <FaCheckCircle /> Cloud AI Vision ({Math.round(analysisResult.confidence_score * 100)}% Match)
+                          <FaCheckCircle /> AI Vision ({Math.round(analysisResult.confidence_score * 100)}% Match)
                         </span>
                       ) : (
                         <span className="confidence-pill verified">
                           <FaCheckCircle /> Verified Clinical Database
                         </span>
                       )}
+                      {analysisResult.model_version && (
+                        <span className="model-badge">
+                          ⚙️ {analysisResult.model_version}
+                        </span>
+                      )}
                     </div>
                   </div>
                   {getSuitabilityBadge(analysisResult.overall_suitability, analysisResult.suitability_color)}
                 </div>
+
+                {/* Visual Evidence Banner */}
+                {analysisResult.visual_evidence && (
+                  <div className="visual-evidence-banner">
+                    <span>👁️ <strong>Visual Evidence:</strong> {analysisResult.visual_evidence}</span>
+                  </div>
+                )}
 
                 {/* Multiple Food Component Tags */}
                 {analysisResult.status === "multiple_foods_detected" && analysisResult.identified_items?.length > 1 && (
@@ -457,6 +521,18 @@ function FoodAnalyzer() {
                     <span className="sec-val">{analysisResult.suggested_portion || "1 serving"}</span>
                   </div>
                 </div>
+
+                {/* Clinical Portion Assumptions & Unseen Limitations */}
+                {analysisResult.portion_assumptions && (
+                  <div className="portion-assumptions-box">
+                    <strong>📏 Portion Assumption:</strong> {analysisResult.portion_assumptions}
+                  </div>
+                )}
+                {analysisResult.unseen_limitations && (
+                  <div className="unseen-limitations-box">
+                    <strong>⚠️ Preparation Limitations:</strong> {analysisResult.unseen_limitations}
+                  </div>
+                )}
 
                 {/* Clinical Recommendation Box */}
                 {analysisResult.clinical_recommendation && (

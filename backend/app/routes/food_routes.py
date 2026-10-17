@@ -1,4 +1,5 @@
-from fastapi import APIRouter, File, UploadFile, Header, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, File, UploadFile, Header, HTTPException, status, Form
 from app.schemas.food_schema import FoodAnalysisRequest, FoodConfirmationRequest, FoodAnalysisResponse
 from app.services.food_analyzer_service import FoodAnalyzerService
 from app.utils.response import success_response
@@ -25,10 +26,12 @@ def analyze_meal_text(
 @router.post("/analyze-image", status_code=status.HTTP_200_OK)
 async def analyze_food_image(
     file: UploadFile = File(...),
+    client_request_id: Optional[str] = Form(None),
     accept_language: str = Header(default="en", alias="Accept-Language"),
 ):
     """
     Upload a food image -> AI Vision identifies the food item or provides candidate options.
+    Guarantees zero staleness via client_request_id matching.
     """
     if not file.content_type.startswith("image/"):
         raise HTTPException(
@@ -44,7 +47,12 @@ async def analyze_food_image(
         )
 
     try:
-        analysis = food_service.analyze_food_image(contents, file.filename or "food.jpg", lang=accept_language)
+        analysis = food_service.analyze_food_image(
+            contents,
+            file.filename or "food.jpg",
+            lang=accept_language,
+            client_request_id=client_request_id,
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

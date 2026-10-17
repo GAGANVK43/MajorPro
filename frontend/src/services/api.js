@@ -138,12 +138,13 @@ export const chatbotService = {
 };
 
 export const foodService = {
-  analyzeText: (query) => api.post("/api/food/analyze-text", { query }),
-  analyzeImage: (formData) =>
+  analyzeText: (query, config = {}) => api.post("/api/food/analyze-text", { query }, config),
+  analyzeImage: (formData, config = {}) =>
     api.post("/api/food/analyze-image", formData, {
       headers: { "Content-Type": "multipart/form-data" },
+      ...config,
     }),
-  confirm: (dish_name) => api.post("/api/food/confirm", { dish_name }),
+  confirm: (dish_name, config = {}) => api.post("/api/food/confirm", { dish_name }, config),
 };
 
 export const nearbyCareService = {

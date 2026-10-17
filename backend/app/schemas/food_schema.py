@@ -43,11 +43,18 @@ class FoodAnalysisResponse(BaseModel):
     clinical_recommendation: str
     confidence_score: Optional[float] = None
     confidence_level: Optional[str] = None  # "High", "Moderate", "Low", "Uncertain"
-    detection_source: Optional[str] = "knowledge_base"  # "gemini_vision", "knowledge_base", "user_confirmed", "offline_image_precheck", "generic_estimation"
+    detection_source: Optional[str] = "knowledge_base"  # "gemini_vision", "openai_vision", "deep_local_vision", "knowledge_base", "user_confirmed"
     candidate_alternatives: List[str] = Field(default_factory=list)
     is_ambiguous: Optional[bool] = False
     is_user_confirmed: Optional[bool] = False
     nutrition_source: Optional[str] = "verified_database"
+    client_request_id: Optional[str] = None
+    image_id: Optional[str] = None
+    visual_evidence: Optional[str] = None
+    portion_assumptions: Optional[str] = None
+    unseen_limitations: Optional[str] = None
+    model_version: Optional[str] = None
+    detected_components: List[dict] = Field(default_factory=list)
     disclaimer: Optional[str] = (
         "Clinical nutrition metrics and glycemic index values are provided for dietary screening and educational diabetes self-management. "
         "Consult your healthcare provider or certified diabetes educator for personalized meal therapy."

@@ -813,3 +813,46 @@
   margin: 0;
   line-height: 1.4;
 }
+
+.visual-evidence-banner {
+  background: rgba(14, 165, 233, 0.08);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+  border-radius: 12px;
+  padding: 0.65rem 1rem;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: #bae6fd;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.portion-assumptions-box {
+  background: rgba(30, 41, 59, 0.6);
+  border-left: 3px solid #0ea5e9;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.84rem;
+  color: #cbd5e1;
+  margin-top: 0.5rem;
+}
+
+.unseen-limitations-box {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px dashed rgba(245, 158, 11, 0.3);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.82rem;
+  color: #fde68a;
+  margin-top: 0.5rem;
+}
+
+.model-badge {
+  font-size: 0.72rem;
+  background: rgba(148, 163, 184, 0.15);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  margin-left: 0.5rem;
+}

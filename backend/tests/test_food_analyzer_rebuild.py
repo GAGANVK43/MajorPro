@@ -168,7 +168,7 @@ def test_automatic_analysis_without_mandatory_confirmation(client):
     assert data["dish_name"] == "Burger"
     assert data["total_calories_kcal"] == 460.0
     assert data["confidence_score"] > 0.50
-    assert data["detection_source"] == "local_ml_vision"
+    assert data["detection_source"] in ("deep_local_vision", "local_ml_vision")
     assert "Burger" in [data["dish_name"]] + data.get("candidate_alternatives", [])
 
 
@@ -250,3 +250,64 @@ def test_hindi_localization_headers(client):
     assert response.status_code == 200
     data = response.json()["data"]
     assert "जीआई" in data["clinical_recommendation"]
+
+
+# ---------------------------------------------------------------------------
+# ENHANCED DEEP VISION & CLINICAL SAFETY REGRESSION TESTS
+# ---------------------------------------------------------------------------
+
+def test_chicken_meal_never_becomes_idli(client):
+    """
+    CRITICAL DEFECT PREVENTION:
+    User reported: Grilled chicken with green vegetables was misclassified as 'Idli' (130 kcal, GI 52).
+    Assert that chicken meal input NEVER returns 'Idli' and does NOT report 130 kcal.
+    """
+    chicken_img = generate_food_image_bytes("Chicken Meal", seed=505)
+    response = client.post(
+        "/api/food/analyze-image",
+        files={"file": ("chicken_plate.jpg", chicken_img, "image/jpeg")},
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["dish_name"] != "Idli"
+    assert data["dish_name"] != "idli"
+    assert data["total_calories_kcal"] != 130.0
+    assert data["total_calories_kcal"] >= 350.0
+    assert data["total_protein_g"] >= 30.0
+
+
+def test_zero_staleness_client_request_id_and_image_id(client):
+    """
+    Verify client request ID round-trip and SHA-256 fingerprinting for race condition prevention.
+    """
+    test_req_id = "test_req_uuid_998877"
+    burger_img = generate_food_image_bytes("Burger", seed=101)
+    response = client.post(
+        "/api/food/analyze-image",
+        files={"file": ("burger.jpg", burger_img, "image/jpeg")},
+        data={"client_request_id": test_req_id},
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["client_request_id"] == test_req_id
+    assert data["image_id"] is not None
+    assert len(data["image_id"]) == 16
+
+
+def test_visual_evidence_and_assumptions_populated(client):
+    """
+    Verify deep vision engine provides visual evidence, portion assumptions, and clinical limitations.
+    """
+    burger_img = generate_food_image_bytes("Burger", seed=101)
+    response = client.post(
+        "/api/food/analyze-image",
+        files={"file": ("burger.jpg", burger_img, "image/jpeg")},
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data.get("visual_evidence") is not None
+    assert len(data["visual_evidence"]) > 5
+    assert data.get("portion_assumptions") is not None
+    assert data.get("unseen_limitations") is not None
+    assert "MobileNetV3" in data.get("model_version", "")
+

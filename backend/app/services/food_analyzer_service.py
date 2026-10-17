@@ -2,6 +2,7 @@ import os
 import io
 import json
 import base64
+import hashlib
 from typing import Dict, Any, List, Optional, Tuple
 import httpx
 from PIL import Image, ImageOps
@@ -376,6 +377,32 @@ FOOD_KNOWLEDGE_BASE: Dict[str, Dict[str, Any]] = {
         "color": "emerald",
         "advice": "Rich in pectin soluble fiber which slows carbohydrate digestion and insulin demand.",
     },
+    "steamed green vegetables": {
+        "aliases": ["green vegetables", "steamed vegetables", "steamed broccoli", "green beans", "cooked vegetables", "vegetables"],
+        "calories": 55.0,
+        "carbs": 9.0,
+        "protein": 3.0,
+        "fiber": 4.5,
+        "fats": 0.8,
+        "gi": 15,
+        "portion": "1 cup steamed green vegetables (150g)",
+        "suitability": "Diabetic Friendly",
+        "color": "emerald",
+        "advice": "Rich in cruciferous antioxidants, sulforaphane and soluble fiber. Virtually zero glycemic impact.",
+    },
+    "steamed white rice": {
+        "aliases": ["white rice", "steamed rice", "cooked rice", "plain rice"],
+        "calories": 205.0,
+        "carbs": 44.0,
+        "protein": 4.2,
+        "fiber": 0.6,
+        "fats": 0.4,
+        "gi": 73,
+        "portion": "1 cup cooked white rice (160g)",
+        "suitability": "High Risk / Limit Intake",
+        "color": "red",
+        "advice": "Refined starch with minimal fiber. Causes rapid blood sugar spikes. Consider substituting with brown rice or quinoa.",
+    },
 }
 
 
@@ -389,21 +416,17 @@ class FoodAnalyzerService:
 
     def __init__(self):
         self.api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
-        self.local_vision_model = None
-        self.local_vision_classes = []
-        self._load_local_vision_model()
+        self.openai_api_key = getattr(settings, "OPENAI_API_KEY", "") or os.getenv("OPENAI_API_KEY", "")
+        self.deep_vision_engine = None
+        self._load_deep_vision_engine()
 
-    def _load_local_vision_model(self):
+    def _load_deep_vision_engine(self):
         try:
-            model_path = os.path.join(os.path.dirname(__file__), "..", "ml", "food_vision_model.pkl")
-            if os.path.exists(model_path):
-                import joblib
-                pkg = joblib.load(model_path)
-                self.local_vision_model = pkg.get("model")
-                self.local_vision_classes = pkg.get("classes", [])
-                logger.info(f"[FOOD_VISION] Loaded local ML Food Vision Model ({len(self.local_vision_classes)} classes).")
+            from app.ml.deep_food_vision import DeepFoodVisionEngine
+            self.deep_vision_engine = DeepFoodVisionEngine()
+            logger.info("[FOOD_VISION] Loaded DeepFoodVisionEngine (MobileNetV3).")
         except Exception as e:
-            logger.warning(f"[FOOD_VISION] Could not load local ML vision model: {e}")
+            logger.warning(f"[FOOD_VISION] Could not load DeepFoodVisionEngine: {e}")
 
     # -------------------------------------------------------------------------
     # PUBLIC API: TEXT ANALYSIS
@@ -419,21 +442,28 @@ class FoodAnalyzerService:
     # PUBLIC API: IMAGE ANALYSIS (STAGE 1 -> STAGE 2)
     # -------------------------------------------------------------------------
     def analyze_food_image(
-        self, image_bytes: bytes, filename: str = "food.jpg", lang: str = "en"
+        self,
+        image_bytes: bytes,
+        filename: str = "food.jpg",
+        lang: str = "en",
+        client_request_id: Optional[str] = None,
     ) -> FoodAnalysisResponse:
         """
         Processes an uploaded food image automatically:
-        1. Validates image integrity and pixel distribution.
-        2. If AI Vision API is available: performs unforced multimodal visual recognition.
-        3. If offline / local: runs calibrated local ML food vision model on extracted features.
-        4. Automatically retrieves authentic clinical nutrition without requiring manual candidate selection.
+        1. Generates SHA-256 image fingerprint to guarantee zero staleness.
+        2. Validates image integrity and pixel distribution.
+        3. If Cloud Vision API is configured: performs unforced multimodal plate decomposition.
+        4. If offline: executes DeepFoodVisionEngine (MobileNetV3) with semantic prototypes and OOD rejection.
+        5. Retrieves authentic clinical nutrition without requiring manual candidate selection.
         """
         logger.info(
-            f"[IMAGE_ANALYSIS] Processing food image ({len(image_bytes)} bytes, filename: {filename}, lang: {lang})"
+            f"[IMAGE_ANALYSIS] Processing food image ({len(image_bytes)} bytes, filename: {filename}, lang: {lang}, req_id: {client_request_id})"
         )
 
         if not image_bytes or len(image_bytes) < 100:
             raise ValueError("Uploaded image file is empty or too small to process.")
+
+        image_hash = hashlib.sha256(image_bytes).hexdigest()[:16]
 
         try:
             pil_img = Image.open(io.BytesIO(image_bytes))
@@ -475,10 +505,13 @@ class FoodAnalyzerService:
                 confidence_score=None,
                 confidence_level="Uncertain",
                 detection_source="image_quality_check",
-                candidate_alternatives=["Burger", "Chicken Meal", "Chapati", "Moong Dal Khichdi", "Salad"],
+                candidate_alternatives=["Burger", "Chicken Meal", "Chapati", "Moong Dal Khichdi", "Green Salad"],
                 is_ambiguous=True,
                 is_user_confirmed=False,
                 nutrition_source=None,
+                image_id=image_hash,
+                client_request_id=client_request_id,
+                model_version="DiaSense Vision Precheck",
             )
 
         # 1. Check Gemini Cloud Vision if API key is present
@@ -486,38 +519,43 @@ class FoodAnalyzerService:
             buf = io.BytesIO()
             pil_img.save(buf, format="JPEG", quality=80)
             compressed_bytes = buf.getvalue()
-            vision_result = self._query_gemini_vision(compressed_bytes, lang=lang)
+            vision_result = self._query_gemini_vision(
+                compressed_bytes, lang=lang, client_request_id=client_request_id, image_id=image_hash
+            )
             if vision_result:
                 return vision_result
-            logger.warning("[AI_VISION] Gemini Vision call did not return a valid result. Falling back to local ML model.")
+            logger.warning("[AI_VISION] Gemini Vision call did not return a valid result. Falling back to local deep vision.")
 
-        # 2. Automatic Local ML Food Vision Model (High-Accuracy Feature Extraction)
-        if self.local_vision_model:
+        # 2. Check OpenAI Vision if API key is present
+        if self.openai_api_key:
+            buf = io.BytesIO()
+            pil_img.save(buf, format="JPEG", quality=80)
+            compressed_bytes = buf.getvalue()
+            vision_result = self._query_openai_vision(
+                compressed_bytes, lang=lang, client_request_id=client_request_id, image_id=image_hash
+            )
+            if vision_result:
+                return vision_result
+
+        # 3. Automatic Deep Local Vision (MobileNetV3 + Calibrated Prototypes + OOD Rejection)
+        if self.deep_vision_engine:
             try:
-                from app.ml.food_vision_features import extract_food_image_features
-                feats = extract_food_image_features(pil_img)
-                probs = self.local_vision_model.predict_proba(feats.reshape(1, -1))[0]
-                top_idx = int(np.argmax(probs))
-                predicted_dish = self.local_vision_classes[top_idx]
-                confidence = float(probs[top_idx])
-                sorted_indices = np.argsort(probs)[::-1]
-                top_candidates = [self.local_vision_classes[i] for i in sorted_indices[1:4]]
+                (
+                    top_class,
+                    detected_components,
+                    confidence,
+                    conf_level,
+                    alternatives,
+                    is_composite,
+                    visual_evidence,
+                ) = self.deep_vision_engine.analyze_food_image(pil_img)
 
-                logger.info(f"[LOCAL_ML_VISION] Automatically identified '{predicted_dish}' with confidence: {confidence:.2f}")
+                logger.info(
+                    f"[DEEP_VISION] Result: '{top_class}', conf: {confidence:.2f}, level: {conf_level}, composite: {is_composite}"
+                )
 
-                if confidence >= 0.35:
-                    res = self.get_nutrition_for_dish(
-                        dish_name=predicted_dish,
-                        lang=lang,
-                        is_user_confirmed=False,
-                        detection_source="local_ml_vision",
-                    )
-                    res.confidence_score = round(confidence, 2)
-                    res.confidence_level = "High" if confidence >= 0.75 else ("Moderate" if confidence >= 0.50 else "Low")
-                    res.candidate_alternatives = top_candidates
-                    res.status = "identified"
-                    return res
-                else:
+                # Out-of-Distribution / Low Confidence Rejection (never hallucinate Idli or random food)
+                if conf_level == "Uncertain" or confidence < 0.40:
                     return FoodAnalysisResponse(
                         status="unrecognized",
                         dish_name="Uncertain Food Identification",
@@ -533,19 +571,52 @@ class FoodAnalyzerService:
                         suitability_color="neutral",
                         suggested_portion="N/A",
                         nutritional_details=[],
-                        clinical_recommendation="Visual features were ambiguous or unclear. Please upload a well-lit photo or search by meal name.",
-                        confidence_score=round(confidence, 2),
+                        clinical_recommendation=(
+                            "The visual features could not be matched with high clinical certainty to cataloged meal profiles. "
+                            "Please upload a clear, well-lit photo of your meal or search by food name below."
+                        ),
+                        confidence_score=confidence,
                         confidence_level="Uncertain",
-                        detection_source="local_ml_vision",
-                        candidate_alternatives=top_candidates,
+                        detection_source="deep_local_vision",
+                        candidate_alternatives=alternatives,
                         is_ambiguous=True,
                         is_user_confirmed=False,
                         nutrition_source=None,
+                        image_id=image_hash,
+                        client_request_id=client_request_id,
+                        visual_evidence=visual_evidence,
+                        model_version="DiaSense Deep Vision v3.0 (MobileNetV3)",
                     )
-            except Exception as e:
-                logger.error(f"[LOCAL_ML_VISION] Prediction failed: {e}")
 
-        # Fallback if neither cloud API nor local model could process the image
+                # Retrieve authentic clinical nutrition for the dish or composite items
+                res = self.get_nutrition_for_dish(
+                    dish_name=top_class,
+                    lang=lang,
+                    is_user_confirmed=False,
+                    detection_source="deep_local_vision",
+                    detected_components=detected_components if is_composite else None,
+                )
+                res.confidence_score = confidence
+                res.confidence_level = conf_level
+                res.candidate_alternatives = alternatives
+                res.status = "multiple_foods_detected" if is_composite else "identified"
+                res.image_id = image_hash
+                res.client_request_id = client_request_id
+                res.visual_evidence = visual_evidence
+                res.portion_assumptions = "Calculated on basis of 1 standard adult meal portion (~250-350g)."
+                res.unseen_limitations = (
+                    "Visual appearance cannot reveal hidden cooking oils, sodium content, or added sugars. "
+                    "Nutritional values reflect clinical standard preparations."
+                )
+                res.model_version = "DiaSense Deep Vision v3.0 (MobileNetV3)"
+                if is_composite and detected_components:
+                    res.identified_items = detected_components
+
+                return res
+            except Exception as e:
+                logger.error(f"[DEEP_VISION] Analysis error: {e}")
+
+        # Fallback if vision engines could not process image
         return FoodAnalysisResponse(
             status="unrecognized",
             dish_name="Food Item Not Recognized",
@@ -565,10 +636,13 @@ class FoodAnalyzerService:
             confidence_score=None,
             confidence_level="Uncertain",
             detection_source="fallback",
-            candidate_alternatives=["Burger", "Chicken Meal", "Chapati", "Moong Dal Khichdi", "Salad"],
+            candidate_alternatives=["Burger", "Chicken Meal", "Chapati", "Moong Dal Khichdi", "Green Salad"],
             is_ambiguous=True,
             is_user_confirmed=False,
             nutrition_source=None,
+            image_id=image_hash,
+            client_request_id=client_request_id,
+            model_version="DiaSense Baseline Fallback",
         )
 
     # -------------------------------------------------------------------------
@@ -596,6 +670,7 @@ class FoodAnalyzerService:
         lang: str = "en",
         is_user_confirmed: bool = False,
         detection_source: str = "knowledge_base",
+        detected_components: Optional[List[str]] = None,
     ) -> FoodAnalysisResponse:
         """
         Deterministic nutrition retrieval from verified clinical knowledge base or Gemini API.
@@ -604,15 +679,24 @@ class FoodAnalyzerService:
         q_lower = dish_name.lower().strip()
         matched_items: List[Tuple[str, Dict[str, Any]]] = []
 
+        # If explicit components were detected, match each component along with the primary dish
+        targets_to_match = [q_lower]
+        if detected_components:
+            for comp in detected_components:
+                c_clean = comp.lower().strip()
+                if c_clean not in targets_to_match:
+                    targets_to_match.append(c_clean)
+
         # 1. Exact or alias matching against clinical knowledge base
-        for key, data in FOOD_KNOWLEDGE_BASE.items():
-            if key in q_lower:
-                matched_items.append((key, data))
-                continue
-            for alias in data.get("aliases", []):
-                if alias in q_lower:
+        for target in targets_to_match:
+            for key, data in FOOD_KNOWLEDGE_BASE.items():
+                if key in target or (len(target) >= 4 and target in key):
                     matched_items.append((key, data))
-                    break
+                    continue
+                for alias in data.get("aliases", []):
+                    if alias in target or (len(target) >= 4 and target in alias):
+                        matched_items.append((key, data))
+                        break
 
         if matched_items:
             # Deduplicate by key
@@ -663,7 +747,11 @@ class FoodAnalyzerService:
         total_fiber = sum(d["fiber"] for _, d in matched_items)
         total_fats = sum(d["fats"] for _, d in matched_items)
         net_carbs = max(0.0, total_carbs - total_fiber)
-        avg_gi = int(sum(d["gi"] for _, d in matched_items) / len(matched_items))
+        total_carbs_weight = sum(d["carbs"] for _, d in matched_items)
+        if total_carbs_weight > 0:
+            avg_gi = int(round(sum(d["gi"] * d["carbs"] for _, d in matched_items) / total_carbs_weight))
+        else:
+            avg_gi = int(sum(d["gi"] for _, d in matched_items) / len(matched_items))
 
         norm_lang = normalize_lang(lang)
 
