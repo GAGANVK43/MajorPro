@@ -808,3 +808,48 @@
     justify-content: space-between;
   }
 }
+
+/* Active Search Origin Banner */
+.active-origin-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.25rem;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+  border-radius: 14px;
+  color: #38bdf8;
+  margin-bottom: 0.75rem;
+}
+
+.active-origin-banner .origin-icon {
+  font-size: 1.25rem;
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+.active-origin-banner .origin-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.active-origin-banner .origin-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #7dd3fc;
+}
+
+.active-origin-banner .origin-desc {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+/* Selected Facility Highlight in List View */
+.facility-card.selected-highlight {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35), 0 10px 25px rgba(0, 0, 0, 0.4);
+}

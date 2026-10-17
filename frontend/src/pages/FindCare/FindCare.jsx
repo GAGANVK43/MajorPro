@@ -1,5 +1,5 @@
 import "./FindCare.css";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { toast } from "react-toastify";
 import Navbar from "../../components/Navbar/Navbar";
 import BackButton from "../../components/BackButton/BackButton";
@@ -38,8 +38,9 @@ function FindCare() {
   const [radius, setRadius] = useState(5000); // 5000 meters = 5 km default
   const [viewMode, setViewMode] = useState("list"); // 'list' | 'map'
 
-  // Location state
-  const [location, setLocation] = useState(null); // { lat, lng, name }
+  // Single Authoritative Search Origin State
+  // type: 'gps' | 'pincode' | 'manual'
+  const [activeOrigin, setActiveOrigin] = useState(null); // { type, lat, lng, label, query }
   const [locationStatus, setLocationStatus] = useState("idle"); // 'idle' | 'locating' | 'success' | 'error'
   const [locationError, setLocationError] = useState("");
   const [manualQuery, setManualQuery] = useState("");
@@ -49,6 +50,17 @@ function FindCare() {
   const [loading, setLoading] = useState(false);
   const [searchedOnce, setSearchedOnce] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState(null);
+
+  const currentRequestIdRef = useRef(null);
+  const abortControllerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Request user's current GPS location
   const handleUseCurrentLocation = () => {
@@ -60,31 +72,40 @@ function FindCare() {
       return;
     }
 
+    // Cancel in-flight requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    currentRequestIdRef.current = null;
+
     setLocationStatus("locating");
     setLocationError("");
+    setManualQuery(""); // Clear manual input so no conflicting postal code is displayed
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const coords = {
+        const origin = {
+          type: "gps",
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-          name: "Current GPS Location",
+          label: `Current GPS Location (${position.coords.latitude.toFixed(4)}°N, ${position.coords.longitude.toFixed(4)}°E)`,
         };
-        setLocation(coords);
+        setActiveOrigin(origin);
         setLocationStatus("success");
         setLocationError("");
-        toast.success("📍 Location detected successfully!");
-        fetchFacilities(coords.lat, coords.lng, activeTab, radius, "Current Location");
+        toast.success("📍 Device GPS location detected successfully!");
+        fetchFacilities(origin.lat, origin.lng, activeTab, radius, origin);
       },
       (err) => {
         setLocationStatus("error");
         let msg = "We couldn't determine your current location. Please try again or search manually.";
         if (err.code === 1) {
-          msg = t("findCare.permissionDenied");
+          msg = t("findCare.permissionDenied") || "Location permission denied. Please allow location access or search manually.";
         } else if (err.code === 2) {
-          msg = t("findCare.locationUnavailable");
+          msg = t("findCare.locationUnavailable") || "Location information is currently unavailable.";
         } else if (err.code === 3) {
-          msg = t("findCare.locationTimeout");
+          msg = t("findCare.locationTimeout") || "The request to get user location timed out.";
         }
         setLocationError(msg);
         toast.warn(msg);
@@ -101,23 +122,36 @@ function FindCare() {
       return;
     }
 
+    // Cancel in-flight requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    currentRequestIdRef.current = null;
+
     setLocationStatus("locating");
     setLocationError("");
     setLoading(true);
 
+    const isPin = /^\d{6}$/.test(manualQuery.trim());
+
     try {
       const res = await nearbyCareService.geocodeLocation(manualQuery.trim());
       if (res && res.data) {
-        const coords = {
+        const origin = {
+          type: isPin ? "pincode" : "manual",
           lat: res.data.latitude,
           lng: res.data.longitude,
-          name: res.data.display_name,
+          label: isPin
+            ? `Postal Code ${manualQuery.trim()} (${res.data.city || res.data.display_name.split(",")[0]})`
+            : res.data.display_name,
+          query: manualQuery.trim(),
         };
-        setLocation(coords);
+        setActiveOrigin(origin);
         setLocationStatus("success");
         setLocationError("");
-        toast.success(`📍 Found location: ${res.data.city || res.data.display_name.split(",")[0]}`);
-        fetchFacilities(coords.lat, coords.lng, activeTab, radius, res.data.display_name);
+        toast.success(`📍 Found location: ${origin.label}`);
+        fetchFacilities(origin.lat, origin.lng, activeTab, radius, origin);
       }
     } catch (err) {
       setLocationStatus("error");
@@ -128,47 +162,82 @@ function FindCare() {
     }
   };
 
-  // Fetch facilities from backend
-  const fetchFacilities = async (lat, lng, type, rad, locName) => {
+  // Fetch facilities from backend with strict radius filtering and zero-staleness guards
+  const fetchFacilities = async (lat, lng, type, rad, originObj) => {
+    // Abort previous in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    const reqId = "req_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+    currentRequestIdRef.current = reqId;
+
     setLoading(true);
     setSearchedOnce(true);
+
     try {
-      const response = await nearbyCareService.getNearbyCare({
+      const params = {
         latitude: lat,
         longitude: lng,
         type: type,
         radius: rad,
-      });
+      };
+      if (originObj?.query) {
+        params.query = originObj.query;
+      }
+
+      const response = await nearbyCareService.getNearbyCare(params, { signal: controller.signal });
+
+      // Zero-staleness guard: only process if this matches the current active request
+      if (currentRequestIdRef.current !== reqId) {
+        return;
+      }
 
       if (response && response.data && response.data.facilities) {
-        setFacilities(response.data.facilities);
-        if (response.data.facilities.length > 0) {
-          setSelectedFacility(response.data.facilities[0]);
-        }
+        // Enforce strict client-side radius invariant check (distance <= radius_km + 0.05 tolerance)
+        const maxAllowedKm = (rad / 1000.0) + 0.05;
+        const validFacilities = response.data.facilities.filter(
+          (fac) => fac.distance <= maxAllowedKm && fac.category === type
+        );
+        validFacilities.sort((a, b) => a.distance - b.distance);
+
+        setFacilities(validFacilities);
+        setSelectedFacility(validFacilities.length > 0 ? validFacilities[0] : null);
       } else {
         setFacilities([]);
+        setSelectedFacility(null);
       }
     } catch (err) {
-      toast.error(err.message || "Unable to find nearby healthcare facilities right now. Please try again.");
-      setFacilities([]);
+      if (err.name === "CanceledError" || err.code === "ERR_CANCELED" || err.message === "canceled") {
+        return; // Silently ignore cleanly cancelled requests
+      }
+      if (currentRequestIdRef.current === reqId) {
+        toast.error(err.message || "Unable to find nearby healthcare facilities right now. Please try again.");
+        setFacilities([]);
+        setSelectedFacility(null);
+      }
     } finally {
-      setLoading(false);
+      if (currentRequestIdRef.current === reqId) {
+        setLoading(false);
+      }
     }
   };
 
   // Handle Tab Switch
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
-    if (location) {
-      fetchFacilities(location.lat, location.lng, newTab, radius, location.name);
+    if (activeOrigin) {
+      fetchFacilities(activeOrigin.lat, activeOrigin.lng, newTab, radius, activeOrigin);
     }
   };
 
   // Handle Radius Change
   const handleRadiusChange = (newRadius) => {
     setRadius(newRadius);
-    if (location) {
-      fetchFacilities(location.lat, location.lng, activeTab, newRadius, location.name);
+    if (activeOrigin) {
+      fetchFacilities(activeOrigin.lat, activeOrigin.lng, activeTab, newRadius, activeOrigin);
     }
   };
 
@@ -181,8 +250,8 @@ function FindCare() {
     else nextRadius = 50000;
 
     setRadius(nextRadius);
-    if (location) {
-      fetchFacilities(location.lat, location.lng, activeTab, nextRadius, location.name);
+    if (activeOrigin) {
+      fetchFacilities(activeOrigin.lat, activeOrigin.lng, activeTab, nextRadius, activeOrigin);
     }
   };
 
@@ -216,13 +285,13 @@ function FindCare() {
                 </div>
               </div>
 
-              {locationStatus === "success" && (
+              {locationStatus === "success" && activeOrigin && (
                 <div className="location-status-badge success">
                   <FaCheckCircle /> {t("findCare.locationDetected")}:{" "}
                   <strong>
-                    {location?.name?.length > 35
-                      ? location.name.slice(0, 35) + "..."
-                      : location?.name}
+                    {activeOrigin.label.length > 45
+                      ? activeOrigin.label.slice(0, 45) + "..."
+                      : activeOrigin.label}
                   </strong>
                 </div>
               )}
@@ -359,7 +428,7 @@ function FindCare() {
             )}
 
             {/* Prompt to set location */}
-            {!loading && !location && !searchedOnce && (
+            {!loading && !activeOrigin && !searchedOnce && (
               <div className="initial-prompt-card">
                 <div className="prompt-icon">
                   <FaCompass />
@@ -369,15 +438,32 @@ function FindCare() {
               </div>
             )}
 
+            {/* Active Search Origin Banner */}
+            {!loading && activeOrigin && (
+              <div className="active-origin-banner">
+                <FaCompass className="origin-icon" />
+                <div className="origin-text-group">
+                  <span className="origin-title">Active Search Origin:</span>
+                  <span className="origin-desc">
+                    {activeOrigin.type === "gps"
+                      ? `Searching around your current device location (${activeOrigin.lat.toFixed(4)}°N, ${activeOrigin.lng.toFixed(4)}°E)`
+                      : activeOrigin.type === "pincode"
+                      ? `Searching around Postal Code ${activeOrigin.query} (${activeOrigin.label})`
+                      : `Searching around ${activeOrigin.label}`}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Empty State */}
-            {!loading && location && facilities.length === 0 && (
+            {!loading && activeOrigin && facilities.length === 0 && (
               <div className="empty-state-card">
                 <div className="empty-icon">
                   <FaExclamationTriangle />
                 </div>
                 <h3>{t("findCare.noResults")} {radius / 1000} km</h3>
                 <p>
-                  We couldn't locate any {activeTab === "hospital" ? "hospitals or clinics" : "diagnostic laboratories"} registered in OpenStreetMap within the selected radius.
+                  No {activeTab === "hospital" ? "hospitals or medical clinics" : "diagnostic laboratories"} found within {radius / 1000} km of your active location. Try expanding the search radius.
                 </p>
                 <button className="btn-increase-radius" onClick={handleIncreaseRadius}>
                   <FaSearch /> {t("findCare.expandRadius")} to {radius < 10000 ? "10 km" : "20 km"}
@@ -392,7 +478,7 @@ function FindCare() {
                   Found <strong>{facilities.length}</strong> {activeTab === "hospital" ? t("findCare.hospitalsTab") : t("findCare.labsTab")}
                 </span>
                 <span className="radius-indicator">
-                  Sorted by nearest distance within {radius / 1000} km
+                  Strictly filtered and sorted nearest to farthest within {radius / 1000} km
                 </span>
               </div>
             )}
@@ -401,7 +487,11 @@ function FindCare() {
             {!loading && facilities.length > 0 && viewMode === "list" && (
               <div className="facilities-grid">
                 {facilities.map((fac) => (
-                  <div key={fac.id} className="facility-card">
+                  <div
+                    key={fac.id}
+                    className={`facility-card ${selectedFacility?.id === fac.id ? "selected-highlight" : ""}`}
+                    onClick={() => setSelectedFacility(fac)}
+                  >
                     <div className="card-top-row">
                       <div className="fac-icon-wrapper">
                         {fac.category === "laboratory" ? <FaVial /> : <FaHospital />}
@@ -449,10 +539,11 @@ function FindCare() {
 
                     <div className="card-actions">
                       <a
-                        href={fac.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${fac.latitude},${fac.longitude}`}
+                        href={fac.mapsUrl || fac.maps_url || `https://www.google.com/maps/dir/?api=1&destination=${fac.latitude},${fac.longitude}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn-directions"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <FaDirections /> {t("common.getDirections")}
                       </a>
@@ -523,7 +614,7 @@ function FindCare() {
 
                   {/* OpenStreetMap Interactive Embed */}
                   <div className="map-iframe-wrapper">
-                    {location && (
+                    {activeOrigin && (
                       <iframe
                         title="Healthcare Facilities Map"
                         width="100%"
@@ -532,7 +623,7 @@ function FindCare() {
                         scrolling="no"
                         marginHeight="0"
                         marginWidth="0"
-                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${(selectedFacility?.longitude || location.lng) - 0.03}%2C${(selectedFacility?.latitude || location.lat) - 0.02}%2C${(selectedFacility?.longitude || location.lng) + 0.03}%2C${(selectedFacility?.latitude || location.lat) + 0.02}&layer=mapnik&marker=${selectedFacility?.latitude || location.lat}%2C${selectedFacility?.longitude || location.lng}`}
+                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${(selectedFacility?.longitude || activeOrigin.lng) - 0.03}%2C${(selectedFacility?.latitude || activeOrigin.lat) - 0.02}%2C${(selectedFacility?.longitude || activeOrigin.lng) + 0.03}%2C${(selectedFacility?.latitude || activeOrigin.lat) + 0.02}&layer=mapnik&marker=${selectedFacility?.latitude || activeOrigin.lat}%2C${selectedFacility?.longitude || activeOrigin.lng}`}
                       ></iframe>
                     )}
                   </div>

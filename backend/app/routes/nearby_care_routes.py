@@ -57,12 +57,26 @@ def get_nearby_care_facilities(
     clean_type = "laboratory" if "lab" in type.lower() else "hospital"
     clean_radius = max(500, min(radius, 50000))
 
+    import re
+    if query and query.strip():
+        if re.match(r"^\d{6}$", query.strip()):
+            origin_type = "postal_code"
+            origin_label = f"Postal Code {query.strip()} ({location_name or 'India'})"
+        else:
+            origin_type = "locality"
+            origin_label = location_name or f"Locality: {query.strip()}"
+    else:
+        origin_type = "gps"
+        origin_label = f"Current GPS Location ({round(resolved_lat, 4)}°N, {round(resolved_lon, 4)}°E)"
+
     result = care_service.get_nearby_facilities(
         latitude=resolved_lat,
         longitude=resolved_lon,
         facility_type=clean_type,
         radius_meters=clean_radius,
         location_name=location_name,
+        origin_type=origin_type,
+        origin_label=origin_label,
     )
 
     return success_response(

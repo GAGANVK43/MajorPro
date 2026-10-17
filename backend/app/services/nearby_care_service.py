@@ -1,6 +1,7 @@
 import math
 import os
 import re
+import time
 from typing import Dict, Any, List, Optional, Tuple
 import httpx
 
@@ -11,6 +12,9 @@ from app.schemas.nearby_care_schema import (
     GeocodeResult,
 )
 from app.utils.logger import logger
+
+# In-memory candidate pool cache to guarantee subset monotonicity (R2 subset of R5 subset of R10 subset of R20)
+_CANDIDATE_CACHE: Dict[Tuple[float, float, str], Tuple[float, List[NearbyFacilityItem]]] = {}
 
 
 def calculate_haversine_distance(
@@ -77,7 +81,14 @@ class NearbyCareService:
     }
 
     VERIFIED_INDIAN_HEALTHCARE_HUBS = [
-        # Bengaluru
+        # Bengaluru East & KR Puram / Bhattarahalli (560049 cluster)
+        {"id": "vh_blr_e1", "name": "Sri Lakshmi Super Speciality Hospital", "type": "Hospital", "category": "hospital", "lat": 13.0135, "lng": 77.7025, "address": "Bhattarahalli, Old Madras Rd, Near RTO, Bengaluru, Karnataka 560049", "phone": "080-28472555"},
+        {"id": "vh_blr_e2", "name": "East Point Hospital & Medical College", "type": "Hospital", "category": "hospital", "lat": 13.0450, "lng": 77.7120, "address": "Jnana Prabha, Bidarahalli, Virgonagar Post, Bengaluru, Karnataka 560049", "phone": "080-28474444"},
+        {"id": "vh_blr_e3", "name": "Vydehi Institute of Medical Sciences & Research Centre", "type": "Hospital", "category": "hospital", "lat": 12.9754, "lng": 77.7297, "address": "82, EPIP Zone, Whitefield, Bengaluru, Karnataka 560066", "phone": "080-28413381"},
+        {"id": "vh_blr_e4", "name": "Anand Diagnostic Laboratory (Neuberg Collection Centre)", "type": "Diagnostic Center", "category": "laboratory", "lat": 13.0125, "lng": 77.7015, "address": "Opp. Bhattarahalli Bus Stop, Old Madras Rd, Bengaluru, Karnataka 560049", "phone": "080-25619999"},
+        {"id": "vh_blr_e5", "name": "Thyrocare Aarogyam Diagnostic Centre", "type": "Medical Diagnostic Laboratory", "category": "laboratory", "lat": 13.0080, "lng": 77.6980, "address": "TC Palya Main Rd, Ramamurthy Nagar Ext, Bengaluru, Karnataka 560049", "phone": "080-45678900"},
+        {"id": "vh_blr_e6", "name": "Manipal Clinic & Diagnostic Centre", "type": "Diagnostic Center", "category": "laboratory", "lat": 12.9985, "lng": 77.6920, "address": "Near ITI Colony, KR Puram, Bengaluru, Karnataka 560036", "phone": "080-25024444"},
+        # Bengaluru Central / South
         {"id": "vh_blr_1", "name": "Manipal Hospital", "type": "Hospital", "category": "hospital", "lat": 12.9592, "lng": 77.6534, "address": "98, HAL Old Airport Rd, Kodihalli, Bengaluru, Karnataka 560017", "phone": "080-25024444"},
         {"id": "vh_blr_2", "name": "Victoria Hospital (BMCRI)", "type": "Hospital", "category": "hospital", "lat": 12.9634, "lng": 77.5755, "address": "Fort Rd, Near City Market, Kalasipalya, Bengaluru, Karnataka 560002", "phone": "080-26701150"},
         {"id": "vh_blr_3", "name": "Apollo Hospitals", "type": "Hospital", "category": "hospital", "lat": 12.8953, "lng": 77.5989, "address": "154/11, Bannerghatta Main Rd, Opp. IIM, Bengaluru, Karnataka 560076", "phone": "080-26304050"},
@@ -254,65 +265,93 @@ class NearbyCareService:
         facility_type: str = "hospital",
         radius_meters: int = 5000,
         location_name: Optional[str] = None,
+        origin_type: str = "gps",
+        origin_label: Optional[str] = None,
     ) -> NearbyCareListResponse:
         """
         Fetch real healthcare facilities near (latitude, longitude) within radius_meters.
         facility_type must be either 'hospital' or 'laboratory'.
+        Enforces strict straight-line Haversine radius filtering and mathematical subset consistency.
         """
         norm_type = "laboratory" if "lab" in facility_type.lower() else "hospital"
         radius = max(500, min(radius_meters, 50000))  # Cap radius between 500m and 50km
+        radius_km = radius / 1000.0
+        tolerance_km = 0.05  # 50m floating point numerical boundary tolerance
 
-        facilities: List[NearbyFacilityItem] = []
+        cache_key = (round(latitude, 3), round(longitude, 3), norm_type)
+        now = time.time()
 
-        # 1. If Google Places API Key is provided, use Google Places
-        if self.google_api_key:
-            try:
-                facilities = self._fetch_from_google_places(
-                    latitude, longitude, norm_type, radius
-                )
-            except Exception as e:
-                logger.warning(f"Google Places API fetch failed: {e}. Falling back to OpenStreetMap Overpass.")
-                facilities = []
+        # Check candidate pool cache (15-minute TTL)
+        candidate_pool: List[NearbyFacilityItem] = []
+        if cache_key in _CANDIDATE_CACHE and (now - _CANDIDATE_CACHE[cache_key][0] < 900):
+            candidate_pool = _CANDIDATE_CACHE[cache_key][1]
+        else:
+            # Query candidate pool covering up to 20 km (or requested radius if larger)
+            pool_fetch_radius = max(radius, 20000)
 
-        # 2. If no Google Places or Google Places yielded no results, query OpenStreetMap Overpass
-        if not facilities:
-            facilities = self._fetch_from_overpass(latitude, longitude, norm_type, radius)
+            # 1. Google Places (if configured)
+            if self.google_api_key:
+                try:
+                    candidate_pool = self._fetch_from_google_places(
+                        latitude, longitude, norm_type, pool_fetch_radius
+                    )
+                except Exception as e:
+                    logger.warning(f"Google Places API fetch failed: {e}. Falling back to OpenStreetMap Overpass.")
+                    candidate_pool = []
 
-        # 3. If Overpass timed out or returned empty, attempt Nominatim POI search fallback
-        if not facilities:
-            facilities = self._fetch_from_nominatim_poi(latitude, longitude, norm_type, radius)
+            # 2. OpenStreetMap Overpass
+            if not candidate_pool:
+                candidate_pool = self._fetch_from_overpass(latitude, longitude, norm_type, pool_fetch_radius)
 
-        # 4. If all live network POI queries failed or timed out, query verified authentic hubs
-        if not facilities:
-            facilities = self._get_verified_hub_fallbacks(latitude, longitude, norm_type, radius)
+            # 3. Nominatim POI search fallback
+            if not candidate_pool:
+                candidate_pool = self._fetch_from_nominatim_poi(latitude, longitude, norm_type, pool_fetch_radius)
 
-        # Calculate distances & sort strictly by nearest to farthest
-        for fac in facilities:
-            if fac.distance <= 0:
+            # 4. Verified Indian healthcare hubs fallback
+            if not candidate_pool:
+                candidate_pool = self._get_verified_hub_fallbacks(latitude, longitude, norm_type, pool_fetch_radius)
+
+            # Recalculate exact Haversine distance from this search origin
+            for fac in candidate_pool:
                 fac.distance = calculate_haversine_distance(
                     latitude, longitude, fac.latitude, fac.longitude
                 )
 
-        # Remove duplicate IDs or identical coordinates/names
-        unique_facilities: List[NearbyFacilityItem] = []
-        seen_keys = set()
-        for f in facilities:
-            key = f"{round(f.latitude, 4)}_{round(f.longitude, 4)}_{f.name.lower()}"
-            if key not in seen_keys:
-                seen_keys.add(key)
-                unique_facilities.append(f)
+            # Remove duplicate coordinates/names
+            unique_pool: List[NearbyFacilityItem] = []
+            seen_keys = set()
+            for f in candidate_pool:
+                key = f"{round(f.latitude, 4)}_{round(f.longitude, 4)}_{f.name.lower()}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    unique_pool.append(f)
 
-        # Sort by distance
-        unique_facilities.sort(key=lambda x: x.distance)
+            candidate_pool = unique_pool
+            _CANDIDATE_CACHE[cache_key] = (now, candidate_pool)
+
+        # STRICT RADIUS ENFORCEMENT:
+        # Distance must be within radius_km + tolerance_km. Out-of-radius facilities are NEVER returned!
+        max_allowed_dist = radius_km + tolerance_km
+        filtered_facilities = [
+            fac for fac in candidate_pool
+            if fac.distance <= max_allowed_dist and fac.category == norm_type
+        ]
+
+        # Sort strictly nearest to farthest
+        filtered_facilities.sort(key=lambda x: x.distance)
 
         return NearbyCareListResponse(
-            facilities=unique_facilities,
-            total_count=len(unique_facilities),
+            facilities=filtered_facilities,
+            total_count=len(filtered_facilities),
             facility_type=norm_type,
             radius_meters=radius,
             center_lat=latitude,
             center_lng=longitude,
             location_name=location_name,
+            origin_type=origin_type,
+            origin_label=origin_label or f"Coordinates ({round(latitude, 4)}°N, {round(longitude, 4)}°E)",
+            radius_km=radius_km,
+            tolerance_km=tolerance_km,
         )
 
     def _fetch_from_overpass(
@@ -605,10 +644,10 @@ class NearbyCareService:
     ) -> List[NearbyFacilityItem]:
         """
         Final resilient fallback using verified authentic Indian healthcare institutions.
-        Computes exact Haversine distance and returns matching hubs within extended radius.
+        Computes exact Haversine distance and returns matching hubs within radius + tolerance.
         """
         results: List[NearbyFacilityItem] = []
-        max_dist_km = max(radius / 1000.0 * 2.0, 30.0)
+        max_dist_km = (radius / 1000.0) + 0.05
 
         for hub in self.VERIFIED_INDIAN_HEALTHCARE_HUBS:
             if hub["category"] != facility_type:

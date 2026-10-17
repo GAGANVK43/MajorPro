@@ -148,8 +148,8 @@ export const foodService = {
 };
 
 export const nearbyCareService = {
-  getNearbyCare: (params) => api.get("/api/nearby-care", { params }),
-  geocodeLocation: (query) => api.get("/api/nearby-care/geocode", { params: { query } }),
+  getNearbyCare: (params, config = {}) => api.get("/api/nearby-care", { params, ...config }),
+  geocodeLocation: (query, config = {}) => api.get("/api/nearby-care/geocode", { params: { query }, ...config }),
 };
 
 export const smartAssessmentService = {

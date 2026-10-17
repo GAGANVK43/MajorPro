@@ -27,6 +27,14 @@ class NearbyCareListResponse(BaseModel):
     center_lat: float = Field(..., description="Center latitude of the search")
     center_lng: float = Field(..., description="Center longitude of the search")
     location_name: Optional[str] = Field(None, description="Geocoded location name if resolved from query")
+    origin_type: str = Field("gps", description="Search origin type: 'gps', 'postal_code', or 'manual'")
+    origin_label: Optional[str] = Field(None, description="Human-readable search origin label")
+    radius_km: float = Field(5.0, description="Enforced search radius in kilometers")
+    tolerance_km: float = Field(0.05, description="Numerical boundary tolerance in kilometers")
+    diagnostic_disclaimer: str = Field(
+        "Please confirm diagnostic test availability (such as HbA1c or Fasting Blood Glucose) directly with the facility.",
+        description="Clinical diagnostic verification disclaimer",
+    )
 
 
 class GeocodeResult(BaseModel):
