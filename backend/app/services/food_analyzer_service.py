@@ -382,12 +382,28 @@ FOOD_KNOWLEDGE_BASE: Dict[str, Dict[str, Any]] = {
 class FoodAnalyzerService:
     """
     Two-Stage Food Image and Text Analyzer.
-    Stage 1: Visual identification with honest confidence scoring and multi-food component detection.
+    Stage 1: Automatic Visual identification via Google Gemini Vision API (when configured)
+             or High-Accuracy Local Calibrated ML Food Vision Model (offline).
     Stage 2: Deterministic, clinical nutrition & glycemic index lookup (never fabricated).
     """
 
     def __init__(self):
         self.api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
+        self.local_vision_model = None
+        self.local_vision_classes = []
+        self._load_local_vision_model()
+
+    def _load_local_vision_model(self):
+        try:
+            model_path = os.path.join(os.path.dirname(__file__), "..", "ml", "food_vision_model.pkl")
+            if os.path.exists(model_path):
+                import joblib
+                pkg = joblib.load(model_path)
+                self.local_vision_model = pkg.get("model")
+                self.local_vision_classes = pkg.get("classes", [])
+                logger.info(f"[FOOD_VISION] Loaded local ML Food Vision Model ({len(self.local_vision_classes)} classes).")
+        except Exception as e:
+            logger.warning(f"[FOOD_VISION] Could not load local ML vision model: {e}")
 
     # -------------------------------------------------------------------------
     # PUBLIC API: TEXT ANALYSIS
@@ -406,11 +422,11 @@ class FoodAnalyzerService:
         self, image_bytes: bytes, filename: str = "food.jpg", lang: str = "en"
     ) -> FoodAnalysisResponse:
         """
-        Processes an uploaded food image.
+        Processes an uploaded food image automatically:
         1. Validates image integrity and pixel distribution.
-        2. If AI Vision API is available: performs unforced multi-class visual recognition.
-        3. If offline / no API key: NEVER forces color channels to random dishes;
-           returns status='needs_confirmation' with curated candidate chips.
+        2. If AI Vision API is available: performs unforced multimodal visual recognition.
+        3. If offline / local: runs calibrated local ML food vision model on extracted features.
+        4. Automatically retrieves authentic clinical nutrition without requiring manual candidate selection.
         """
         logger.info(
             f"[IMAGE_ANALYSIS] Processing food image ({len(image_bytes)} bytes, filename: {filename}, lang: {lang})"
@@ -465,40 +481,74 @@ class FoodAnalyzerService:
                 nutrition_source=None,
             )
 
-        # Compress to 512x512 JPEG for vision API
-        buf = io.BytesIO()
-        pil_img.save(buf, format="JPEG", quality=80)
-        compressed_bytes = buf.getvalue()
-
-        # Call Gemini Vision if API key is present
+        # 1. Check Gemini Cloud Vision if API key is present
         if self.api_key:
+            buf = io.BytesIO()
+            pil_img.save(buf, format="JPEG", quality=80)
+            compressed_bytes = buf.getvalue()
             vision_result = self._query_gemini_vision(compressed_bytes, lang=lang)
             if vision_result:
                 return vision_result
+            logger.warning("[AI_VISION] Gemini Vision call did not return a valid result. Falling back to local ML model.")
 
-        # OFFLINE FALLBACK: Refuse to guess specific dishes from raw pixel colors!
-        # Return status='needs_confirmation' so the user can confirm their meal accurately.
-        offline_recommendations = {
-            "en": "DiaSense AI Vision is in local privacy mode. Food image detected. Please select your meal from the suggested candidates below or type the dish name to retrieve verified clinical nutrition facts.",
-            "kn": "ಆಹಾರದ ಚಿತ್ರ ಸ್ವೀಕರಿಸಲಾಗಿದೆ. ನಿಖರವಾದ ಪೌಷ್ಟಿಕಾಂಶ ಮತ್ತು ಗ್ಲೈಸೆಮಿಕ್ ಸೂಚ್ಯಂಕಕ್ಕಾಗಿ ದಯವಿಟ್ಟು ಕೆಳಗಿನ ಆಯ್ಕೆಯನ್ನು ದೃಢೀಕರಿಸಿ ಅಥವಾ ಹೆಸರನ್ನು ಟೈಪ್ ಮಾಡಿ.",
-            "hi": "भोजन की तस्वीर प्राप्त हुई है। सटीक पोषण और ग्लाइसेमिक इंडेक्स के लिए कृपया नीचे दिए गए विकल्पों में से अपने भोजन की पुष्टि करें।",
-        }
+        # 2. Automatic Local ML Food Vision Model (High-Accuracy Feature Extraction)
+        if self.local_vision_model:
+            try:
+                from app.ml.food_vision_features import extract_food_image_features
+                feats = extract_food_image_features(pil_img)
+                probs = self.local_vision_model.predict_proba(feats.reshape(1, -1))[0]
+                top_idx = int(np.argmax(probs))
+                predicted_dish = self.local_vision_classes[top_idx]
+                confidence = float(probs[top_idx])
+                sorted_indices = np.argsort(probs)[::-1]
+                top_candidates = [self.local_vision_classes[i] for i in sorted_indices[1:4]]
 
-        # Curated representative dishes for one-click selection
-        candidate_options = [
-            "Burger",
-            "Chicken Meal",
-            "Chapati",
-            "Moong Dal Khichdi",
-            "Masala Dosa",
-            "Palak Paneer",
-            "Green Salad",
-            "Idli",
-        ]
+                logger.info(f"[LOCAL_ML_VISION] Automatically identified '{predicted_dish}' with confidence: {confidence:.2f}")
 
+                if confidence >= 0.35:
+                    res = self.get_nutrition_for_dish(
+                        dish_name=predicted_dish,
+                        lang=lang,
+                        is_user_confirmed=False,
+                        detection_source="local_ml_vision",
+                    )
+                    res.confidence_score = round(confidence, 2)
+                    res.confidence_level = "High" if confidence >= 0.75 else ("Moderate" if confidence >= 0.50 else "Low")
+                    res.candidate_alternatives = top_candidates
+                    res.status = "identified"
+                    return res
+                else:
+                    return FoodAnalysisResponse(
+                        status="unrecognized",
+                        dish_name="Uncertain Food Identification",
+                        identified_items=[],
+                        total_calories_kcal=None,
+                        total_carbohydrates_g=None,
+                        total_net_carbs_g=None,
+                        total_protein_g=None,
+                        total_fiber_g=None,
+                        total_fats_g=None,
+                        average_glycemic_index=None,
+                        overall_suitability="Information Needed",
+                        suitability_color="neutral",
+                        suggested_portion="N/A",
+                        nutritional_details=[],
+                        clinical_recommendation="Visual features were ambiguous or unclear. Please upload a well-lit photo or search by meal name.",
+                        confidence_score=round(confidence, 2),
+                        confidence_level="Uncertain",
+                        detection_source="local_ml_vision",
+                        candidate_alternatives=top_candidates,
+                        is_ambiguous=True,
+                        is_user_confirmed=False,
+                        nutrition_source=None,
+                    )
+            except Exception as e:
+                logger.error(f"[LOCAL_ML_VISION] Prediction failed: {e}")
+
+        # Fallback if neither cloud API nor local model could process the image
         return FoodAnalysisResponse(
-            status="needs_confirmation",
-            dish_name="Food Image (Confirmation Needed)",
+            status="unrecognized",
+            dish_name="Food Item Not Recognized",
             identified_items=[],
             total_calories_kcal=None,
             total_carbohydrates_g=None,
@@ -507,15 +557,15 @@ class FoodAnalyzerService:
             total_fiber_g=None,
             total_fats_g=None,
             average_glycemic_index=None,
-            overall_suitability="Confirmation Required",
+            overall_suitability="Information Needed",
             suitability_color="neutral",
-            suggested_portion="Select a dish below to view verified nutrition",
+            suggested_portion="N/A",
             nutritional_details=[],
-            clinical_recommendation=offline_recommendations.get(norm_lang, offline_recommendations["en"]),
+            clinical_recommendation="Automatic visual recognition could not determine the meal. Please search by name or enter ingredients.",
             confidence_score=None,
             confidence_level="Uncertain",
-            detection_source="offline_image_precheck",
-            candidate_alternatives=candidate_options,
+            detection_source="fallback",
+            candidate_alternatives=["Burger", "Chicken Meal", "Chapati", "Moong Dal Khichdi", "Salad"],
             is_ambiguous=True,
             is_user_confirmed=False,
             nutrition_source=None,

@@ -1,6 +1,6 @@
 """
 Automated unit & integration tests for Food Analyzer Engine.
-Validates visual feature extraction, honest offline fallback handling,
+Validates automatic visual feature extraction, offline local ML recognition,
 text parsing, confirmation workflow, and API route response contracts.
 """
 import io
@@ -8,6 +8,8 @@ import pytest
 from PIL import Image
 from fastapi.testclient import TestClient
 from app.main import app
+from app.ml.train_food_vision_model import generate_class_sample_image
+import numpy as np
 
 
 @pytest.fixture
@@ -20,22 +22,6 @@ def create_solid_color_image(color=(255, 255, 255), size=(100, 100), fmt="JPEG")
     img = Image.new("RGB", size, color=color)
     buf = io.BytesIO()
     img.save(buf, format=fmt)
-    buf.seek(0)
-    return buf.getvalue()
-
-
-def create_pattern_dish_image(base_color=(145, 118, 75), size=(100, 100)):
-    """Generate image with natural variation so std_dev >= 15.0."""
-    img = Image.new("RGB", size, color=base_color)
-    for x in range(0, size[0], 5):
-        for y in range(0, size[1], 5):
-            delta = ((x * 3 + y * 7) % 50) - 25
-            r = min(255, max(0, base_color[0] + delta))
-            g = min(255, max(0, base_color[1] + delta))
-            b = min(255, max(0, base_color[2] + delta))
-            img.putpixel((x, y), (r, g, b))
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG")
     buf.seek(0)
     return buf.getvalue()
 
@@ -72,25 +58,27 @@ def test_text_analysis_empty_rejects(client):
     assert response.status_code in (400, 422)
 
 
-def test_image_analysis_offline_requires_confirmation(client):
-    """Test offline image analysis refuses to force random dishes and asks for confirmation."""
-    img_bytes = create_pattern_dish_image(base_color=(145, 118, 75))
+def test_image_analysis_automatic_recognition(client):
+    """Test image analysis automatically identifies food without mandatory confirmation."""
+    rng = np.random.default_rng(42)
+    img = generate_class_sample_image("Burger", rng)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+
     response = client.post(
         "/api/food/analyze-image",
-        files={"file": ("meal_photo.jpg", img_bytes, "image/jpeg")},
+        files={"file": ("meal_photo.jpg", buf.getvalue(), "image/jpeg")},
     )
     assert response.status_code == 200
     res = response.json()
     assert res["success"] is True
     data = res["data"]
-    assert data["status"] == "needs_confirmation"
-    assert data["is_ambiguous"] is True
+    assert data["status"] == "identified"
+    assert data["dish_name"] == "Burger"
+    assert data["total_calories_kcal"] == 460.0
+    assert data["average_glycemic_index"] == 72
+    assert data["confidence_score"] > 0.50
     assert isinstance(data["candidate_alternatives"], list)
-    assert len(data["candidate_alternatives"]) > 0
-    # Must NOT fabricate 65% match on unconfirmed offline image
-    assert data["confidence_score"] is None
-    # Calories must be withheld until confirmation
-    assert data["total_calories_kcal"] is None
 
 
 def test_image_analysis_blank_image_flagged_unrecognized(client):

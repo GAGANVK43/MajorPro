@@ -355,64 +355,7 @@ function FoodAnalyzer() {
             </div>
           )}
 
-          {/* =================================================================== */}
-          {/* RESULT STATE 2: NEEDS CONFIRMATION (OFFLINE OR LOW CONFIDENCE)     */}
-          {/* =================================================================== */}
-          {analysisResult && analysisResult.status === "needs_confirmation" && (
-            <div className="food-result-card confirmation-state">
-              <div className="state-banner confirmation">
-                <FaShieldAlt className="state-banner-icon" />
-                <div>
-                  <h3>Meal Confirmation Required</h3>
-                  <p>{analysisResult.clinical_recommendation}</p>
-                </div>
-              </div>
 
-              <div className="candidate-selection-panel">
-                <h4>
-                  <FaUtensils /> Is your meal one of these dishes? Click to view verified clinical nutrition:
-                </h4>
-                <div className="alt-chips large">
-                  {analysisResult.candidate_alternatives?.map((candidate, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className="candidate-choice-btn"
-                      onClick={() => handleConfirmDish(candidate)}
-                      disabled={loading}
-                    >
-                      {candidate}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Custom Dish Entry for Instant Recalculation */}
-              <div className="dish-correction-box">
-                <label htmlFor="dish-confirmation-input" className="correction-label">
-                  <FaSearch /> Or type the exact name of your dish:
-                </label>
-                <div className="correction-input-group">
-                  <input
-                    id="dish-confirmation-input"
-                    type="text"
-                    placeholder="e.g. Burger, Chicken Meal, Chapati, Moong Dal Khichdi, Idli..."
-                    value={customDishInput}
-                    onChange={(e) => setCustomDishInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleCustomCorrection()}
-                  />
-                  <button
-                    type="button"
-                    className="recalc-btn"
-                    onClick={handleCustomCorrection}
-                    disabled={loading || !customDishInput.trim()}
-                  >
-                    {loading ? <FaSpinner className="spin-icon" /> : "Verify Nutrition"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* =================================================================== */}
           {/* RESULT STATE 3: IDENTIFIED OR MULTIPLE FOODS DETECTED               */}
@@ -439,9 +382,13 @@ function FoodAnalyzer() {
                         <span className="confidence-pill confirmed">
                           <FaCheckCircle /> Confirmed by User (Clinical Database Verified)
                         </span>
+                      ) : analysisResult.detection_source === "local_ml_vision" ? (
+                        <span className="confidence-pill ai-vision">
+                          <FaCheckCircle /> DiaSense ML Vision ({Math.round(analysisResult.confidence_score * 100)}% Match)
+                        </span>
                       ) : analysisResult.confidence_score ? (
                         <span className="confidence-pill ai-vision">
-                          <FaCheckCircle /> AI Vision Verified ({Math.round(analysisResult.confidence_score * 100)}% Match)
+                          <FaCheckCircle /> Cloud AI Vision ({Math.round(analysisResult.confidence_score * 100)}% Match)
                         </span>
                       ) : (
                         <span className="confidence-pill verified">
