@@ -391,10 +391,11 @@ class NearbyCareService:
             """
 
         headers = {"User-Agent": self.USER_AGENT}
+        failed_attempts = 0
 
         for endpoint in self.OVERPASS_ENDPOINTS:
             try:
-                with httpx.Client(timeout=6.0) as client:
+                with httpx.Client(timeout=3.0) as client:
                     res = client.post(endpoint, data={"data": query}, headers=headers)
                     if res.status_code == 200:
                         data = res.json()
@@ -406,8 +407,14 @@ class NearbyCareService:
                         logger.warning(
                             f"Overpass endpoint {endpoint} returned status {res.status_code}"
                         )
+                        failed_attempts += 1
             except Exception as e:
                 logger.warning(f"Overpass endpoint {endpoint} error: {e}. Trying next mirror...")
+                failed_attempts += 1
+
+            if failed_attempts >= 2:
+                logger.info("Overpass public mirrors currently unresponsive. Falling back rapidly to Nominatim and verified healthcare hubs.")
+                break
 
         return []
 

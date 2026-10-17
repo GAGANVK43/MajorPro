@@ -81,14 +81,8 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/find-care"
-          element={
-            <ProtectedRoute>
-              <FindCare />
-            </ProtectedRoute>
-          }
-        />
+        {/* Find Care: Publicly Accessible for Emergency & Nearby Healthcare Discovery */}
+        <Route path="/find-care" element={<FindCare />} />
       </Routes>
     </BrowserRouter>
   );

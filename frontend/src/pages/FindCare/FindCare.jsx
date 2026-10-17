@@ -316,14 +316,14 @@ function FindCare() {
                 )}
               </button>
 
-              <div className="divider-text">{t("findCare.or")}</div>
+              <div className="divider-text">{t("findCare.or") || "OR"}</div>
 
               {/* Manual Form */}
               <form onSubmit={handleManualSearch} className="manual-location-form">
                 <div className="input-with-button">
                   <input
                     type="text"
-                    placeholder={t("findCare.searchPlaceholder")}
+                    placeholder={t("findCare.searchPlaceholder") || "Enter City, Locality, or PIN code (e.g. Bangalore, 560049)"}
                     value={manualQuery}
                     onChange={(e) => setManualQuery(e.target.value)}
                   />
@@ -332,7 +332,7 @@ function FindCare() {
                       <FaSpinner className="spin-icon" />
                     ) : (
                       <>
-                        <FaSearch /> {t("findCare.searchBtn")}
+                        <FaSearch /> {t("findCare.searchBtn") || "Search"}
                       </>
                     )}
                   </button>
@@ -345,7 +345,7 @@ function FindCare() {
               <div className="location-error-banner">
                 <FaExclamationTriangle className="err-icon" />
                 <div>
-                  <strong>{t("findCare.locationNotice")}: </strong>
+                  <strong>{t("findCare.locationNotice") || "Location Notice"}: </strong>
                   <span>{locationError}</span>
                 </div>
               </div>
@@ -360,20 +360,20 @@ function FindCare() {
                 className={`tab-item ${activeTab === "hospital" ? "active" : ""}`}
                 onClick={() => handleTabChange("hospital")}
               >
-                <FaHospital /> 🏥 {t("findCare.hospitalsTab")}
+                <FaHospital /> 🏥 {t("findCare.hospitalsTab") || "Nearby Hospitals & Clinics"}
               </button>
               <button
                 className={`tab-item ${activeTab === "laboratory" ? "active" : ""}`}
                 onClick={() => handleTabChange("laboratory")}
               >
-                <FaVial /> 🧪 {t("findCare.labsTab")}
+                <FaVial /> 🧪 {t("findCare.labsTab") || "Diabetes Diagnostic Labs"}
               </button>
             </div>
 
             {/* Radius & View Selector */}
             <div className="controls-right">
               <div className="radius-selector">
-                <span className="ctrl-label">{t("findCare.radiusLabel")}</span>
+                <span className="ctrl-label">{t("findCare.radiusLabel") || "Radius:"}</span>
                 <div className="radius-chips">
                   {RADIUS_OPTIONS.map((opt) => (
                     <button
@@ -393,14 +393,14 @@ function FindCare() {
                   onClick={() => setViewMode("list")}
                   title="List View"
                 >
-                  <FaList /> {t("findCare.listView")}
+                  <FaList /> {t("findCare.listView") || "List"}
                 </button>
                 <button
                   className={`view-btn ${viewMode === "map" ? "active" : ""}`}
                   onClick={() => setViewMode("map")}
                   title="Map View"
                 >
-                  <FaMapMarkedAlt /> {t("findCare.mapView")}
+                  <FaMapMarkedAlt /> {t("findCare.mapView") || "Map"}
                 </button>
               </div>
             </div>
@@ -411,7 +411,8 @@ function FindCare() {
             <div className="lab-info-banner">
               <FaInfoCircle className="info-icon" />
               <div>
-                <strong>{t("findCare.labNoteTitle")}</strong> {t("findCare.labNoteDesc")}
+                <strong>{t("findCare.labNoteTitle") || "Diagnostic Lab Guidance:"}</strong>{" "}
+                {t("findCare.labNoteDesc") || "Certified clinical laboratories providing HbA1c, Fasting Blood Sugar (FBS), PPBS, and Lipid Profile testing."}
               </div>
             </div>
           )}
@@ -422,7 +423,7 @@ function FindCare() {
             {loading && (
               <div className="loading-state-card">
                 <FaSpinner className="spin-icon-large" />
-                <h3>{t("findCare.findingCare")}</h3>
+                <h3>{t("findCare.findingCare") || "Locating Healthcare Facilities..."}</h3>
                 <p>Querying real medical facilities within {radius / 1000} km radius.</p>
               </div>
             )}
@@ -433,8 +434,8 @@ function FindCare() {
                 <div className="prompt-icon">
                   <FaCompass />
                 </div>
-                <h3>{t("findCare.readyPrompt")}</h3>
-                <p>{t("findCare.readyDesc")}</p>
+                <h3>{t("findCare.readyPrompt") || "Ready to Explore Healthcare Facilities"}</h3>
+                <p>{t("findCare.readyDesc") || "Click 'Use My Current Location' or enter your city or PIN code above to view verified medical centers."}</p>
               </div>
             )}
 
@@ -461,12 +462,12 @@ function FindCare() {
                 <div className="empty-icon">
                   <FaExclamationTriangle />
                 </div>
-                <h3>{t("findCare.noResults")} {radius / 1000} km</h3>
+                <h3>{t("findCare.noResults") || "No healthcare facilities found within"} {radius / 1000} km</h3>
                 <p>
                   No {activeTab === "hospital" ? "hospitals or medical clinics" : "diagnostic laboratories"} found within {radius / 1000} km of your active location. Try expanding the search radius.
                 </p>
                 <button className="btn-increase-radius" onClick={handleIncreaseRadius}>
-                  <FaSearch /> {t("findCare.expandRadius")} to {radius < 10000 ? "10 km" : "20 km"}
+                  <FaSearch /> {t("findCare.expandRadius") || "Expand Search Radius"} to {radius < 10000 ? "10 km" : "20 km"}
                 </button>
               </div>
             )}
@@ -475,7 +476,7 @@ function FindCare() {
             {!loading && facilities.length > 0 && (
               <div className="results-summary-bar">
                 <span className="count-badge">
-                  Found <strong>{facilities.length}</strong> {activeTab === "hospital" ? t("findCare.hospitalsTab") : t("findCare.labsTab")}
+                  Found <strong>{facilities.length}</strong> {activeTab === "hospital" ? (t("findCare.hospitalsTab") || "Hospitals & Clinics") : (t("findCare.labsTab") || "Diagnostic Labs")}
                 </span>
                 <span className="radius-indicator">
                   Strictly filtered and sorted nearest to farthest within {radius / 1000} km

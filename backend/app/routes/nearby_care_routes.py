@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db
-from app.config.security import get_current_user
+from app.config.security import get_current_user, get_optional_current_user
 from app.models.user import User
 from app.services.nearby_care_service import NearbyCareService
 from app.utils.response import success_response, error_response
@@ -19,11 +19,11 @@ def get_nearby_care_facilities(
     type: str = Query("hospital", description="Facility type: 'hospital' or 'laboratory'"),
     radius: int = Query(5000, description="Search radius in meters (500 to 50000)"),
     query: Optional[str] = Query(None, description="Optional manual location query (City, Locality, PIN)"),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """
     Find real nearby hospitals, clinics, or diabetes diagnostic laboratories
-    based on coordinates or a geocoded location query. Accessible only to authenticated users.
+    based on coordinates or a geocoded location query. Supports both guest and authenticated users.
     """
     resolved_lat = latitude
     resolved_lon = longitude
@@ -88,7 +88,7 @@ def get_nearby_care_facilities(
 @router.get("/geocode", status_code=status.HTTP_200_OK)
 def geocode_manual_location(
     query: str = Query(..., min_length=2, description="City, Area, or PIN code to geocode"),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     """
     Geocode manual location text to latitude and longitude coordinates.
