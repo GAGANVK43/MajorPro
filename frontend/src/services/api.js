@@ -143,6 +143,7 @@ export const foodService = {
     api.post("/api/food/analyze-image", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     }),
+  confirm: (dish_name) => api.post("/api/food/confirm", { dish_name }),
 };
 
 export const nearbyCareService = {

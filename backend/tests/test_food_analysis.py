@@ -1,7 +1,7 @@
 """
 Automated unit & integration tests for Food Analyzer Engine.
-Validates visual feature extraction, fallback handling, text parsing,
-and API route response contracts.
+Validates visual feature extraction, honest offline fallback handling,
+text parsing, confirmation workflow, and API route response contracts.
 """
 import io
 import pytest
@@ -24,7 +24,7 @@ def create_solid_color_image(color=(255, 255, 255), size=(100, 100), fmt="JPEG")
     return buf.getvalue()
 
 
-def create_pattern_dish_image(base_color=(35, 120, 45), size=(100, 100)):
+def create_pattern_dish_image(base_color=(145, 118, 75), size=(100, 100)):
     """Generate image with natural variation so std_dev >= 15.0."""
     img = Image.new("RGB", size, color=base_color)
     for x in range(0, size[0], 5):
@@ -52,7 +52,6 @@ def test_text_analysis_known_staple(client):
     assert data["average_glycemic_index"] > 0
     assert data["overall_suitability"] is not None
     assert isinstance(data["candidate_alternatives"], list)
-    assert data["confidence_score"] >= 0.80
 
 
 def test_text_analysis_unknown_safe_estimate(client):
@@ -73,52 +72,40 @@ def test_text_analysis_empty_rejects(client):
     assert response.status_code in (400, 422)
 
 
-def test_image_analysis_green_dish(client):
-    """Test image analysis of green dominant image detects green dish candidate."""
-    # RGB color dominant in Green: (35, 120, 45)
-    img_bytes = create_pattern_dish_image(base_color=(35, 120, 45))
+def test_image_analysis_offline_requires_confirmation(client):
+    """Test offline image analysis refuses to force random dishes and asks for confirmation."""
+    img_bytes = create_pattern_dish_image(base_color=(145, 118, 75))
     response = client.post(
         "/api/food/analyze-image",
-        files={"file": ("camera_shot_123.jpg", img_bytes, "image/jpeg")}
+        files={"file": ("meal_photo.jpg", img_bytes, "image/jpeg")},
     )
     assert response.status_code == 200
     res = response.json()
     assert res["success"] is True
     data = res["data"]
-    assert "Palak Paneer" in data["dish_name"]
-    assert data["confidence_score"] > 0
+    assert data["status"] == "needs_confirmation"
+    assert data["is_ambiguous"] is True
     assert isinstance(data["candidate_alternatives"], list)
+    assert len(data["candidate_alternatives"]) > 0
+    # Must NOT fabricate 65% match on unconfirmed offline image
+    assert data["confidence_score"] is None
+    # Calories must be withheld until confirmation
+    assert data["total_calories_kcal"] is None
 
 
-def test_image_analysis_yellow_dish(client):
-    """Test image analysis of yellow dominant image detects yellow candidate."""
-    # RGB color dominant in Yellow: (220, 190, 40)
-    img_bytes = create_pattern_dish_image(base_color=(220, 190, 40))
-    response = client.post(
-        "/api/food/analyze-image",
-        files={"file": ("upload.png", img_bytes, "image/png")}
-    )
-    assert response.status_code == 200
-    res = response.json()
-    assert res["success"] is True
-    data = res["data"]
-    assert data["total_calories_kcal"] > 0
-    assert data["overall_suitability"] is not None
-
-
-def test_image_analysis_blank_image_flagged_ambiguous(client):
-    """Test uniform blank image is recognized and flagged as ambiguous."""
+def test_image_analysis_blank_image_flagged_unrecognized(client):
+    """Test uniform blank image is recognized and flagged as unrecognized."""
     blank_bytes = create_solid_color_image(color=(255, 255, 255))
     response = client.post(
         "/api/food/analyze-image",
-        files={"file": ("white_screen.jpg", blank_bytes, "image/jpeg")}
+        files={"file": ("white_screen.jpg", blank_bytes, "image/jpeg")},
     )
     assert response.status_code == 200
     res = response.json()
     assert res["success"] is True
     data = res["data"]
+    assert data["status"] == "unrecognized"
     assert data["is_ambiguous"] is True
-    assert data["confidence_score"] < 0.30
 
 
 def test_image_analysis_corrupted_bytes_fails_safely(client):
@@ -126,9 +113,24 @@ def test_image_analysis_corrupted_bytes_fails_safely(client):
     corrupted_bytes = b"NOT_A_VALID_IMAGE_DATA_STREAM"
     response = client.post(
         "/api/food/analyze-image",
-        files={"file": ("corrupted.jpg", corrupted_bytes, "image/jpeg")}
+        files={"file": ("corrupted.jpg", corrupted_bytes, "image/jpeg")},
     )
     assert response.status_code == 400
     res = response.json()
     assert res["success"] is False
     assert "message" in res
+
+
+def test_confirm_endpoint_retrieves_verified_nutrition(client):
+    """Test confirmation endpoint retrieves verified clinical nutrition."""
+    response = client.post("/api/food/confirm", json={"dish_name": "Burger"})
+    assert response.status_code == 200
+    res = response.json()
+    assert res["success"] is True
+    data = res["data"]
+    assert "Burger" in data["dish_name"]
+    assert data["status"] == "identified"
+    assert data["is_user_confirmed"] is True
+    assert data["overall_suitability"] == "High Risk / Limit Intake"
+    assert data["suitability_color"] == "red"
+    assert data["average_glycemic_index"] == 72

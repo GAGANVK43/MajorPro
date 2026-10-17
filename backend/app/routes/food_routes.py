@@ -1,5 +1,5 @@
 from fastapi import APIRouter, File, UploadFile, Header, HTTPException, status
-from app.schemas.food_schema import FoodAnalysisRequest, FoodAnalysisResponse
+from app.schemas.food_schema import FoodAnalysisRequest, FoodConfirmationRequest, FoodAnalysisResponse
 from app.services.food_analyzer_service import FoodAnalyzerService
 from app.utils.response import success_response
 
@@ -28,7 +28,7 @@ async def analyze_food_image(
     accept_language: str = Header(default="en", alias="Accept-Language"),
 ):
     """
-    Upload a food image -> AI Vision identifies the food item in requested language.
+    Upload a food image -> AI Vision identifies the food item or provides candidate options.
     """
     if not file.content_type.startswith("image/"):
         raise HTTPException(
@@ -52,5 +52,20 @@ async def analyze_food_image(
         )
     return success_response(
         data=analysis.model_dump(),
-        message="AI Food Image Recognition analysis completed successfully.",
+        message="Food image analysis completed successfully.",
+    )
+
+
+@router.post("/confirm", status_code=status.HTTP_200_OK)
+def confirm_food_selection(
+    request: FoodConfirmationRequest,
+    accept_language: str = Header(default="en", alias="Accept-Language"),
+):
+    """
+    Confirm candidate dish selection or specify exact dish name to retrieve verified clinical nutrition.
+    """
+    analysis = food_service.confirm_food_selection(request.dish_name, lang=accept_language)
+    return success_response(
+        data=analysis.model_dump(),
+        message="Food item confirmed and verified nutritional data retrieved successfully.",
     )
