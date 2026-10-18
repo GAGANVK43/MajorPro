@@ -11,6 +11,7 @@ class NearbyFacilityItem(BaseModel):
     latitude: float = Field(..., description="Geographical latitude coordinate")
     longitude: float = Field(..., description="Geographical longitude coordinate")
     distance: float = Field(..., description="Distance from user in kilometers")
+    distance_meters: Optional[float] = Field(None, description="Exact distance from user in meters")
     distance_unit: str = Field("km", description="Distance unit (km)")
     rating: Optional[float] = Field(None, description="Average review rating if available")
     open_now: Optional[bool] = Field(None, description="Current operating status if available")
@@ -24,9 +25,13 @@ class NearbyCareListResponse(BaseModel):
     total_count: int = Field(0, description="Total count of discovered facilities")
     facility_type: str = Field(..., description="Requested facility category (hospital or laboratory)")
     radius_meters: int = Field(..., description="Search radius in meters")
+    radius_km: Optional[float] = Field(None, description="Search radius in kilometers")
+    tolerance_meters: float = Field(5.0, description="Strict boundary tolerance in meters")
     center_lat: float = Field(..., description="Center latitude of the search")
     center_lng: float = Field(..., description="Center longitude of the search")
     location_name: Optional[str] = Field(None, description="Geocoded location name if resolved from query")
+    origin_type: Optional[str] = Field("gps", description="Search origin type ('gps' or 'manual')")
+    origin_label: Optional[str] = Field(None, description="Display label for the search origin")
 
 
 class GeocodeResult(BaseModel):

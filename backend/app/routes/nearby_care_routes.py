@@ -1,3 +1,4 @@
+import math
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
@@ -47,14 +48,34 @@ def get_nearby_care_facilities(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Validate coordinate ranges
-    if not (-90.0 <= resolved_lat <= 90.0) or not (-180.0 <= resolved_lon <= 180.0):
+    # Validate coordinate ranges and finiteness
+    if (
+        not math.isfinite(resolved_lat)
+        or not math.isfinite(resolved_lon)
+        or not (-90.0 <= resolved_lat <= 90.0)
+        or not (-180.0 <= resolved_lon <= 180.0)
+    ):
         return error_response(
             message="Invalid geographical coordinates provided.",
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    clean_type = "laboratory" if "lab" in type.lower() else "hospital"
+    # Validate radius
+    if radius <= 0:
+        return error_response(
+            message="Search radius must be a positive integer in meters.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Validate facility category
+    raw_type = type.strip().lower()
+    if raw_type not in {"hospital", "clinic", "laboratory", "lab"}:
+        return error_response(
+            message=f"Invalid facility category '{type}'. Supported categories are 'hospital' or 'laboratory'.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    clean_type = "laboratory" if "lab" in raw_type else "hospital"
     clean_radius = max(500, min(radius, 50000))
 
     result = care_service.get_nearby_facilities(

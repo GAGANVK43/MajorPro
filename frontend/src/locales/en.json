@@ -644,6 +644,7 @@
     "locationDetected": "Location detected",
     "searchPlaceholder": "Enter City, Locality, or PIN code (e.g. Bangalore, 560001)",
     "searchBtn": "Search",
+    "or": "OR",
     "hospitalsTab": "Nearby Hospitals & Clinics",
     "labsTab": "Diabetes Diagnostic Labs",
     "radiusLabel": "Radius:",

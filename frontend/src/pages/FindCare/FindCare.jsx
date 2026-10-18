@@ -1,5 +1,5 @@
 import "./FindCare.css";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { toast } from "react-toastify";
 import Navbar from "../../components/Navbar/Navbar";
 import BackButton from "../../components/BackButton/BackButton";
@@ -49,6 +49,7 @@ function FindCare() {
   const [loading, setLoading] = useState(false);
   const [searchedOnce, setSearchedOnce] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState(null);
+  const requestIdRef = useRef(0);
 
   // Request user's current GPS location
   const handleUseCurrentLocation = () => {
@@ -131,6 +132,7 @@ function FindCare() {
 
   // Fetch facilities from backend
   const fetchFacilities = async (lat, lng, type, rad, locName) => {
+    const currentRequestId = ++requestIdRef.current;
     setLoading(true);
     setSearchedOnce(true);
     try {
@@ -141,19 +143,38 @@ function FindCare() {
         radius: rad,
       });
 
+      // Ignore response if a newer search request was initiated
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
       if (response && response.data && response.data.facilities) {
-        setFacilities(response.data.facilities);
-        if (response.data.facilities.length > 0) {
-          setSelectedFacility(response.data.facilities[0]);
+        // Enforce strict client-side boundary contract: distance <= (radius / 1000) + 5m tolerance
+        const maxAllowedKm = (rad / 1000.0) + 0.005;
+        const validFacilities = response.data.facilities.filter((fac) => {
+          return fac.distance <= maxAllowedKm;
+        });
+
+        setFacilities(validFacilities);
+        if (validFacilities.length > 0) {
+          setSelectedFacility(validFacilities[0]);
+        } else {
+          setSelectedFacility(null);
         }
       } else {
         setFacilities([]);
+        setSelectedFacility(null);
       }
     } catch (err) {
-      toast.error(err.message || t("findCare.facilitiesFetchError") || "Unable to find nearby healthcare facilities right now. Please try again.");
-      setFacilities([]);
+      if (currentRequestId === requestIdRef.current) {
+        toast.error(err.message || t("findCare.facilitiesFetchError") || "Unable to find nearby healthcare facilities right now. Please try again.");
+        setFacilities([]);
+        setSelectedFacility(null);
+      }
     } finally {
-      setLoading(false);
+      if (currentRequestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -248,7 +269,7 @@ function FindCare() {
                 )}
               </button>
 
-              <div className="divider-text">{t("findCare.or")}</div>
+              <div className="divider-text">{t("findCare.or") || "OR"}</div>
 
               {/* Manual Form */}
               <form onSubmit={handleManualSearch} className="manual-location-form">
