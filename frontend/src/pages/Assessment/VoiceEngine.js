@@ -1,14 +1,15 @@
 /**
- * VoiceEngine.js — DiaSense AI Production Voice Pipeline
+ * VoiceEngine.js — DiaSense AI Production Multilingual Voice Pipeline
  * 
  * Architecture:
- * User speech → Speech recognition → Transcript → Natural Language Understanding
- * → Field Extraction → Unit Normalization → Range Validation → Confidence Assessment
- * → User Confirmation → Unified Assessment Data
+ * User speech (Kannada/Hindi/English/etc.) → Speech recognition → Transcript 
+ * → Multilingual Natural Language Understanding (Question-Aware & Field-Specific)
+ * → Unicode & Indic Digit Normalization → Field Extraction → Unit Normalization 
+ * → Range Validation → Confidence Assessment → User Confirmation → Unified Assessment Data
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Browser capability detection
+// 1. BROWSER CAPABILITY DETECTION
 // ─────────────────────────────────────────────────────────────────────────────
 export function isSpeechRecognitionSupported() {
   if (typeof window === "undefined") return false;
@@ -26,7 +27,7 @@ export function isSpeechSynthesisSupported() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TEXT-TO-SPEECH (Voice Output)
+// 2. TEXT-TO-SPEECH (Voice Output)
 // ─────────────────────────────────────────────────────────────────────────────
 let _currentUtterance = null;
 
@@ -58,7 +59,7 @@ export function stopSpeaking() {
   }
 }
 
-function _voiceLang(code) {
+export function _voiceLang(code) {
   const map = {
     en: "en-IN",
     kn: "kn-IN",
@@ -71,13 +72,10 @@ function _voiceLang(code) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SPEECH RECOGNITION (Voice Input)
+// 3. SPEECH RECOGNITION (Voice Input)
 // ─────────────────────────────────────────────────────────────────────────────
 let _recognizer = null;
 
-/**
- * Start speech listening session.
- */
 export function startListening({ lang = "en", onResult, onError, onStart, onEnd }) {
   const SR =
     typeof window !== "undefined" &&
@@ -137,7 +135,7 @@ export function stopListening() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CANONICAL FIELD DEFINITIONS & PHYSIOLOGICAL BOUNDS
+// 4. CANONICAL FIELD DEFINITIONS & PHYSIOLOGICAL BOUNDS
 // ─────────────────────────────────────────────────────────────────────────────
 export const FIELD_DEFINITIONS = {
   age: {
@@ -285,10 +283,67 @@ export const FIELD_DEFINITIONS = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADVANCED SPOKEN NUMBER PARSER
-// Handles compound numbers: "one hundred and ten", "one twenty five",
-// "seventy five", "three point five", hyphenated "thirty-five", etc.
+// 5. UNICODE INDIC DIGIT & SPOKEN NUMBER NORMALIZATION
 // ─────────────────────────────────────────────────────────────────────────────
+const INDIC_DIGIT_MAP = {
+  // Kannada: ೦-೯ (U+0CE6 to U+0CEF)
+  "೦": "0", "೧": "1", "೨": "2", "೩": "3", "೪": "4",
+  "೫": "5", "೬": "6", "೭": "7", "೮": "8", "೯": "9",
+  // Devanagari (Hindi): ०-९ (U+0966 to U+096F)
+  "०": "0", "१": "1", "२": "2", "३": "3", "४": "4",
+  "५": "5", "६": "6", "७": "7", "८": "8", "९": "9",
+  // Tamil: ௦-௯ (U+0BE6 to U+0BEF)
+  "௦": "0", "௧": "1", "௨": "2", "௩": "3", "௪": "4",
+  "௫": "5", "௬": "6", "௭": "7", "௮": "8", "௯": "9",
+  // Telugu: ౦-౯ (U+0C66 to U+0C6F)
+  "౦": "0", "౧": "1", "౨": "2", "౩": "3", "౪": "4",
+  "౫": "5", "౬": "6", "౭": "7", "౮": "8", "౯": "9",
+  // Malayalam: ൦-൯ (U+0D66 to U+0D6F)
+  "൦": "0", "൧": "1", "൨": "2", "൩": "3", "൪": "4",
+  "൫": "5", "൬": "6", "൭": "7", "൮": "8", "൯": "9",
+};
+
+export function normalizeIndicDigits(str) {
+  if (!str) return "";
+  return str.replace(/[\u0CE6-\u0CEF\u0966-\u096F\u0BE6-\u0BEF\u0C66-\u0C6F\u0D66-\u0D6F]/g, (char) => {
+    return INDIC_DIGIT_MAP[char] || char;
+  });
+}
+
+// Kannada spoken words to numbers
+const KANNADA_WORD_NUMS = {
+  "ಶೂನ್ಯ": 0, "ಒಂದು": 1, "ಒಂದ": 1, "ಎರಡು": 2, "ಮೂರು": 3, "ನಾಲ್ಕು": 4, "ನಾಕು": 4,
+  "ಐದು": 5, "ಆರು": 6, "ಏಳು": 7, "ಎಂಟು": 8, "ಒಂಬತ್ತು": 9, "ಹತ್ತು": 10,
+  "ಹನ್ನೊಂದು": 11, "ಹನ್ನೆರಡು": 12, "ಹದಿಮೂರು": 13, "ಹದಿನಾಲ್ಕು": 14, "ಹದಿನೈದು": 15,
+  "ಹದಿನಾರು": 16, "ಹದಿನೇಳು": 17, "ಹದಿನೆಂಟು": 18, "ಹತ್ತೊಂಬತ್ತು": 19,
+  "ಇಪ್ಪತ್ತು": 20, "ಇಪ್ಪತ್ತೊಂದು": 21, "ಇಪ್ಪತ್ತೆರಡು": 22, "ಇಪ್ಪತ್ತಮೂರು": 23, "ಇಪ್ಪತ್ನಾಲ್ಕು": 24, "ಇಪ್ಪತ್ತೈದು": 25,
+  "ಮೂವತ್ತು": 30, "ಮೂವತ್ತೊಂದು": 31, "ಮೂವತ್ತೆರಡು": 32, "ಮೂವತ್ತಮೂರು": 33, "ಮೂವತ್ನಾಲ್ಕು": 34, "ಮೂವತ್ತೈದು": 35,
+  "ನಲವತ್ತು": 40, "ನಲವತ್ತೊಂದು": 41, "ನಲವತ್ತೆರಡು": 42, "ನಲವತ್ತಮೂರು": 43, "ನಲವತ್ನಾಲ್ಕು": 44, "ನಲವತ್ತೈದು": 45,
+  "ಐವತ್ತು": 50, "ಐವತ್ತೊಂದು": 51, "ಐವತ್ತೆರಡು": 52, "ಐವತ್ತಮೂರು": 53, "ಐವತ್ನಾಲ್ಕು": 54, "ಐವತ್ತೈದು": 55,
+  "ಅರವತ್ತು": 60, "ಅರವತ್ತೈದು": 65,
+  "ಎಪ್ಪತ್ತು": 70, "ಎಪ್ಪತ್ತೈದು": 75,
+  "ಎಂಬತ್ತು": 80, "ಎಂಬತ್ತೈದು": 85,
+  "ತೊಂಬತ್ತು": 90, "ತೊಂಬತ್ತೈದು": 95,
+  "ನೂರು": 100, "ನೂರ ಇಪ್ಪತ್ತು": 120, "ನೂರ ಮೂವತ್ತು": 130, "ನೂರ ನಲವತ್ತು": 140, "ನೂರ ಐವತ್ತು": 150, "ನೂರ ಅರವತ್ತು": 160, "ನೂರ ಎಪ್ಪತ್ತು": 170, "ನೂರ ಎಂಬತ್ತು": 180,
+};
+
+// Hindi spoken words to numbers
+const HINDI_WORD_NUMS = {
+  "शून्य": 0, "एक": 1, "दो": 2, "तीन": 3, "चार": 4, "पांच": 5, "पाँच": 5,
+  "छह": 6, "सात": 7, "आठ": 8, "नौ": 9, "दस": 10,
+  "ग्यारह": 11, "बारह": 12, "तेरह": 13, "चौदह": 14, "पंद्रह": 15,
+  "सोलह": 16, "सत्रह": 17, "अट्ठारह": 18, "उन्नीस": 19,
+  "बीस": 20, "इक्कीस": 21, "बाईस": 22, "तेईस": 23, "चौबीस": 24, "पच्चीस": 25,
+  "तीस": 30, "पैंतीस": 35,
+  "चालीस": 40, "पैंतालीस": 45,
+  "पचास": 50, "पचपन": 55,
+  "साठ": 60, "पैंसठ": 65,
+  "सत्तर": 70, "पचहत्तर": 75,
+  "अस्सी": 80, "पचासी": 85,
+  "नब्बे": 90, "पिचानवे": 95,
+  "सौ": 100, "एक सौ बीस": 120, "एक सौ तीस": 130, "एक सौ सत्तर": 170, "एक सौ अस्सी": 180,
+};
+
 const SMALL_NUMS = {
   zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
   ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16,
@@ -301,19 +356,34 @@ const TENS_NUMS = {
 
 export function wordsToNumber(text) {
   if (!text) return null;
-  const clean = text
+  // 1. Normalize Indic script digits to ASCII
+  let clean = normalizeIndicDigits(text)
     .toLowerCase()
     .replace(/-/g, " ")
     .replace(/,/g, "")
     .trim();
 
-  // If already contains digits, extract directly
+  // 2. Direct digits
   const directMatch = clean.match(/(\d+(?:\.\d+)?)/);
   if (directMatch) {
     return parseFloat(directMatch[1]);
   }
 
-  // Tokenize
+  // 3. Check Kannada spoken word numbers
+  for (const [kWord, kVal] of Object.entries(KANNADA_WORD_NUMS)) {
+    if (clean === kWord || clean.includes(kWord)) {
+      return kVal;
+    }
+  }
+
+  // 4. Check Hindi spoken word numbers
+  for (const [hWord, hVal] of Object.entries(HINDI_WORD_NUMS)) {
+    if (clean === hWord || clean.includes(hWord)) {
+      return hVal;
+    }
+  }
+
+  // 5. English word tokens
   const tokens = clean.split(/\s+/).filter(Boolean);
   let total = 0;
   let current = 0;
@@ -368,157 +438,296 @@ export function wordsToNumber(text) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NATURAL LANGUAGE UNDERSTANDING (NLU) & FIELD INTERPRETATION
+// 6. QUESTION-AWARE MULTILINGUAL CATEGORICAL MAPS
 // ─────────────────────────────────────────────────────────────────────────────
+export const MULTILINGUAL_CATEGORICAL_MAP = {
+  gender: {
+    Male: [
+      // English
+      "male", "man", "boy", "he", "him",
+      // Kannada
+      "ಪುರುಷ", "ಗಂಡು", "ಹುಡುಗ", "ಗಂಡಸು",
+      // Hindi
+      "पुरुष", "मर्द", "लड़का", "आदमी",
+      // Tamil
+      "ஆண்",
+      // Telugu
+      "పురుషుడు", "మగ",
+      // Malayalam
+      "പുരുഷൻ", "ആൺ",
+    ],
+    Female: [
+      // English
+      "female", "woman", "girl", "she", "her",
+      // Kannada
+      "ಮಹಿಳೆ", "ಹೆಣ್ಣು", "ಹುಡುಗಿ", "ಸ್ತ್ರೀ",
+      // Hindi
+      "महिला", "स्त्री", "लड़की", "औरत",
+      // Tamil
+      "பெண்",
+      // Telugu
+      "స్త్రీ", "మహిళ", "ఆడ",
+      // Malayalam
+      "സ്ത്രീ", "പെൺ",
+    ],
+  },
+  patientGroup: {
+    "Semi-Urban": [
+      // Must be evaluated BEFORE Urban to prevent substring collision on "Urban" / "ನಗರ"!
+      // English
+      "semi-urban", "semi urban", "semiurban", "suburban", "suburb", "peri-urban", "peri urban", "outskirts", "semi",
+      // Kannada
+      "ಅರೆ-ನಗರ", "ಅರೆ ನಗರ", "ಅರೆನಗರ", "ಉಪನಗರ", "ಅರೆ-ಪಟ್ಟಣ",
+      // Hindi
+      "अर्ध-शहरी", "अर्ध शहरी", "अर्धशहरी", "कस्बा", "उपनगर",
+      // Tamil
+      "அரை நகர்ப்புறம்", "அரை-நகர்ப்புறம்",
+      // Telugu
+      "అర్ధ పట్టణ", "అర్ధ-పట్టణ",
+      // Malayalam
+      "അർദ്ധ നഗരം", "അർദ്ധ-നഗരം",
+    ],
+    Urban: [
+      // English
+      "urban", "city", "metro", "town",
+      // Kannada
+      "ನಗರ", "ನಗರ ಪ್ರದೇಶ", "ಪಟ್ಟಣ", "ಸಿಟಿ",
+      // Hindi
+      "शहरी", "शहर", "नगर",
+      // Tamil
+      "நகர்ப்புறம்", "நகரம்",
+      // Telugu
+      "పట్టణ", "నగరం",
+      // Malayalam
+      "നഗരം", "നഗരപ്രദേശം",
+    ],
+    Rural: [
+      // English
+      "rural", "village", "countryside",
+      // Kannada
+      "ಗ್ರಾಮೀಣ", "ಗ್ರಾಮೀಣ ಪ್ರದೇಶ", "ಹಳ್ಳಿ", "ಗ್ರಾಮ",
+      // Hindi
+      "ग्रामीण", "गांव", "गाँव", "देहात",
+      // Tamil
+      "கிராமப்புறம்", "கிராமம்",
+      // Telugu
+      "గ్రామీణ", "గ్రామం",
+      // Malayalam
+      "ഗ്രാമം", "ഗ്രാമീണ",
+    ],
+  },
+  familyHistory: {
+    "1": [
+      // English
+      "yes", "yeah", "yep", "positive", "present", "have", "has", "father", "mother", "parent", "sibling", "brother", "sister", "grandparent", "family",
+      // Kannada
+      "ಹೌದು", "ಇದೆ", "ಉಂಟು", "ಖಂಡಿತ", "ತಂದೆ", "ತಾಯಿ", "ಪೋಷಕರು", "ಅಣ್ಣ", "ತಮ್ಮ", "ಅಕ್ಕ", "ತಂಗಿ", "ಕುಟುಂಬ",
+      // Hindi
+      "हाँ", "हां", "है", "पिताजी", "माताजी", "परिवार", "भाई", "बहन",
+      // Tamil
+      "ஆம்", "இருக்கிறது",
+      // Telugu
+      "అవును", "ఉంది",
+      // Malayalam
+      "ഉണ്ട്", "അതെ",
+    ],
+    "0": [
+      // English
+      "no", "nope", "negative", "none", "never", "nobody", "neither", "absent", "zero",
+      // Kannada
+      "ಇಲ್ಲ", "ಇಲ್ಲವೇ ಇಲ್ಲ", "ಯಾರಿಗೂ ಇಲ್ಲ", "ಇಲ್ಲಾ",
+      // Hindi
+      "नहीं", "ना", "किसी को नहीं", "नहिं",
+      // Tamil
+      "இல்லை",
+      // Telugu
+      "లేదు", "కాదు",
+      // Malayalam
+      "ഇല്ല",
+    ],
+  },
+};
+
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
- * Interprets a speech transcript for a target field.
- * Handles natural speech variations:
- * - "I am 35", "My age is 35", "35 years old"
- * - "My fasting glucose is 110", "Fasting sugar is one hundred and ten"
- * - "120 over 80" (extracts systolic 120)
- * - "5 feet 8 inches" (converts to 172.7 cm)
- * - "165 pounds" (converts to 74.8 kg)
- * - "6.1 mmol/L" (converts to 110 mg/dL)
- * 
- * Returns: {
- *   value: string,
- *   displayValue: string,
+ * Unicode-aware matching for alias phrases in multi-script text.
+ */
+function matchAlias(cleanText, tokens, aliasList) {
+  for (const alias of aliasList) {
+    const normAlias = alias.toLowerCase().trim();
+    if (!normAlias) continue;
+
+    // 1. Exact full text match
+    if (cleanText === normAlias) return true;
+
+    // 2. Exact token match for single word
+    if (!normAlias.includes(" ") && !normAlias.includes("-") && tokens.includes(normAlias)) {
+      return true;
+    }
+
+    // 3. Multi-word phrase or boundary match with Unicode characters
+    const escaped = escapeRegex(normAlias).replace(/\s+/g, "[\\s-]+");
+    const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}([^\\p{L}\\p{N}]|$)`, "iu");
+    if (pattern.test(cleanText)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. MULTILINGUAL QUESTION-AWARE ANSWER PARSER
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Core question-aware multilingual parser.
+ * Returns structured outcome:
+ * {
+ *   status: "valid" | "needs_confirmation" | "unrecognized" | "missing",
+ *   value: string | null,
+ *   displayValue: string | null,
  *   rawTranscript: string,
  *   confidence: "HIGH" | "MEDIUM" | "LOW",
  *   needsConfirmation: boolean,
  *   unit: string,
- *   convertedFrom: string | null
- * } or null
+ *   convertedFrom: string | null,
+ *   reason?: string
+ * }
  */
-export function interpretTranscript(transcript, field) {
-  if (!transcript || !field) return null;
+export function interpretAnswer({ transcript, field, lang = "en" }) {
+  if (!transcript || !String(transcript).trim()) {
+    return {
+      status: "missing",
+      value: null,
+      displayValue: null,
+      rawTranscript: "",
+      confidence: "LOW",
+      needsConfirmation: false,
+      unit: "",
+      convertedFrom: null,
+      reason: "No input provided",
+    };
+  }
+
   const def = FIELD_DEFINITIONS[field];
-  if (!def) return null;
-
-  const raw = transcript.trim();
-  const lower = raw.toLowerCase().replace(/,/g, " ");
-
-  // ── 1. GENDER ──────────────────────────────────────────────────────────────
-  if (field === "gender") {
-    if (/\b(female|woman|girl|she|her)\b/i.test(lower)) {
-      return {
-        value: "Female",
-        displayValue: "Female",
-        rawTranscript: raw,
-        confidence: "HIGH",
-        needsConfirmation: false,
-        unit: "",
-        convertedFrom: null,
-      };
-    }
-    if (/\b(male|man|boy|he|him)\b/i.test(lower) && !/\bfemale\b/i.test(lower)) {
-      return {
-        value: "Male",
-        displayValue: "Male",
-        rawTranscript: raw,
-        confidence: "HIGH",
-        needsConfirmation: false,
-        unit: "",
-        convertedFrom: null,
-      };
-    }
-    return null;
+  if (!def) {
+    return {
+      status: "unrecognized",
+      value: null,
+      displayValue: null,
+      rawTranscript: transcript,
+      confidence: "LOW",
+      needsConfirmation: false,
+      unit: "",
+      convertedFrom: null,
+      reason: `Unknown field '${field}'`,
+    };
   }
 
-  // ── 2. FAMILY HISTORY ──────────────────────────────────────────────────────
-  if (field === "familyHistory") {
-    const YES_MATCH = /\b(yes|yeah|yep|positive|present|have|has|father|mother|parent|sibling|brother|sister|grandparent|uncle|aunt|family)\b/i;
-    const NO_MATCH = /\b(no|nope|negative|none|never|nobody|neither|zero|absent)\b/i;
+  const raw = String(transcript).trim();
+  const normalized = normalizeIndicDigits(raw).normalize("NFKC");
+  const cleanText = normalized
+    .toLowerCase()
+    .replace(/[,;]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-    if (YES_MATCH.test(lower) && !NO_MATCH.test(lower)) {
+  // Strip punctuation for tokens
+  const tokenClean = cleanText.replace(/[?।!.]/g, " ");
+  const tokens = tokenClean.split(/\s+/).filter(Boolean);
+
+  // ── A. Disambiguation & User Uncertainty Filter ───────────────────────────
+  const UNCERTAIN_WORDS = [
+    "don't know", "dont know", "not sure", "no idea", "i do not know", "skip",
+    "ಗೊತ್ತಿಲ್ಲ", "ತಿಳಿದಿಲ್ಲ", "ಖಚಿತವಿಲ್ಲ",
+    "पता नहीं", "मालूम नहीं", "याद नहीं",
+    "தெரியாது", "తెలియదు", "അറിയില്ല"
+  ];
+  for (const u of UNCERTAIN_WORDS) {
+    if (cleanText.includes(u)) {
       return {
-        value: "1",
-        displayValue: "Yes — Family History Present",
+        status: "unrecognized",
+        value: null,
+        displayValue: null,
         rawTranscript: raw,
-        confidence: "HIGH",
+        confidence: "LOW",
         needsConfirmation: false,
         unit: "",
         convertedFrom: null,
+        reason: "User indicated uncertainty",
       };
     }
-    if (NO_MATCH.test(lower)) {
-      return {
-        value: "0",
-        displayValue: "No — No Family History",
-        rawTranscript: raw,
-        confidence: "HIGH",
-        needsConfirmation: false,
-        unit: "",
-        convertedFrom: null,
-      };
-    }
-    return null;
   }
 
-  // ── 3. PATIENT GROUP / LOCATION ────────────────────────────────────────────
-  if (field === "patientGroup") {
-    if (/\b(urban|city|metro|town)\b/i.test(lower) && !/\bsemi\b/i.test(lower)) {
-      return {
-        value: "Urban",
-        displayValue: "Urban",
-        rawTranscript: raw,
-        confidence: "HIGH",
-        needsConfirmation: false,
-        unit: "",
-        convertedFrom: null,
-      };
+  // ── B. Categorical Question Parsing ───────────────────────────────────────
+  if (MULTILINGUAL_CATEGORICAL_MAP[field]) {
+    const fieldMap = MULTILINGUAL_CATEGORICAL_MAP[field];
+
+    // Evaluate in order of keys
+    for (const [canonicalVal, aliasList] of Object.entries(fieldMap)) {
+      if (matchAlias(cleanText, tokens, aliasList)) {
+        return {
+          status: "valid",
+          value: canonicalVal,
+          displayValue: canonicalVal,
+          rawTranscript: raw,
+          confidence: "HIGH",
+          needsConfirmation: false,
+          unit: "",
+          convertedFrom: null,
+        };
+      }
     }
-    if (/\b(rural|village|countryside)\b/i.test(lower)) {
-      return {
-        value: "Rural",
-        displayValue: "Rural",
-        rawTranscript: raw,
-        confidence: "HIGH",
-        needsConfirmation: false,
-        unit: "",
-        convertedFrom: null,
-      };
-    }
-    if (/\b(semi[\s-]?urban|suburban|peri[\s-]?urban)\b/i.test(lower)) {
-      return {
-        value: "Semi-Urban",
-        displayValue: "Semi-Urban",
-        rawTranscript: raw,
-        confidence: "HIGH",
-        needsConfirmation: false,
-        unit: "",
-        convertedFrom: null,
-      };
-    }
-    return null;
+
+    // Categorical field did not match any allowed category for this field
+    return {
+      status: "unrecognized",
+      value: null,
+      displayValue: null,
+      rawTranscript: raw,
+      confidence: "LOW",
+      needsConfirmation: false,
+      unit: "",
+      convertedFrom: null,
+      reason: `Answer '${raw}' is not recognized for ${def.label}.`,
+    };
   }
 
-  // ── 4. HEIGHT (Handles feet/inches, cm, meters) ─────────────────────────────
+  // ── C. Field-Specific Numeric / Clinical Parsing ──────────────────────────
+
+  // 1. HEIGHT: Handles feet/inches (English, Kannada, Hindi), cm, meters
   if (field === "height") {
-    // Check "5 feet 8 inches" or "5 foot 8" or "5'8"
-    const ftInMatch = lower.match(/(\d+)\s*(?:feet|foot|ft|')\s*(?:and\s*)?(\d+)?\s*(?:inches|inch|in|")?/);
+    // Spoken feet & inches: "5 feet 8 inches", "5 ft 8", "5'8", "5 ಅಡಿ 8 ಇಂಚು", "5 फीट 8 इंच"
+    const ftInMatch = cleanText.match(/(\d+)\s*(?:feet|foot|ft|'|ಅಡಿ|ಫೀಟ್|फीट|फुट)\s*(?:and|ಮತ್ತು|और)?\s*(\d+)?\s*(?:inches|inch|in|"|ಇಂಚು|ಇಂಚ್|इंच)?/iu);
     if (ftInMatch) {
       const feet = parseFloat(ftInMatch[1]);
       const inches = ftInMatch[2] ? parseFloat(ftInMatch[2]) : 0;
-      const totalCm = Math.round((feet * 30.48 + inches * 2.54) * 10) / 10;
-      return {
-        value: String(totalCm),
-        displayValue: `${totalCm} cm (${feet}ft ${inches}in)`,
-        rawTranscript: raw,
-        confidence: "HIGH",
-        needsConfirmation: true, // confirm unit conversion
-        unit: "cm",
-        convertedFrom: `${feet}ft ${inches}in`,
-      };
+      const totalCm = Math.round(feet * 30.48 + inches * 2.54);
+      if (totalCm >= def.min && totalCm <= def.max) {
+        return {
+          status: "valid",
+          value: String(totalCm),
+          displayValue: `${totalCm} cm (${feet}ft ${inches}in)`,
+          rawTranscript: raw,
+          confidence: "HIGH",
+          needsConfirmation: true,
+          unit: "cm",
+          convertedFrom: `${feet}ft ${inches}in`,
+        };
+      }
     }
 
-    // Check meters: "1.72 meters" -> 172 cm
-    const meterMatch = lower.match(/(\d+\.\d+)\s*(?:meters|meter|m)\b/);
+    // Meters: "1.72 meters", "1.72 ಮೀಟರ್", "1.72 मीटर"
+    const meterMatch = cleanText.match(/(\d+\.\d+)\s*(?:meters?|m|ಮೀಟರ್|मीटर)\b/iu);
     if (meterMatch) {
       const meters = parseFloat(meterMatch[1]);
       if (meters >= 1.0 && meters <= 2.5) {
         const cm = Math.round(meters * 100);
         return {
+          status: "valid",
           value: String(cm),
           displayValue: `${cm} cm`,
           rawTranscript: raw,
@@ -531,32 +740,36 @@ export function interpretTranscript(transcript, field) {
     }
   }
 
-  // ── 5. WEIGHT (Handles pounds / lbs → kg) ──────────────────────────────────
+  // 2. WEIGHT: Handles pounds/lbs to kg: "150 pounds", "150 ಪೌಂಡ್", "150 पाउंड"
   if (field === "weight") {
-    const lbsMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:pounds|pound|lbs|lb)\b/);
+    const lbsMatch = cleanText.match(/(\d+(?:\.\d+)?)\s*(?:pounds?|lbs?|lb|ಪೌಂಡ್|पाउंड)\b/iu);
     if (lbsMatch) {
       const lbs = parseFloat(lbsMatch[1]);
       const kg = Math.round(lbs * 0.45359237 * 10) / 10;
-      return {
-        value: String(kg),
-        displayValue: `${kg} kg (${lbs} lbs)`,
-        rawTranscript: raw,
-        confidence: "HIGH",
-        needsConfirmation: true,
-        unit: "kg",
-        convertedFrom: `${lbs} lbs`,
-      };
+      if (kg >= def.min && kg <= def.max) {
+        return {
+          status: "valid",
+          value: String(kg),
+          displayValue: `${kg} kg (${lbs} lbs)`,
+          rawTranscript: raw,
+          confidence: "HIGH",
+          needsConfirmation: true,
+          unit: "kg",
+          convertedFrom: `${lbs} lbs`,
+        };
+      }
     }
   }
 
-  // ── 6. FASTING GLUCOSE (Handles mmol/L → mg/dL) ─────────────────────────────
+  // 3. FASTING GLUCOSE: Handles mmol/L -> mg/dL
   if (field === "fastingGlucose") {
-    const mmolMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:mmol|millimole|millimoles)/);
+    const mmolMatch = cleanText.match(/(\d+(?:\.\d+)?)\s*(?:mmol|millimole|millimoles)/i);
     if (mmolMatch) {
       const mmol = parseFloat(mmolMatch[1]);
       if (mmol >= 2.0 && mmol <= 30.0) {
         const mgdl = Math.round(mmol * 18.0182);
         return {
+          status: "valid",
           value: String(mgdl),
           displayValue: `${mgdl} mg/dL (${mmol} mmol/L)`,
           rawTranscript: raw,
@@ -569,45 +782,45 @@ export function interpretTranscript(transcript, field) {
     }
   }
 
-  // ── 7. BLOOD PRESSURE (Handles "120 over 80" or "120/80") ───────────────────
+  // 4. BLOOD PRESSURE: Handles systolic/diastolic pairs "120/80", "120 over 80", "120 ಮತ್ತು 80", "120 और 80"
   if (field === "bloodPressure") {
-    const bpPairMatch = lower.match(/(\d{2,3})\s*(?:\/|over|by)\s*(\d{2,3})/);
+    const bpPairMatch = cleanText.match(/(\d{2,3})\s*(?:\/|over|by|ಮತ್ತು|और)\s*(\d{2,3})/iu);
     if (bpPairMatch) {
       const systolic = parseFloat(bpPairMatch[1]);
       const diastolic = parseFloat(bpPairMatch[2]);
-      return {
-        value: String(systolic),
-        displayValue: `${systolic} mmHg systolic (${systolic}/${diastolic})`,
-        rawTranscript: raw,
-        confidence: "HIGH",
-        needsConfirmation: false,
-        unit: "mmHg",
-        convertedFrom: `${systolic}/${diastolic}`,
-      };
+      if (systolic >= def.min && systolic <= def.max) {
+        return {
+          status: "valid",
+          value: String(systolic),
+          displayValue: `${systolic} mmHg systolic (${systolic}/${diastolic})`,
+          rawTranscript: raw,
+          confidence: "HIGH",
+          needsConfirmation: false,
+          unit: "mmHg",
+          convertedFrom: `${systolic}/${diastolic}`,
+        };
+      }
     }
   }
 
-  // ── 8. NUMERICAL EXTRACTION WITH CONVERSATIONAL STRIPPING ───────────────────
+  // 5. GENERAL NUMERICAL EXTRACTION
   if (def.type === "number") {
-    // Strip common conversational filler patterns:
-    // "I am 35", "My age is 35", "I'm 35", "35 years old"
-    // "my fasting glucose is 110", "I got 110"
-    let cleaned = lower
-      .replace(/\b(i am|i'm|im|my|is|got|have|measured|about|around|approximately|level is|it's|its)\b/g, " ")
-      .replace(/\b(years? old|years?|yrs?|cm|centimeters?|kg|kilos?|kilograms?|mg\/dl|mg dl|points?|hours?|hrs?|meals?|grams?|rupees?|inr)\b/g, " ")
+    // Strip conversational filler patterns across languages
+    let stripped = cleanText
+      .replace(/\b(i am|i'm|im|my|is|got|have|measured|about|around|approximately|level is|it's|its)\b/gi, " ")
+      .replace(/\b(years? old|years?|yrs?|cm|centimeters?|kg|kilos?|kilograms?|mg\/dl|mg dl|points?|hours?|hrs?|meals?|grams?|rupees?|inr)\b/gi, " ")
+      .replace(/(ನನ್ನ|ನನಗೆ|ವಯಸ್ಸು|ತೂಕ|ಎತ್ತರ|ವರ್ಷ|ವರ್ಷಗಳು|ಕೆಜಿ|ಸೆಂಮೀ)/gi, " ")
+      .replace(/(मेरा|मेरी|उम्र|साल|किलो|सेंटीमीटर)/gi, " ")
       .trim();
 
-    const parsedNum = wordsToNumber(cleaned);
+    const parsedNum = wordsToNumber(stripped);
     if (parsedNum !== null && !isNaN(parsedNum)) {
       const { valid } = validateField(field, parsedNum);
-      const isWithinBounds = valid;
-
-      // Confidence assessment
-      const hasExplicitUnit = lower.includes(def.unit?.toLowerCase() || "");
-      const confidence = isWithinBounds && hasExplicitUnit ? "HIGH" : isWithinBounds ? "MEDIUM" : "LOW";
-      const needsConfirmation = confidence !== "HIGH" || parsedNum < def.min * 1.05 || parsedNum > def.max * 0.95;
+      const confidence = valid ? "HIGH" : "LOW";
+      const needsConfirmation = !valid || parsedNum < def.min * 1.05 || parsedNum > def.max * 0.95;
 
       return {
+        status: valid ? "valid" : "needs_confirmation",
         value: String(parsedNum),
         displayValue: `${parsedNum} ${def.unit || ""}`.trim(),
         rawTranscript: raw,
@@ -619,8 +832,34 @@ export function interpretTranscript(transcript, field) {
     }
   }
 
+  return {
+    status: "unrecognized",
+    value: null,
+    displayValue: null,
+    rawTranscript: raw,
+    confidence: "LOW",
+    needsConfirmation: false,
+    unit: "",
+    convertedFrom: null,
+    reason: `Could not interpret "${raw}" for field ${field}.`,
+  };
+}
+
+/**
+ * Backward-compatible wrapper for interpretAnswer.
+ * Returns the interpreted object if valid/confirmed, or null if unrecognized/missing.
+ */
+export function interpretTranscript(transcript, field, langCode = "en") {
+  const result = interpretAnswer({ transcript, field, lang: langCode });
+  if (result.status === "valid" || result.status === "needs_confirmation") {
+    return result;
+  }
   return null;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. FIELD VALIDATION
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Validates a field value against physiological boundaries.

@@ -70,3 +70,33 @@ class AssessmentResponse(BaseModel):
 class AssessmentListResponse(BaseModel):
     total: int
     assessments: List[AssessmentResponse]
+
+
+class AssessmentValidateRequest(BaseModel):
+    age: Optional[float] = None
+    gender: Optional[str] = None
+    patient_group: Optional[str] = None
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    bmi: Optional[float] = None
+    blood_pressure: Optional[float] = None
+    fasting_glucose: Optional[float] = None
+    hba1c: Optional[float] = None
+    physical_activity_hours: Optional[float] = None
+    daily_sugar_intake: Optional[float] = None
+    fast_food_frequency: Optional[float] = None
+    sleep_hours: Optional[float] = None
+    family_history: Optional[float] = None
+    monthly_income: Optional[float] = None
+
+    class Config:
+        extra = "allow"
+
+
+class AssessmentValidateResponse(BaseModel):
+    is_valid: bool
+    errors: dict = {}
+    missing_fields: List[str] = []
+    calculated_bmi: Optional[float] = None
+    normalized_data: dict = {}
+

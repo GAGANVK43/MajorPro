@@ -1275,6 +1275,14 @@
   background: rgba(148, 163, 184, 0.15);
   color: #cbd5e1;
 }
+.source-badge.src-calculated {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+}
+.source-badge.src-confirmed {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
 
 /* Confidence Badges */
 .conf-badge {

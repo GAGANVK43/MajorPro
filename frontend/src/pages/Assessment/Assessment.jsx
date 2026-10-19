@@ -25,6 +25,7 @@ import {
   speak,
   stopSpeaking,
   interpretTranscript,
+  normalizeIndicDigits,
   validateField,
   getVoiceQuestion,
   FIELD_DEFINITIONS,
@@ -449,13 +450,19 @@ function Assessment() {
   // ─────────────────────────────────────────────────────────────────────────
   const getMissingFields = useCallback((dataToCheck) => {
     const target = dataToCheck || formData;
-    const hasBmi = target.bmi && String(target.bmi).trim() !== "";
     return Object.values(CANONICAL_ASSESSMENT_SCHEMA)
       .sort((a, b) => a.priority - b.priority)
       .filter((def) => {
-        if (def.autoCalculated) return false;
-        // If BMI is already present (e.g. from report), height and weight are not needed
-        if (hasBmi && (def.key === "height" || def.key === "weight")) return false;
+        // Only evaluate schema required fields
+        if (!def.required) return false;
+        if (def.autoCalculated) {
+          // BMI is satisfied if explicitly present OR if both height and weight are provided
+          const hasH = target.height && String(target.height).trim() !== "";
+          const hasW = target.weight && String(target.weight).trim() !== "";
+          const hasB = target.bmi && String(target.bmi).trim() !== "";
+          return !(hasB || (hasH && hasW));
+        }
+        // Required screening fields (such as height and weight) must be requested if missing
         const val = target[def.key];
         return val === null || val === undefined || String(val).trim() === "";
       })
@@ -511,6 +518,16 @@ function Assessment() {
   const handleConfirmAndAnalyze = async () => {
     const validation = validateAssessment();
     if (!validation.isValid) {
+      // Rather than a blocking dead-end, immediately route user to the unresolved field in missing_qa
+      const missingOrInvalid = Object.keys(validation.errors).filter((k) => k !== "conflicts");
+      if (missingOrInvalid.length > 0) {
+        setMissingQueue(missingOrInvalid);
+        setMissingIndex(0);
+        setMissingInput(formData[missingOrInvalid[0]] || "");
+        setReportStep("missing_qa");
+        toast.warning(`⚠️ Please check: ${Object.values(validation.errors)[0]}`);
+        return;
+      }
       const firstError = Object.values(validation.errors)[0];
       toast.error(`⚠️ Please check: ${firstError}`);
       return;
@@ -656,7 +673,7 @@ function Assessment() {
         setVoiceStatus("");
         setVoiceTranscript(transcript);
 
-        const interpreted = interpretTranscript(transcript, activeVoiceFieldKey);
+        const interpreted = interpretTranscript(transcript, activeVoiceFieldKey, activeLang);
         if (!interpreted) {
           toast.warning(`Could not interpret "${transcript}". Please try again or type below.`);
           return;
@@ -914,14 +931,15 @@ function Assessment() {
 
     setMissingListening(true);
     startListening({
-      lang: language || "en",
+      lang: activeLang || language || "en",
       onResult: (transcript) => {
         setMissingListening(false);
-        const interpreted = interpretTranscript(transcript, activeMissingKey);
+        const interpreted = interpretTranscript(transcript, activeMissingKey, activeLang || language || "en");
         if (interpreted) {
           setMissingInput(interpreted.value);
         } else {
-          const numMatch = transcript.match(/(\d+(?:\.\d+)?)/);
+          const normTranscript = normalizeIndicDigits(transcript);
+          const numMatch = normTranscript.match(/(\d+(?:\.\d+)?)/);
           if (numMatch) {
             setMissingInput(numMatch[1]);
           } else {
@@ -1039,10 +1057,10 @@ function Assessment() {
     toast.info(`🎙️ Listening for ${CANONICAL_ASSESSMENT_SCHEMA[field]?.label}…`);
 
     startListening({
-      lang: language || "en",
+      lang: activeLang || language || "en",
       onResult: (transcript) => {
         setIsListening(false);
-        const interpreted = interpretTranscript(transcript, field);
+        const interpreted = interpretTranscript(transcript, field, activeLang || language || "en");
         if (interpreted) {
           const { valid, message } = validateField(field, interpreted.value);
           if (valid) {
@@ -1075,16 +1093,22 @@ function Assessment() {
     </button>
   );
 
-  // Helper badge to show data source (voice, report, manual)
+  // Helper badge to show data source (voice, report, manual, calculated, confirmed)
   const sourceBadge = (field) => {
     const meta = fieldMetadata[field];
-    if (!meta || !meta.source) return null;
+    let source = meta?.source;
+    if (!source && field === "bmi" && formData.bmi) {
+      source = "calculated";
+    }
+    if (!source) return null;
     const badges = {
-      voice: { icon: "🎙️", label: "Voice", cls: "src-voice" },
-      report: { icon: "📄", label: "Report", cls: "src-report" },
-      manual: { icon: "✍️", label: "Manual", cls: "src-manual" },
+      voice: { icon: "🎙️", label: t("assessment.srcVoice") || "Voice", cls: "src-voice" },
+      report: { icon: "📄", label: t("assessment.srcReport") || "Report", cls: "src-report" },
+      manual: { icon: "✍️", label: t("assessment.srcManual") || "Manual", cls: "src-manual" },
+      calculated: { icon: "🧮", label: t("assessment.srcComputed") || "Computed", cls: "src-calculated" },
+      confirmed: { icon: "✓", label: t("assessment.srcConfirmed") || "Confirmed", cls: "src-confirmed" },
     };
-    const b = badges[meta.source] || badges.manual;
+    const b = badges[source] || badges.manual;
     return (
       <span className={`source-badge ${b.cls}`} title={`Sourced from ${b.label}`}>
         {b.icon} {b.label}
@@ -1586,9 +1610,8 @@ function Assessment() {
                   {(() => {
                     const neededKeys = Object.keys(CANONICAL_ASSESSMENT_SCHEMA).filter((k) => {
                       const def = CANONICAL_ASSESSMENT_SCHEMA[k];
+                      if (!def.required) return false;
                       if (def.autoCalculated) return false;
-                      // If BMI is extracted, height and weight are not needed
-                      if (editableExtracted.bmi && (k === "height" || k === "weight")) return false;
                       return !editableExtracted[k] && (!formData[k] || String(formData[k]).trim() === "");
                     });
                     if (neededKeys.length === 0) {
@@ -1771,12 +1794,13 @@ function Assessment() {
                 lang: activeLang,
                 onResult: (transcript) => {
                   setIsListening(false);
-                  const interpreted = interpretTranscript(transcript, manualKey);
+                  const interpreted = interpretTranscript(transcript, manualKey, activeLang);
                   if (interpreted) {
                     setManualTextInput(String(interpreted.value));
                     toast.success(`✅ Heard: ${interpreted.displayValue}`);
                   } else {
-                    const numMatch = transcript.match(/(\d+(?:\.\d+)?)/);
+                    const normTranscript = normalizeIndicDigits(transcript);
+                    const numMatch = normTranscript.match(/(\d+(?:\.\d+)?)/);
                     if (numMatch) setManualTextInput(numMatch[1]);
                     else toast.warning(`Could not understand "${transcript}". Please type your answer.`);
                   }
@@ -1991,7 +2015,7 @@ function Assessment() {
                     <div className="review-row highlight-row">
                       <span className="row-label">{getFieldLabel("bmi")}</span>
                       <span className="row-value">{formData.bmi || "–"} {getFieldUnit("bmi")}</span>
-                      <span className="source-badge src-manual">{t("assessment.autoBadge") || "Auto"}</span>
+                      {sourceBadge("bmi")}
                     </div>
                   </div>
                 </div>

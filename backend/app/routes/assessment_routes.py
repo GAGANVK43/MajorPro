@@ -4,11 +4,26 @@ from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.config.security import get_current_user
 from app.models.user import User
-from app.schemas.assessment_schema import AssessmentCreateRequest
+from app.schemas.assessment_schema import AssessmentCreateRequest, AssessmentValidateRequest
 from app.services.assessment_service import AssessmentService
 from app.utils.response import success_response
 
 router = APIRouter(prefix="/api/assessment", tags=["Assessment"])
+
+
+@router.post("/validate", status_code=status.HTTP_200_OK)
+def validate_assessment_draft(request: AssessmentValidateRequest):
+    """
+    Validate draft assessment parameters without requiring full submission or throwing
+    errors that discard the user's entered state.
+    """
+    result = AssessmentService.validate_draft(request)
+    return success_response(
+        data=result.model_dump(),
+        message="Assessment validation completed",
+        status_code=status.HTTP_200_OK,
+    )
+
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
