@@ -17,6 +17,7 @@ import {
 } from "react-icons/fa";
 import { useTranslation } from "../../context/LanguageContext";
 import LanguageSelector from "../LanguageSelector/LanguageSelector";
+import { authService } from "../../services/api";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -70,7 +71,12 @@ function Navbar() {
     setMoreDropdown(false);
   }, [location]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+    } catch (e) {
+      // Ignore network errors on logout, proceed with local cleanup
+    }
     localStorage.removeItem("access_token");
     localStorage.removeItem("user");
     localStorage.removeItem("latest_prediction");

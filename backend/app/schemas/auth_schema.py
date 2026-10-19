@@ -22,3 +22,13 @@ class TokenResponse(BaseModel):
     user_id: int
     full_name: str
     email: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr = Field(..., example="john.doe@example.com")
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(..., min_length=10, description="Reset token received via email or dev response")
+    new_password: str = Field(..., min_length=6, example="NewPassword123!")
+

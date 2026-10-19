@@ -17,8 +17,12 @@ class User(Base):
     password = Column(String(255), nullable=False)
     age = Column(Integer, nullable=True)
     gender = Column(String(50), nullable=True)
+    # Password reset support
+    reset_token = Column(String(255), nullable=True)
+    reset_token_expiry = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     # Relationships
     assessments = relationship("Assessment", back_populates="user", cascade="all, delete-orphan")
+

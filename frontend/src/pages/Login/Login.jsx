@@ -102,6 +102,12 @@ function Login() {
                 </div>
               </div>
 
+              <div className="auth-forgot-row" style={{ display: "flex", justifyContent: "flex-end", marginTop: "-0.5rem", marginBottom: "1.2rem" }}>
+                <Link to="/forgot-password" className="auth-forgot-link" style={{ color: "#38bdf8", fontSize: "0.88rem", textDecoration: "none", fontWeight: "500" }}>
+                  {t("auth.forgotPassword") || "Forgot password?"}
+                </Link>
+              </div>
+
               <button className="auth-submit-btn" type="submit" disabled={loading}>
                 {loading ? t("common.loading") : `${t("auth.signInBtn")} →`}
               </button>

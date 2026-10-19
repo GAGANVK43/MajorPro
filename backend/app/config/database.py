@@ -1,7 +1,14 @@
-from sqlalchemy import create_engine
+from pathlib import Path
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from app.config.settings import settings
 from app.utils.logger import logger
+
+# Canonical SQLite path (always resolves to backend/diasense.db regardless of working directory)
+CANONICAL_SQLITE_PATH = Path(__file__).resolve().parent.parent.parent / "diasense.db"
+CANONICAL_SQLITE_URL = f"sqlite:///{CANONICAL_SQLITE_PATH.as_posix()}"
+
+ACTIVE_DB_TYPE = "sqlite"
 
 
 def _fix_database_url(url: str) -> str:
@@ -17,11 +24,13 @@ def _fix_database_url(url: str) -> str:
 
 
 def _create_engine_with_fallback():
+    global ACTIVE_DB_TYPE
     url = settings.DATABASE_URL
 
-    if url.startswith("sqlite"):
+    if not url or url.startswith("sqlite"):
+        ACTIVE_DB_TYPE = "sqlite"
         return create_engine(
-            url,
+            CANONICAL_SQLITE_URL,
             connect_args={"check_same_thread": False},
             pool_pre_ping=True,
             echo=False,
@@ -35,17 +44,22 @@ def _create_engine_with_fallback():
             pool_pre_ping=True,
             pool_size=5,
             max_overflow=10,
-            pool_timeout=30,
+            pool_timeout=15,
             echo=False,
         )
         with eng.connect() as conn:
             pass
-        logger.info(f"Connected to PostgreSQL database successfully.")
+        ACTIVE_DB_TYPE = "postgresql"
+        logger.info("Connected to PostgreSQL database successfully.")
         return eng
     except Exception as e:
-        logger.warning(f"PostgreSQL connection failed ({e}). Falling back to local SQLite.")
+        ACTIVE_DB_TYPE = "sqlite"
+        logger.warning(
+            f"PostgreSQL connection to Supabase failed ({e}). "
+            f"Using persistent canonical local database at: {CANONICAL_SQLITE_PATH}"
+        )
         return create_engine(
-            "sqlite:///./diasense.db",
+            CANONICAL_SQLITE_URL,
             connect_args={"check_same_thread": False},
             pool_pre_ping=True,
             echo=False,
@@ -71,18 +85,32 @@ def get_db():
 
 def init_db():
     """
-    Automatically creates all database tables defined in SQLAlchemy ORM models.
-    Falls back to local SQLite if remote database fails.
+    Creates all database tables defined in SQLAlchemy ORM models.
+    Applies non-destructive schema migrations (e.g. adding reset_token columns).
     """
-    global engine, SessionLocal
     try:
         from app.models import Base  # Import after models are defined
         Base.metadata.create_all(bind=engine)
         logger.info(f"Database tables initialized successfully ({engine.url.drivername}).")
+
+        # Non-destructive migrations for users table
+        try:
+            inspector = inspect(engine)
+            if "users" in inspector.get_table_names():
+                cols = [c["name"] for c in inspector.get_columns("users")]
+                with engine.connect() as conn:
+                    if "reset_token" not in cols:
+                        logger.info("Adding 'reset_token' column to users table.")
+                        conn.execute(text("ALTER TABLE users ADD COLUMN reset_token VARCHAR(255)"))
+                    if "reset_token_expiry" not in cols:
+                        logger.info("Adding 'reset_token_expiry' column to users table.")
+                        conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_expiry TIMESTAMP"))
+                    conn.commit()
+        except Exception as mig_err:
+            logger.warning(f"Schema migration warning: {mig_err}")
+
     except Exception as e:
-        logger.warning(f"Initial table creation failed: {e}. Switching to local SQLite.")
-        engine = create_engine("sqlite:///./diasense.db", connect_args={"check_same_thread": False}, pool_pre_ping=True, echo=False)
-        SessionLocal.configure(bind=engine)
-        from app.models import Base
-        Base.metadata.create_all(bind=engine)
-        logger.info("Local SQLite database tables initialized successfully.")
+        logger.error(f"CRITICAL: Table creation failed: {e}. The application may not function correctly.")
+        raise
+
+
