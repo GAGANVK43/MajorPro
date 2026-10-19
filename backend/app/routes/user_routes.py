@@ -5,7 +5,11 @@ from app.config.database import get_db
 from app.config.security import get_current_user
 from app.models.user import User
 from app.services.auth_service import AuthService
-from app.schemas.user_schema import UserProfileUpdateRequest, UserPasswordChangeRequest
+from app.schemas.user_schema import (
+    UserProfileUpdateRequest,
+    UserPasswordChangeRequest,
+    UserEmailChangeRequest,
+)
 from app.utils.response import success_response
 
 router = APIRouter(prefix="/api/user", tags=["User Profile"])
@@ -38,11 +42,26 @@ def update_user_profile(
     db: Session = Depends(get_db)
 ):
     """
-    Update current user profile information (full_name, age, gender).
+    Update current user profile information.
     """
     service = AuthService(db)
     updated_profile = service.update_profile(current_user, request)
     return success_response(data=updated_profile.model_dump(mode="json"), message="Profile updated successfully")
+
+
+@router.put("/change-email")
+def change_user_email(
+    request: UserEmailChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Securely change user account email after verifying current password.
+    Re-issues authentication tokens on success.
+    """
+    service = AuthService(db)
+    result = service.change_email(current_user, request)
+    return success_response(data=result, message="Email address updated successfully")
 
 
 @router.put("/change-password")
@@ -57,3 +76,16 @@ def change_user_password(
     service = AuthService(db)
     service.change_password(current_user, request)
     return success_response(message="Password changed successfully")
+
+
+@router.put("/onboarding-complete")
+def complete_onboarding(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Mark first-time guided assessment & diet onboarding complete for authenticated user.
+    """
+    service = AuthService(db)
+    updated = service.complete_onboarding(current_user)
+    return success_response(data=updated.model_dump(mode="json"), message="Onboarding workflow marked complete")

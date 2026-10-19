@@ -1,11 +1,12 @@
 import "./Result.css";
 import { useEffect, useState } from "react";
-import { FaFilePdf, FaFileDownload, FaPrint, FaHeartbeat, FaStethoscope, FaChartLine, FaCheckCircle, FaExclamationTriangle, FaBrain } from "react-icons/fa";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { FaFilePdf, FaFileDownload, FaPrint, FaHeartbeat, FaStethoscope, FaChartLine, FaCheckCircle, FaExclamationTriangle, FaBrain, FaArrowRight } from "react-icons/fa";
 import RiskGauge from "../../components/RiskGauge/RiskGauge";
 import BackButton from "../../components/BackButton/BackButton";
 import Footer from "../../components/Footer/Footer";
 import Navbar from "../../components/Navbar/Navbar";
-import { predictionService, dietService, authService, reportService } from "../../services/api";
+import { predictionService, dietService, authService, reportService, userService } from "../../services/api";
 import { useTranslation } from "../../context/LanguageContext";
 import { getLocalizedWeeklyDietPlan } from "../../utils/dietSchedules";
 
@@ -20,6 +21,11 @@ import {
 } from "recharts";
 
 function Result() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const assessmentIdParam = searchParams.get("assessment_id");
+  const predictionIdParam = searchParams.get("prediction_id");
+
   const { t, currentLanguage } = useTranslation();
   const [userProfile, setUserProfile] = useState(null);
   const [userName, setUserName] = useState("Patient");
@@ -80,18 +86,59 @@ function Result() {
     // 3. Fetch latest prediction & diet plan from API with current language
     async function fetchLatestData() {
       try {
-        const res = await predictionService.getLatest();
-        if (res.data) {
-          const d = res.data;
-          setPredictionData({
-            id: d.id || null,
-            prediction: d.prediction,
-            risk_percentage: d.risk_percentage,
-            confidence: d.confidence,
-            health_score: Math.max(20, Math.round(100 - d.risk_percentage)),
-            recommendation: d.recommendation,
-            contributing_factors: d.contributing_factors || []
-          });
+        let predictionFound = false;
+        if (predictionIdParam) {
+          try {
+            const res = await predictionService.getLatest();
+            if (res.data) {
+              const d = res.data;
+              setPredictionData({
+                id: d.id || null,
+                assessment_id: d.assessment_id || null,
+                prediction: d.prediction,
+                risk_percentage: d.risk_percentage,
+                confidence: d.confidence,
+                health_score: Math.max(20, Math.round(100 - d.risk_percentage)),
+                recommendation: d.recommendation,
+                contributing_factors: d.contributing_factors || []
+              });
+              predictionFound = true;
+            }
+          } catch (e) {}
+        }
+
+        if (!predictionFound) {
+          const res = await predictionService.getLatest();
+          if (res.data) {
+            const d = res.data;
+            setPredictionData({
+              id: d.id || null,
+              assessment_id: d.assessment_id || null,
+              prediction: d.prediction,
+              risk_percentage: d.risk_percentage,
+              confidence: d.confidence,
+              health_score: Math.max(20, Math.round(100 - d.risk_percentage)),
+              recommendation: d.recommendation,
+              contributing_factors: d.contributing_factors || []
+            });
+          }
+        }
+
+        if (assessmentIdParam) {
+          try {
+            const assessmentDietRes = await dietService.getByAssessmentId(assessmentIdParam);
+            if (assessmentDietRes?.data) {
+              setDietPlan({
+                breakfast: assessmentDietRes.data.breakfast,
+                lunch: assessmentDietRes.data.lunch,
+                dinner: assessmentDietRes.data.dinner,
+                exercise: assessmentDietRes.data.exercise,
+              });
+              return;
+            }
+          } catch (e) {
+            console.warn("Could not load diet by assessment ID, falling back to latest:", e);
+          }
         }
 
         const dietRes = await dietService.getLatestDiet();
@@ -108,7 +155,21 @@ function Result() {
       }
     }
     fetchLatestData();
-  }, [currentLanguage]);
+  }, [currentLanguage, assessmentIdParam, predictionIdParam]);
+
+  const handleNavigateToDietPlan = async () => {
+    try {
+      await userService.completeOnboarding();
+    } catch (e) {
+      console.warn("Non-blocking onboarding completion warning:", e);
+    }
+    const targetId = assessmentIdParam || predictionData.assessment_id || predictionData.id;
+    if (targetId) {
+      navigate(`/diet-plan?assessment_id=${targetId}`);
+    } else {
+      navigate("/diet-plan");
+    }
+  };
 
   const handleDownloadPDF = async () => {
     try {
@@ -207,6 +268,21 @@ function Result() {
               </button>
             </div>
           </header>
+
+          {/* Prominent Next-Step CTA: Connect Assessment to Diet Plan */}
+          <div className="result-next-step-banner">
+            <div className="next-step-left">
+              <div className="next-step-pill">
+                <FaCheckCircle className="pill-icon" /> {t("result.assessmentCompletePill") || "Assessment Complete"}
+              </div>
+              <h2>{t("result.dietPlanBannerTitle") || "Assessment complete → View your personalized Diet Plan"}</h2>
+              <p>{t("result.dietPlanBannerDesc") || "DiaSense AI has synthesized your metabolic markers into a tailored 7-day nutritional guidance and glycemic roadmap."}</p>
+            </div>
+            <button className="btn-next-step-cta" onClick={handleNavigateToDietPlan}>
+              <span>{t("result.viewDietPlanBtn") || "View Personalized Diet Plan"}</span>
+              <FaArrowRight />
+            </button>
+          </div>
 
           {/* Top Metric Cards Section */}
           <div className="report-score-grid">
@@ -319,6 +395,13 @@ function Result() {
                 </div>
                 <p>{currentExercise}</p>
               </div>
+            </div>
+
+            <div className="diet-guidance-footer-action">
+              <button className="btn-view-full-diet-plan" onClick={handleNavigateToDietPlan}>
+                <span>{t("result.viewFullWeeklyDietPlan") || "Explore Full 7-Day Personalized Diet & Routine Plan"}</span>
+                <FaArrowRight />
+              </button>
             </div>
           </div>
         </div>

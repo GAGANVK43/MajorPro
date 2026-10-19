@@ -110,6 +110,27 @@ def init_db():
                     if "reset_token_expiry" not in cols:
                         logger.info("Adding 'reset_token_expiry' column to users table.")
                         conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_expiry TIMESTAMP"))
+                    if "date_of_birth" not in cols:
+                        logger.info("Adding 'date_of_birth' column to users table.")
+                        conn.execute(text("ALTER TABLE users ADD COLUMN date_of_birth VARCHAR(50)"))
+                    if "address" not in cols:
+                        logger.info("Adding 'address' column to users table.")
+                        conn.execute(text("ALTER TABLE users ADD COLUMN address VARCHAR(255)"))
+                    if "city" not in cols:
+                        logger.info("Adding 'city' column to users table.")
+                        conn.execute(text("ALTER TABLE users ADD COLUMN city VARCHAR(100)"))
+                    if "state" not in cols:
+                        logger.info("Adding 'state' column to users table.")
+                        conn.execute(text("ALTER TABLE users ADD COLUMN state VARCHAR(100)"))
+                    if "postal_code" not in cols:
+                        logger.info("Adding 'postal_code' column to users table.")
+                        conn.execute(text("ALTER TABLE users ADD COLUMN postal_code VARCHAR(20)"))
+                    if "country" not in cols:
+                        logger.info("Adding 'country' column to users table.")
+                        conn.execute(text("ALTER TABLE users ADD COLUMN country VARCHAR(100) DEFAULT 'India'"))
+                    if "onboarding_completed" not in cols:
+                        logger.info("Adding 'onboarding_completed' column to users table.")
+                        conn.execute(text("ALTER TABLE users ADD COLUMN onboarding_completed BOOLEAN DEFAULT FALSE"))
                     conn.commit()
         except Exception as mig_err:
             logger.warning(f"Schema migration warning: {mig_err}")

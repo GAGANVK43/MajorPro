@@ -20,8 +20,18 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     user_id: int
+    id: Optional[int] = None
     full_name: str
     email: str
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = "India"
+    onboarding_completed: bool = False
 
 
 class ForgotPasswordRequest(BaseModel):

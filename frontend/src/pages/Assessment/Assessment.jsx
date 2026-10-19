@@ -558,7 +558,12 @@ function Assessment() {
 
       localStorage.setItem("latest_prediction", JSON.stringify(resultData));
       toast.success("✅ Health risk screening complete!");
-      setTimeout(() => navigate("/result"), 600);
+      const targetQuery = resultData?.assessment_id
+        ? `?assessment_id=${resultData.assessment_id}&prediction_id=${resultData.id || ""}`
+        : resultData?.id
+        ? `?prediction_id=${resultData.id}`
+        : "";
+      setTimeout(() => navigate(`/result${targetQuery}`), 600);
     } catch (err) {
       const msg = err?.response?.data?.message || err?.message || "Something went wrong while processing your assessment.";
       toast.error(msg);

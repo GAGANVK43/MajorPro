@@ -4,14 +4,17 @@ import { toast } from "react-toastify";
 import Navbar from "../../components/Navbar/Navbar";
 import BackButton from "../../components/BackButton/BackButton";
 import Footer from "../../components/Footer/Footer";
-import { Link } from "react-router-dom";
-import { FaUtensils, FaCheckCircle, FaRunning, FaLeaf, FaDrumstickBite, FaBullseye, FaTint, FaWalking, FaAppleAlt, FaHeartbeat, FaBrain, FaExclamationTriangle, FaFire, FaTrophy, FaArrowRight, FaLock, FaClipboardList, FaSpinner } from "react-icons/fa";
+import { Link, useSearchParams } from "react-router-dom";
+import { FaUtensils, FaCheckCircle, FaRunning, FaLeaf, FaDrumstickBite, FaBullseye, FaTint, FaWalking, FaAppleAlt, FaHeartbeat, FaBrain, FaExclamationTriangle, FaFire, FaTrophy, FaArrowRight, FaLock, FaClipboardList, FaSpinner, FaCalendarAlt } from "react-icons/fa";
 import { dietService, predictionService } from "../../services/api";
 import { useTranslation } from "../../context/LanguageContext";
 import { getLocalizedWeeklyDietPlan } from "../../utils/dietSchedules";
 
 function DietPlan() {
   const { t, currentLanguage } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const assessmentId = searchParams.get("assessment_id");
+
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const dayNames = {
     Monday: t("dietPlan.monday"),
@@ -80,52 +83,95 @@ function DietPlan() {
   }, [dailyGoals, goalsKey, streakClaimed]);
 
   useEffect(() => {
-    let found = false;
+    let isMounted = true;
 
-    // 1. Read stored prediction from localStorage
-    const stored = localStorage.getItem("latest_prediction");
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (parsed && (parsed.prediction || parsed.risk_percentage !== undefined)) {
-          setPatientStatus({
-            prediction: parsed.prediction || (parsed.risk_percentage >= 50 ? "Diabetic" : "Non-Diabetic"),
-            risk_percentage: parsed.risk_percentage ?? 5.5,
-            glucose: parsed.glucose ?? parsed.raw_inputs?.glucose ?? 110,
-            bmi: parsed.bmi ?? parsed.raw_inputs?.bmi ?? 23.5,
-          });
-          setHasAssessment(true);
-          found = true;
+    async function loadPlanData() {
+      setLoading(true);
+      let found = false;
+
+      // 1. If assessment_id param is provided, fetch specifically by assessment ID
+      if (assessmentId) {
+        try {
+          const res = await dietService.getByAssessmentId(assessmentId);
+          const data = res?.data || res;
+          if (data && isMounted) {
+            setPatientStatus({
+              id: data.id || null,
+              assessment_id: data.assessment_id || assessmentId,
+              prediction: data.prediction || "Screening Evaluation",
+              risk_percentage: data.risk_percentage ?? 25.0,
+              glucose: data.glucose ?? 110,
+              bmi: data.bmi ?? 23.5,
+              created_at: data.created_at || null,
+            });
+            setHasAssessment(true);
+            found = true;
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.warn("Could not load diet by assessment ID, falling back to latest:", err);
         }
-      } catch (e) {}
-    }
+      }
 
-    // 2. Fetch latest prediction from API
-    predictionService
-      .getLatest()
-      .then((res) => {
+      // 2. Read stored prediction from localStorage
+      const stored = localStorage.getItem("latest_prediction");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed && (parsed.prediction || parsed.risk_percentage !== undefined)) {
+            if (isMounted) {
+              setPatientStatus({
+                id: parsed.id || null,
+                assessment_id: parsed.assessment_id || null,
+                prediction: parsed.prediction || (parsed.risk_percentage >= 50 ? "Diabetic" : "Non-Diabetic"),
+                risk_percentage: parsed.risk_percentage ?? 5.5,
+                glucose: parsed.glucose ?? parsed.raw_inputs?.glucose ?? 110,
+                bmi: parsed.bmi ?? parsed.raw_inputs?.bmi ?? 23.5,
+                created_at: parsed.created_at || null,
+              });
+              setHasAssessment(true);
+              found = true;
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 3. Fetch latest prediction from API
+      try {
+        const res = await predictionService.getLatest();
         const data = res?.data || res;
-        if (data && (data.prediction || data.risk_percentage !== undefined)) {
+        if (data && (data.prediction || data.risk_percentage !== undefined) && isMounted) {
           setPatientStatus({
+            id: data.id || null,
+            assessment_id: data.assessment_id || null,
             prediction: data.prediction,
             risk_percentage: data.risk_percentage,
             glucose: data.glucose || data.raw_inputs?.glucose || 110,
             bmi: data.bmi || data.raw_inputs?.bmi || 23.5,
+            created_at: data.created_at || null,
           });
           setHasAssessment(true);
-        } else if (!found) {
+          found = true;
+        } else if (!found && isMounted) {
           setHasAssessment(false);
         }
-      })
-      .catch(() => {
-        if (!found) {
+      } catch (e) {
+        if (!found && isMounted) {
           setHasAssessment(false);
         }
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, []);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadPlanData();
+    return () => {
+      isMounted = false;
+    };
+  }, [assessmentId]);
 
   const toggleGoal = (key) => {
     if (streakClaimed) {
@@ -251,7 +297,17 @@ function DietPlan() {
 
       <div className="diet-page">
         <div className="diet-container">
-          <BackButton />
+          <div className="diet-top-nav-bar">
+            <BackButton />
+            {hasAssessment && (
+              <Link
+                to={patientStatus?.assessment_id || assessmentId ? `/result?assessment_id=${patientStatus?.assessment_id || assessmentId}` : "/result"}
+                className="btn-back-to-result"
+              >
+                ← {t("dietPlan.backToResult") || "Back to Assessment Result"}
+              </Link>
+            )}
+          </div>
 
           {/* Page Header */}
           <div className="diet-header text-center">
@@ -268,6 +324,12 @@ function DietPlan() {
               <div className="status-banner-left">
                 {isHighRisk ? <FaExclamationTriangle /> : isModerateRisk ? <FaBrain /> : <FaCheckCircle />}
                 <div>
+                  <div className="status-source-tag">
+                    <FaCheckCircle className="tag-icon" /> {patientStatus.assessment_id ? `Personalized from Assessment #${patientStatus.assessment_id}` : "Personalized from Latest Screening"}
+                    {patientStatus.created_at && (
+                      <span className="status-date"> • <FaCalendarAlt className="tag-icon" /> {new Date(patientStatus.created_at).toLocaleDateString()}</span>
+                    )}
+                  </div>
                   <h3>
                     {t("dietPlan.assessmentProfile")} {patientStatus.prediction === "Diabetic" ? t("result.diabetic") : t("result.nonDiabetic")} ({patientStatus.risk_percentage}% {t("dashboard.probability")})
                   </h3>

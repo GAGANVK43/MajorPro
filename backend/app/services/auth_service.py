@@ -19,7 +19,8 @@ from app.schemas.user_schema import (
     UserProfileResponse,
     UserProfileUpdateRequest,
     UserPasswordChangeRequest,
-    UserProfileStatsResponse
+    UserProfileStatsResponse,
+    UserEmailChangeRequest,
 )
 from app.config.security import hash_password, verify_password, create_access_token, create_refresh_token
 from app.config.settings import settings
@@ -62,8 +63,18 @@ class AuthService:
             refresh_token=refresh_token,
             token_type="bearer",
             user_id=saved_user.id,
+            id=saved_user.id,
             full_name=saved_user.full_name,
             email=saved_user.email,
+            age=saved_user.age,
+            gender=saved_user.gender,
+            date_of_birth=getattr(saved_user, "date_of_birth", None),
+            address=getattr(saved_user, "address", None),
+            city=getattr(saved_user, "city", None),
+            state=getattr(saved_user, "state", None),
+            postal_code=getattr(saved_user, "postal_code", None),
+            country=getattr(saved_user, "country", "India") or "India",
+            onboarding_completed=bool(getattr(saved_user, "onboarding_completed", False)),
         )
 
     def login(self, request: UserLoginRequest) -> TokenResponse:
@@ -83,8 +94,18 @@ class AuthService:
             refresh_token=refresh_token,
             token_type="bearer",
             user_id=user.id,
+            id=user.id,
             full_name=user.full_name,
             email=user.email,
+            age=user.age,
+            gender=user.gender,
+            date_of_birth=getattr(user, "date_of_birth", None),
+            address=getattr(user, "address", None),
+            city=getattr(user, "city", None),
+            state=getattr(user, "state", None),
+            postal_code=getattr(user, "postal_code", None),
+            country=getattr(user, "country", "India") or "India",
+            onboarding_completed=bool(getattr(user, "onboarding_completed", False)),
         )
 
     def get_profile(self, user: User) -> UserProfileResponse:
@@ -118,8 +139,23 @@ class AuthService:
                 latest_risk = pred_record.risk_percentage
                 latest_conf = pred_record.confidence
 
+        user_profile = UserProfileResponse.model_validate(user)
         return UserProfileStatsResponse(
-            user=UserProfileResponse.model_validate(user),
+            id=user.id,
+            full_name=user.full_name,
+            email=user.email,
+            date_of_birth=getattr(user, "date_of_birth", None),
+            age=user.age,
+            gender=user.gender,
+            address=getattr(user, "address", None),
+            city=getattr(user, "city", None),
+            state=getattr(user, "state", None),
+            postal_code=getattr(user, "postal_code", None),
+            country=getattr(user, "country", "India") or "India",
+            onboarding_completed=bool(getattr(user, "onboarding_completed", False)),
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            user=user_profile,
             total_assessments=total_count,
             latest_prediction=latest_pred_str,
             latest_risk_score=latest_risk,
@@ -130,14 +166,117 @@ class AuthService:
     def update_profile(self, user: User, request: UserProfileUpdateRequest) -> UserProfileResponse:
         if request.full_name is not None and request.full_name.strip():
             user.full_name = request.full_name.strip()
-        if request.age is not None:
+
+        # Date of birth & age consistency
+        if request.date_of_birth is not None:
+            dob_clean = request.date_of_birth.strip()
+            if dob_clean:
+                user.age = self.calculate_age_from_dob(dob_clean)
+                user.date_of_birth = dob_clean
+            else:
+                user.date_of_birth = None
+                if request.age is not None:
+                    user.age = request.age
+        elif request.age is not None:
             user.age = request.age
+
         if request.gender is not None and request.gender.strip():
             user.gender = request.gender.strip()
+        if request.address is not None:
+            user.address = request.address.strip()
+        if request.city is not None:
+            user.city = request.city.strip()
+        if request.state is not None:
+            user.state = request.state.strip()
+        if request.postal_code is not None:
+            user.postal_code = request.postal_code.strip()
+        if request.country is not None and request.country.strip():
+            user.country = request.country.strip()
 
         user.updated_at = datetime.utcnow()
         updated_user = self.user_repo.update(user)
         return UserProfileResponse.model_validate(updated_user)
+
+    @staticmethod
+    def calculate_age_from_dob(dob_str: str) -> int:
+        """
+        Calculates age in whole years from ISO date string (YYYY-MM-DD).
+        Validates format and strictly rejects future dates or impossible ages.
+        """
+        if not dob_str or not dob_str.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Date of birth cannot be empty.",
+            )
+        try:
+            from datetime import date
+            parts = dob_str.strip().split("-")
+            if len(parts) != 3:
+                raise ValueError("Date of birth must be in YYYY-MM-DD format.")
+            year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
+            dob = date(year, month, day)
+            today = date.today()
+            if dob > today:
+                raise ValueError("Date of birth cannot be in the future.")
+            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            if age < 0 or age > 120:
+                raise ValueError("Calculated age must be between 0 and 120 years.")
+            return age
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
+
+    def change_email(self, user: User, request: UserEmailChangeRequest) -> dict:
+        """
+        Secure email change requiring current account password verification.
+        Ensures email uniqueness and re-issues authentication tokens.
+        """
+        if not verify_password(request.current_password, user.password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect. Verification required to change email.",
+            )
+
+        new_email_clean = str(request.new_email).lower().strip()
+        if new_email_clean == user.email.lower().strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New email must be different from your current email address.",
+            )
+
+        existing = self.user_repo.get_by_email(new_email_clean)
+        if existing and existing.id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email address already exists. Try logging in or resetting your password.",
+            )
+
+        user.email = new_email_clean
+        user.updated_at = datetime.utcnow()
+        self.user_repo.update(user)
+
+        # Issue refreshed authentication tokens for newly updated email
+        token_data = {"sub": user.email, "id": user.id}
+        new_access_token = create_access_token(token_data)
+        new_refresh_token = create_refresh_token(token_data)
+
+        return {
+            "user": UserProfileResponse.model_validate(user).model_dump(mode="json"),
+            "access_token": new_access_token,
+            "refresh_token": new_refresh_token,
+            "email": user.email,
+        }
+
+    def complete_onboarding(self, user: User) -> UserProfileResponse:
+        """
+        Records completion of the first-time guided workflow (Assessment -> Diet Plan).
+        """
+        user.onboarding_completed = True
+        user.updated_at = datetime.utcnow()
+        updated = self.user_repo.update(user)
+        return UserProfileResponse.model_validate(updated)
 
     def change_password(self, user: User, request: UserPasswordChangeRequest) -> None:
         if not verify_password(request.current_password, user.password):

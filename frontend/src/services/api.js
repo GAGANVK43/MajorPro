@@ -56,6 +56,8 @@ export const userService = {
   getProfile: () => api.get("/api/user/profile"),
   updateProfile: (data) => api.put("/api/user/profile", data),
   changePassword: (data) => api.put("/api/user/change-password", data),
+  changeEmail: (data) => api.put("/api/user/change-email", data),
+  completeOnboarding: () => api.put("/api/user/onboarding-complete"),
 };
 
 export const assessmentService = {
@@ -78,6 +80,7 @@ export const dashboardService = {
 export const dietService = {
   getLatestDiet: () => api.get("/api/diet/latest"),
   getByPredictionId: (id) => api.get(`/api/diet/${id}`),
+  getByAssessmentId: (id) => api.get(`/api/diet/assessment/${id}`),
 };
 
 export const contactService = {

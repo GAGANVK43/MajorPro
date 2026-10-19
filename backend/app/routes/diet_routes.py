@@ -27,6 +27,25 @@ def get_latest_diet_plan(
     )
 
 
+@router.get("/assessment/{assessment_id}", status_code=status.HTTP_200_OK)
+def get_diet_plan_by_assessment(
+    assessment_id: int,
+    current_user: User = Depends(get_current_user),
+    accept_language: str = Header(default="en", alias="Accept-Language"),
+    db: Session = Depends(get_db),
+):
+    """
+    Retrieve personalized diet plan for a specific assessment ID in requested language.
+    Validates authenticated user owns the assessment.
+    """
+    service = DietService(db)
+    result = service.get_diet_plan_by_assessment_id(current_user, assessment_id, lang=accept_language)
+    return success_response(
+        data=result,
+        message="Diet plan retrieved successfully for assessment",
+    )
+
+
 @router.get("/{prediction_id}", status_code=status.HTTP_200_OK)
 def get_diet_plan_by_prediction(
     prediction_id: int,

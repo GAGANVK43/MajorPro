@@ -366,15 +366,169 @@
   background: #0c1424 !important;
 }
 
+.input-field-calculated {
+  background: rgba(14, 165, 233, 0.08) !important;
+  border-color: rgba(14, 165, 233, 0.3) !important;
+  color: #38bdf8 !important;
+  cursor: not-allowed;
+  font-weight: 600;
+}
+
+.req-star {
+  color: #f43f5e;
+  margin-left: 0.2rem;
+  font-weight: 700;
+}
+
 .field-sub-hint {
   font-size: 0.75rem;
   color: #64748b;
-  margin-top: 0.15rem;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+/* Secure Email Action Row & Subpanel */
+.email-input-action-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.email-input-action-row input {
+  flex: 1;
+}
+
+.btn-email-change-pill {
+  padding: 0.55rem 0.95rem;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(14, 165, 233, 0.35);
+  color: #38bdf8;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.btn-email-change-pill:hover {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.email-change-subpanel {
+  margin-top: 0.75rem;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  animation: fadeIn 0.25s ease;
+}
+
+.email-change-subpanel h4 {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #38bdf8;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.email-change-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.email-change-inputs input {
+  padding: 0.65rem 0.85rem;
+  background: #090f1d;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #f8fafc;
+  font-size: 0.85rem;
+}
+
+.email-change-inputs input:focus {
+  border-color: #38bdf8;
+  outline: none;
+}
+
+.email-change-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.btn-confirm-email-change {
+  padding: 0.55rem 1.1rem;
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-confirm-email-change:hover:not(:disabled) {
+  background: #0369a1;
+}
+
+.btn-confirm-email-change:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-cancel-email-change {
+  padding: 0.55rem 0.95rem;
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel-email-change:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f1f5f9;
+}
+
+/* Address Section Header & Grid */
+.address-section-header {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.address-section-header h4 {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin: 0 0 0.2rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .form-two-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.form-three-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 1rem;
 }
 
@@ -468,7 +622,11 @@
 
 /* Primary Action Button */
 .form-save-action-box {
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .btn-primary-save {
@@ -495,6 +653,32 @@
 
 .btn-primary-save:disabled {
   opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.btn-secondary-cancel {
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.2s ease;
+  min-height: 44px;
+}
+
+.btn-secondary-cancel:hover:not(:disabled) {
+  background: rgba(51, 65, 85, 0.8);
+  color: #f8fafc;
+}
+
+.btn-secondary-cancel:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -755,7 +939,9 @@
 }
 
 @media (max-width: 640px) {
-  .form-two-cols {
+  .form-two-cols,
+  .form-three-cols,
+  .email-change-inputs {
     grid-template-columns: 1fr;
   }
   .criteria-grid {
