@@ -30,11 +30,14 @@ class Settings(BaseSettings):
     # Contact Admin Email Notification Target
     ADMIN_EMAIL: str = "gagankamati643@gmail.com"
 
-    # SMTP Settings (Optional for live delivery)
+    # SMTP Settings (Transactional Email Delivery)
     SMTP_SERVER: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_FROM_NAME: str = "DiaSense AI Healthcare"
+    FRONTEND_URL: str = "http://localhost:5173"
 
     # Generative AI Key
     GEMINI_API_KEY: str = ""

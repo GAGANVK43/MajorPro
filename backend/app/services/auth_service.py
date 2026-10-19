@@ -158,48 +158,69 @@ class AuthService:
 
     def forgot_password(self, request: ForgotPasswordRequest) -> dict:
         """
-        Generates a secure password reset token valid for 1 hour.
-        Dispatches reset email via EmailService.
-        Returns reset_token in response in development mode for easy verification.
+        Generates a secure, time-limited password reset token.
+        Stores SHA-256 hash of token in database (never plaintext).
+        Dispatches password reset email via EmailService.
+        Reports accurate delivery status without misleading success states.
         """
         user = self.user_repo.get_by_email(request.email)
         if not user:
-            # Do not reveal whether user exists for security
+            # Privacy-preserving: Do not reveal whether user exists
             return {
-                "message": "If an account with that email exists, password reset instructions have been sent.",
+                "message": "If an account with that email exists, password reset instructions have been processed.",
                 "email": request.email.lower().strip(),
+                "email_dispatched": False,
+                "delivery_status": "unverified",
             }
 
-        # Generate cryptographically secure reset token
-        reset_token = secrets.token_urlsafe(32)
-        user.reset_token = reset_token
+        # Generate cryptographically secure raw token
+        raw_token = secrets.token_urlsafe(32)
+        # Store SHA-256 hash in database for security
+        token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+        user.reset_token = token_hash
         user.reset_token_expiry = datetime.utcnow() + timedelta(hours=1)
         user.updated_at = datetime.utcnow()
         self.user_repo.update(user)
 
-        # Dispatch email
+        # Dispatch email with raw token in the reset link
         email_svc = EmailService()
-        email_svc.send_password_reset_email(
+        delivery_result = email_svc.send_password_reset_email(
             email=user.email,
-            reset_token=reset_token,
+            reset_token=raw_token,
             full_name=user.full_name,
         )
 
-        return {
-            "message": "If an account with that email exists, password reset instructions have been sent.",
+        res_data = {
+            "message": "If an account with that email exists, password reset instructions have been processed.",
             "email": user.email,
-            # Provided for client convenience / dev testing when SMTP is not configured
-            "reset_token": reset_token,
+            "email_dispatched": delivery_result.get("delivered", False),
+            "delivery_status": delivery_result.get("status", "unknown"),
         }
+
+        # Safe diagnostic for developers in debug mode or when provider is unconfigured
+        if not delivery_result.get("delivered") and settings.DEBUG:
+            res_data["dev_diagnostic"] = (
+                "Outbound email was not sent because SMTP credentials (SMTP_USER / SMTP_PASSWORD) "
+                "are not configured in backend/.env. To receive real emails in your inbox, set your "
+                "SMTP provider credentials in backend/.env."
+            )
+            # Expose raw token exclusively in debug mode for seamless local developer testing
+            res_data["dev_reset_token"] = raw_token
+
+        return res_data
 
     def reset_password(self, request: ResetPasswordRequest) -> None:
         """
-        Validates the reset token, verifies it is not expired,
-        and sets the new password.
+        Validates the raw reset token against stored SHA-256 hash,
+        verifies it is not expired, sets the new password, and invalidates the token.
         """
+        candidate_token = request.token.strip()
+        candidate_hash = hashlib.sha256(candidate_token.encode("utf-8")).hexdigest()
+
         user = (
             self.db.query(User)
-            .filter(User.reset_token == request.token)
+            .filter(User.reset_token == candidate_hash)
             .first()
         )
 
@@ -224,10 +245,12 @@ class AuthService:
                 detail="New password must be at least 6 characters long.",
             )
 
+        # Hash new password with bcrypt
         user.password = hash_password(request.new_password)
+        # Invalidate token immediately upon single use
         user.reset_token = None
         user.reset_token_expiry = None
         user.updated_at = datetime.utcnow()
         self.user_repo.update(user)
-        logger.info(f"Password successfully reset for user: {user.email}")
+        logger.info(f"Password successfully reset and token revoked for user: {user.email}")
 

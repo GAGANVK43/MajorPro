@@ -9,8 +9,8 @@ from app.utils.logger import logger
 
 class EmailService:
     """
-    Service layer for sending contact message notifications to admin email:
-    gagankamati643@gmail.com
+    Service layer for sending transactional emails (notifications, password recovery)
+    via standard SMTP (Gmail, SendGrid, Mailgun, Resend, etc.).
     """
     def __init__(self):
         self.admin_email = settings.ADMIN_EMAIL or "gagankamati643@gmail.com"
@@ -18,11 +18,17 @@ class EmailService:
         self.smtp_port = settings.SMTP_PORT
         self.smtp_user = settings.SMTP_USER
         self.smtp_password = settings.SMTP_PASSWORD
+        self.smtp_from_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER or "noreply@diasense.ai"
+        self.smtp_from_name = settings.SMTP_FROM_NAME or "DiaSense AI Healthcare"
+        self.frontend_url = settings.FRONTEND_URL or "http://localhost:5173"
+
+    def is_configured(self) -> bool:
+        """Returns True only when valid SMTP credentials are present."""
+        return bool(self.smtp_user and self.smtp_password)
 
     def send_contact_notification(self, name: str, email: str, subject: str, message: str) -> bool:
         """
-        Sends an automated notification to gagankamati643@gmail.com
-        containing full contact submission details.
+        Sends an automated notification to admin email containing full contact submission details.
         """
         logger.info(f"📧 Dispatching Contact Notification to Admin ({self.admin_email}) from {name} <{email}>")
 
@@ -54,46 +60,38 @@ class EmailService:
         </html>
         """
 
-        # 1. Attempt Live SMTP Email Delivery if credentials provided
-        if self.smtp_user and self.smtp_password:
+        if self.is_configured():
             try:
                 msg = MIMEMultipart("alternative")
                 msg["Subject"] = f"[DiaSense AI Inquiry] {subject} - From {name}"
-                msg["From"] = self.smtp_user
+                msg["From"] = f"{self.smtp_from_name} <{self.smtp_from_email}>"
                 msg["To"] = self.admin_email
                 msg["Reply-To"] = email
-
                 msg.attach(MIMEText(html_body, "html"))
 
-                with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=15) as server:
                     server.starttls()
                     server.login(self.smtp_user, self.smtp_password)
-                    server.sendmail(self.smtp_user, self.admin_email, msg.as_string())
+                    server.sendmail(self.smtp_from_email, self.admin_email, msg.as_string())
 
                 logger.info(f"✅ Successfully sent live SMTP email to {self.admin_email}")
                 return True
             except Exception as e:
                 logger.warning(f"SMTP delivery error: {e}. Message saved & logged to admin inbox.")
 
-        # 2. Backup / Simulated Log Delivery
-        logger.info("==================================================")
-        logger.info(f" ADMIN NOTIFICATION DISPATCHED TO: {self.admin_email}")
-        logger.info(f" SENDER  : {name} <{email}>")
-        logger.info(f" SUBJECT : {subject}")
-        logger.info(f" MESSAGE : {message[:100]}...")
-        logger.info("==================================================")
         return True
 
     def send_contact_confirmation(self, name: str, email: str, subject: str) -> bool:
         logger.info(f"Sending receipt confirmation to user {name} <{email}>")
         return True
 
-    def send_password_reset_email(self, email: str, reset_token: str, full_name: str = "") -> bool:
+    def send_password_reset_email(self, email: str, reset_token: str, full_name: str = "") -> dict:
         """
         Sends a secure password reset link to the requested email.
-        Uses configured frontend URL or default localhost.
+        Uses configured frontend URL and returns accurate delivery status.
+        Never exposes raw reset tokens in log outputs.
         """
-        reset_link = f"http://localhost:5173/reset-password?token={reset_token}"
+        reset_link = f"{self.frontend_url.rstrip('/')}/reset-password?token={reset_token}"
         greeting = f"Hello {full_name}," if full_name else "Hello,"
 
         html_body = f"""
@@ -122,29 +120,47 @@ class EmailService:
         </html>
         """
 
-        if self.smtp_user and self.smtp_password:
-            try:
-                msg = MIMEMultipart("alternative")
-                msg["Subject"] = "🔐 DiaSense AI — Password Reset Request"
-                msg["From"] = self.smtp_user
-                msg["To"] = email
-                msg.attach(MIMEText(html_body, "html"))
+        if not self.is_configured():
+            logger.warning(
+                f"Password recovery requested for {email}, but SMTP credentials are not configured. "
+                "No outbound email could be sent."
+            )
+            return {
+                "delivered": False,
+                "provider": "none",
+                "status": "provider_unconfigured",
+                "recipient": email,
+                "error": "SMTP credentials (SMTP_USER / SMTP_PASSWORD) are not configured in backend/.env.",
+            }
 
-                with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
-                    server.starttls()
-                    server.login(self.smtp_user, self.smtp_password)
-                    server.sendmail(self.smtp_user, email, msg.as_string())
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = "🔐 DiaSense AI — Password Reset Request"
+            msg["From"] = f"{self.smtp_from_name} <{self.smtp_from_email}>"
+            msg["To"] = email
+            msg.attach(MIMEText(html_body, "html"))
 
-                logger.info(f"✅ Successfully sent password reset email to {email}")
-                return True
-            except Exception as e:
-                logger.warning(f"SMTP reset email failed ({e}). Logged to console.")
+            with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=15) as server:
+                server.starttls()
+                server.login(self.smtp_user, self.smtp_password)
+                server.sendmail(self.smtp_from_email, email, msg.as_string())
 
-        logger.info("==================================================")
-        logger.info(f" PASSWORD RESET EMAIL DISPATCHED")
-        logger.info(f" TO    : {email}")
-        logger.info(f" TOKEN : {reset_token}")
-        logger.info(f" LINK  : {reset_link}")
-        logger.info("==================================================")
-        return True
+            logger.info(f"✅ Successfully sent live password reset email via SMTP to {email}")
+            return {
+                "delivered": True,
+                "provider": "smtp",
+                "status": "sent",
+                "recipient": email,
+                "error": None,
+            }
+        except Exception as e:
+            logger.error(f"❌ SMTP delivery failed to {email}: {e}")
+            return {
+                "delivered": False,
+                "provider": "smtp",
+                "status": "failed",
+                "recipient": email,
+                "error": str(e),
+            }
+
 

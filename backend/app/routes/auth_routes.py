@@ -86,7 +86,7 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
     result = service.forgot_password(request)
     return success_response(
         data=result,
-        message="If an account with that email exists, a reset link has been sent.",
+        message=result.get("message", "If an account with that email exists, password reset instructions have been processed."),
     )
 
 
