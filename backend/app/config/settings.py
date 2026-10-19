@@ -39,8 +39,10 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "DiaSense AI Healthcare"
     FRONTEND_URL: str = "http://localhost:5173"
 
-    # Generative AI Key
+    # Generative AI Key & Models
     GEMINI_API_KEY: str = ""
+    GEMINI_VISION_MODEL: str = "gemini-1.5-flash"
+    GEMINI_TEXT_MODEL: str = "gemini-1.5-flash"
 
     # Google Places API Key (Optional; defaults to OpenStreetMap Overpass & Nominatim)
     GOOGLE_PLACES_API_KEY: str = ""

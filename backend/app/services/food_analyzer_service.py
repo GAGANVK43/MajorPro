@@ -2,9 +2,13 @@ import os
 import io
 import json
 import base64
+import hashlib
+import uuid
+import re
 import httpx
 from PIL import Image
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
+from fastapi import HTTPException
 from app.config.settings import settings
 from app.utils.logger import logger
 from app.schemas.food_schema import FoodAnalysisResponse, FoodItemNutritionalDetail
@@ -171,89 +175,278 @@ FOOD_KNOWLEDGE_BASE: Dict[str, Dict[str, Any]] = {
     }
 }
 
+# Strict normalized alias mapping to canonical knowledge base dishes
+FOOD_ALIASES: Dict[str, str] = {
+    # Chicken & Poultry
+    "roasted chicken with green beans": "roasted chicken",
+    "roasted chicken": "roasted chicken",
+    "roast chicken": "roasted chicken",
+    "grilled chicken": "grilled chicken",
+    "chicken breast": "chicken breast",
+    "chicken tikka": "grilled chicken",
+    "chicken meal": "roasted chicken",
+    "chicken": "grilled chicken",
+    # Dosa varieties
+    "oats and ragi dosa": "oats dosa",
+    "oats dosa with mint chutney": "oats dosa",
+    "oats dosa": "oats dosa",
+    "masala dosa with sambar": "masala dosa",
+    "masala dosa": "masala dosa",
+    "dosa": "masala dosa",
+    # Roti & Flatbreads
+    "ragi roti with mixed veg subzi": "ragi roti",
+    "ragi roti": "ragi roti",
+    "chapati": "ragi roti",
+    "roti": "ragi roti",
+    # Paneer
+    "palak paneer with bajra roti": "palak paneer",
+    "palak paneer": "palak paneer",
+    "paneer": "palak paneer",
+    # Rice & Legumes
+    "brown rice with rajma curry": "brown rice",
+    "brown rice with rajma": "brown rice",
+    "brown rice": "brown rice",
+    "rajma curry": "rajma",
+    "rajma": "rajma",
+    # Khichdi
+    "moong dal khichdi": "moong dal khichdi",
+    "khichdi": "moong dal khichdi",
+    # Sweets
+    "gulab jamun": "gulab jamun",
+    # Salads
+    "avocado quinoa salad bowl with sprouts": "avocado quinoa salad",
+    "avocado quinoa salad": "avocado quinoa salad",
+    "quinoa salad": "avocado quinoa salad",
+    "green salad": "green salad",
+    "salad": "green salad",
+}
+
 
 class FoodAnalyzerService:
     """
     AI-powered Food Image Analyzer and Meal Calorie / Nutrition Analyzer with multilingual support.
+    Strictly ties analysis to image bytes and request IDs. Never fabricates fake food identifications.
     """
-    def __init__(self):
-        self.api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
+    def __init__(self, api_key: Optional[str] = None):
+        self._api_key = api_key
 
-    def analyze_meal_text(self, query: str, lang: str = "en") -> FoodAnalysisResponse:
+    @property
+    def api_key(self) -> str:
+        if self._api_key is not None:
+            return self._api_key
+        return settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
+
+    @api_key.setter
+    def api_key(self, value: Optional[str]):
+        self._api_key = value
+
+    def _lookup_verified_knowledge_base(self, dish_query: str) -> Optional[Tuple[str, Dict[str, Any]]]:
         """
-        Analyzes typed meal text and returns complete nutritional metrics & diabetic suitability in the requested language.
+        Looks up a dish query against canonical items and aliases using exact and word-boundary matching.
+        Returns (canonical_key, data_dict) or None.
         """
-        logger.info(f"🔍 Analyzing meal text query: '{query}' (lang: {lang})")
+        q = dish_query.lower().strip()
+        # 1. Exact match in knowledge base
+        if q in FOOD_KNOWLEDGE_BASE:
+            return q, FOOD_KNOWLEDGE_BASE[q]
+        # 2. Exact match in aliases
+        if q in FOOD_ALIASES and FOOD_ALIASES[q] in FOOD_KNOWLEDGE_BASE:
+            canonical = FOOD_ALIASES[q]
+            return canonical, FOOD_KNOWLEDGE_BASE[canonical]
+        # 3. Word-boundary regex match against sorted aliases (longest phrase first)
+        for alias, canonical in sorted(FOOD_ALIASES.items(), key=lambda x: len(x[0]), reverse=True):
+            if re.search(rf"\b{re.escape(alias)}\b", q):
+                if canonical in FOOD_KNOWLEDGE_BASE:
+                    return canonical, FOOD_KNOWLEDGE_BASE[canonical]
+        return None
+
+    def analyze_meal_text(
+        self,
+        query: str,
+        lang: str = "en",
+        client_request_id: Optional[str] = None,
+    ) -> FoodAnalysisResponse:
+        """
+        Analyzes typed meal text and returns verified nutritional metrics or an honest unverified response.
+        """
+        req_id = client_request_id or f"req_{uuid.uuid4().hex[:12]}"
+        logger.info(f"🔍 Analyzing meal text query: '{query}' (req_id: {req_id}, lang: {lang})")
         q_lower = query.lower().strip()
 
-        # Check KB matching logic first
+        # 1. Check verified knowledge base
         matched_items = []
-        for key, data in FOOD_KNOWLEDGE_BASE.items():
-            if key in q_lower:
-                matched_items.append((key, data))
+        for alias, canonical in sorted(FOOD_ALIASES.items(), key=lambda x: len(x[0]), reverse=True):
+            if re.search(rf"\b{re.escape(alias)}\b", q_lower):
+                if canonical in FOOD_KNOWLEDGE_BASE:
+                    item_data = FOOD_KNOWLEDGE_BASE[canonical]
+                    if (canonical, item_data) not in matched_items:
+                        matched_items.append((canonical, item_data))
 
         if matched_items:
-            return self._build_combined_food_response(query, matched_items, lang)
+            return self._build_combined_food_response(query, matched_items, lang, req_id)
 
-        # Check AI model API for dynamic calculation if not in KB
+        # 2. Check dynamic AI model if API key is present
         if self.api_key:
-            ai_res = self._query_gemini_food_nutrition(query, lang)
+            ai_res = self._query_gemini_food_nutrition(query, lang, req_id)
             if ai_res:
                 return ai_res
 
-        return self._generate_generic_food_analysis(query, lang)
+        # 3. Item not in verified database and no AI key configured:
+        # Return honest response with null nutrition instead of invented numbers.
+        logger.info(f"[MEAL_TEXT] Query '{query}' not found in verified database; returning unverified status")
+        return FoodAnalysisResponse(
+            dish_name=query.title(),
+            identified_items=[query.title()],
+            total_calories_kcal=None,
+            total_carbohydrates_g=None,
+            total_net_carbs_g=None,
+            total_protein_g=None,
+            total_fiber_g=None,
+            total_fats_g=None,
+            average_glycemic_index=None,
+            overall_suitability="Uncertain / Unverified",
+            suitability_color="amber",
+            suggested_portion="Standard Serving",
+            nutritional_details=[],
+            clinical_recommendation=(
+                f"Nutritional facts for '{query}' are not yet verified in our clinical database. "
+                "For accurate diabetic carbohydrate counting, consult packaged nutrition labels or an accredited dietitian."
+            ),
+            request_id=req_id,
+            confidence_score=None,
+            identification_status="unrecognized",
+            provenance="unavailable",
+            nutrition_status="unavailable",
+            warning_message=f"No verified nutrition data available for '{query}'.",
+        )
 
-    def analyze_food_image(self, image_bytes: bytes, filename: str, lang: str = "en") -> FoodAnalysisResponse:
+    def analyze_food_image(
+        self,
+        image_bytes: bytes,
+        filename: str = "food.jpg",
+        lang: str = "en",
+        client_request_id: Optional[str] = None,
+    ) -> FoodAnalysisResponse:
         """
-        Analyzes uploaded food image using AI Vision Recognition Engine in the requested language.
+        Analyzes uploaded food image using AI Vision Recognition.
+        Ties analysis strictly to image bytes (SHA-256 hash) and client request ID.
+        Never fabricates results from filename keywords or returns unverified defaults.
         """
-        logger.info(f"[IMAGE_ANALYSIS] Analyzing uploaded food image: {filename} (lang: {lang})")
+        req_id = client_request_id or f"req_{uuid.uuid4().hex[:12]}"
+        img_hash = hashlib.sha256(image_bytes).hexdigest()[:16]
+        logger.info(f"[IMAGE_ANALYSIS] Processing food image: {filename} (hash: {img_hash}, req_id: {req_id}, lang: {lang})")
 
-        # 1. Compress & resize image to 512x512 JPEG for ultra-fast vision inference
+        # 1. Image validation & readability check
         try:
+            pil_img = Image.open(io.BytesIO(image_bytes))
+            pil_img.verify()
+            # Reopen to read image data after verify()
             pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-            pil_img.thumbnail((512, 512))
+        except Exception as e:
+            logger.warning(f"Image integrity validation failed for {filename}: {e}")
+            raise HTTPException(
+                status_code=400,
+                detail="Uploaded file is not a valid or readable image (.jpg, .png, .jpeg, .webp).",
+            )
+
+        # 2. Thumbnail creation for efficient transmission
+        try:
+            thumb = pil_img.copy()
+            thumb.thumbnail((512, 512))
             buf = io.BytesIO()
-            pil_img.save(buf, format="JPEG", quality=80)
+            thumb.save(buf, format="JPEG", quality=85)
             compressed_bytes = buf.getvalue()
         except Exception as e:
-            logger.warning(f"Image compression failed: {e}")
+            logger.warning(f"Image compression warning: {e}")
             compressed_bytes = image_bytes
 
-        # 2. Call Google Gemini-3.5 Vision Model with the compressed image
+        # 3. Call Vision Model if API key is configured
         if self.api_key:
-            ai_vision_res = self._query_gemini_image_vision(compressed_bytes, "models/gemini-3.5-flash", lang)
+            vision_model = settings.GEMINI_VISION_MODEL or "gemini-1.5-flash"
+            ai_vision_res = self._query_gemini_image_vision(
+                image_bytes=compressed_bytes,
+                model_name=vision_model,
+                lang=lang,
+                client_request_id=req_id,
+                image_hash=img_hash,
+            )
             if ai_vision_res:
-                logger.info(f"[AI_VISION_SUCCESS] Identified dish: {ai_vision_res.dish_name}")
+                logger.info(f"[AI_VISION_SUCCESS] Identified: '{ai_vision_res.dish_name}' (req: {req_id})")
                 return ai_vision_res
+            else:
+                logger.warning(f"[AI_VISION_FAIL] Vision provider failed to analyze image {img_hash}")
+                return FoodAnalysisResponse(
+                    dish_name="Unable to Identify Food Image",
+                    identified_items=[],
+                    total_calories_kcal=None,
+                    total_carbohydrates_g=None,
+                    total_net_carbs_g=None,
+                    total_protein_g=None,
+                    total_fiber_g=None,
+                    total_fats_g=None,
+                    average_glycemic_index=None,
+                    overall_suitability="Uncertain / Unverified",
+                    suitability_color="amber",
+                    suggested_portion="N/A",
+                    nutritional_details=[],
+                    clinical_recommendation=(
+                        "The vision recognition engine could not identify food in this image. "
+                        "Please verify image lighting and clarity, or use the 'Calorie & Nutrition Search' tab."
+                    ),
+                    request_id=req_id,
+                    image_hash=img_hash,
+                    confidence_score=None,
+                    identification_status="provider_error",
+                    provenance="unavailable",
+                    nutrition_status="unavailable",
+                    warning_message="External vision service returned an error or timeout during analysis.",
+                )
 
-        # 3. Fallback to smart heuristic if API is unavailable
-        fn_lower = filename.lower().strip()
-        if any(w in fn_lower for w in ["chicken", "meat", "hen", "duck", "roast"]):
-            target_dish = "Roasted Chicken with Green Beans"
-        elif any(w in fn_lower for w in ["dosa", "crepe"]):
-            target_dish = "Oats Dosa with Mint Chutney"
-        elif any(w in fn_lower for w in ["rice", "biryani"]):
-            target_dish = "Brown Rice with Rajma Curry"
-        elif any(w in fn_lower for w in ["paneer", "palak"]):
-            target_dish = "Palak Paneer with Bajra Roti"
-        elif any(w in fn_lower for w in ["roti", "chapati"]):
-            target_dish = "Ragi Roti with Mixed Veg Subzi"
-        elif any(w in fn_lower for w in ["sweet", "jamun", "dessert"]):
-            target_dish = "Gulab Jamun"
-        else:
-            target_dish = "Avocado Quinoa Salad Bowl with Sprouts"
+        # 4. If NO API key is configured:
+        # TRUTHFUL STATE: Do NOT fall back to Avocado Quinoa Salad Bowl or filename guessing!
+        logger.info(f"[IMAGE_ANALYSIS] GEMINI_API_KEY is not configured; returning honest unconfigured status for req {req_id}")
+        return FoodAnalysisResponse(
+            dish_name="AI Vision Recognition Unavailable",
+            identified_items=[],
+            total_calories_kcal=None,
+            total_carbohydrates_g=None,
+            total_net_carbs_g=None,
+            total_protein_g=None,
+            total_fiber_g=None,
+            total_fats_g=None,
+            average_glycemic_index=None,
+            overall_suitability="Vision Provider Unconfigured",
+            suitability_color="amber",
+            suggested_portion="N/A",
+            nutritional_details=[],
+            clinical_recommendation=(
+                "AI Vision food recognition requires GEMINI_API_KEY in backend/.env. "
+                "No external vision model is currently configured. "
+                "You can switch to the 'Calorie & Nutrition Search' tab to find verified nutrition for any meal."
+            ),
+            request_id=req_id,
+            image_hash=img_hash,
+            confidence_score=None,
+            identification_status="provider_unconfigured",
+            provenance="unavailable",
+            nutrition_status="unavailable",
+            warning_message="GEMINI_API_KEY is not set in backend/.env. AI Vision photo recognition cannot run.",
+        )
 
-        return self.analyze_meal_text(target_dish, lang)
-
-    def _query_gemini_food_nutrition(self, query: str, lang: str = "en") -> Optional[FoodAnalysisResponse]:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={self.api_key}"
+    def _query_gemini_food_nutrition(
+        self,
+        query: str,
+        lang: str = "en",
+        client_request_id: Optional[str] = None,
+    ) -> Optional[FoodAnalysisResponse]:
+        model_name = getattr(settings, "GEMINI_TEXT_MODEL", "gemini-1.5-flash").replace("models/", "").strip()
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
         norm_lang = normalize_lang(lang)
         lang_name = LANGUAGE_NAMES.get(norm_lang, "English")
 
         prompt = f"""
         Act as a Clinical Nutritionist. Analyze meal: "{query}".
-        CRITICAL: All user-facing text (dish_name, identified_items, suggested_portion, diabetic_suitability, clinical_recommendation) MUST be completely in {lang_name}.
+        CRITICAL: All user-facing text (dish_name, identified_items, suggested_portion, diabetic_suitability, clinical_recommendation) MUST be in {lang_name}.
         Return JSON ONLY matching this structure:
         {{
           "dish_name": "Dish Name in {lang_name}",
@@ -265,9 +458,10 @@ class FoodAnalyzerService:
           "total_fiber_g": 4.0,
           "total_fats_g": 14.0,
           "average_glycemic_index": 35,
-          "overall_suitability": "Diabetic Friendly or localized suitability",
+          "overall_suitability": "Diabetic Friendly",
           "suitability_color": "emerald",
           "suggested_portion": "1 serving (250g)",
+          "confidence_score": 0.85,
           "nutritional_details": [
              {{
                 "food_name": "Food Name in {lang_name}",
@@ -284,7 +478,7 @@ class FoodAnalyzerService:
                 "suitability_color": "emerald"
              }}
           ],
-          "clinical_recommendation": "Healthy balanced meal choice with low glycemic impact written in {lang_name}."
+          "clinical_recommendation": "Healthy balanced meal choice with low glycemic impact."
         }}
         """
 
@@ -296,22 +490,55 @@ class FoodAnalyzerService:
                 text = data["candidates"][0]["content"]["parts"][0]["text"]
                 clean_json = text.replace("```json", "").replace("```", "").strip()
                 parsed = json.loads(clean_json)
-                return FoodAnalysisResponse(**parsed)
+
+                details = []
+                for d in parsed.get("nutritional_details", []):
+                    details.append(FoodItemNutritionalDetail(**d))
+
+                return FoodAnalysisResponse(
+                    dish_name=parsed.get("dish_name", query.title()),
+                    identified_items=parsed.get("identified_items", [query.title()]),
+                    total_calories_kcal=parsed.get("total_calories_kcal"),
+                    total_carbohydrates_g=parsed.get("total_carbohydrates_g"),
+                    total_net_carbs_g=parsed.get("total_net_carbs_g"),
+                    total_protein_g=parsed.get("total_protein_g"),
+                    total_fiber_g=parsed.get("total_fiber_g"),
+                    total_fats_g=parsed.get("total_fats_g"),
+                    average_glycemic_index=parsed.get("average_glycemic_index"),
+                    overall_suitability=parsed.get("overall_suitability", "Moderate"),
+                    suitability_color=parsed.get("suitability_color", "emerald"),
+                    suggested_portion=parsed.get("suggested_portion", "Standard Serving"),
+                    nutritional_details=details,
+                    clinical_recommendation=parsed.get("clinical_recommendation", ""),
+                    request_id=client_request_id,
+                    confidence_score=parsed.get("confidence_score"),
+                    identification_status="identified",
+                    provenance="ai_vision",
+                    nutrition_status="estimated",
+                )
         except Exception as e:
-            logger.warning(f"Text nutrition analysis error: {e}")
+            logger.warning(f"Text nutrition analysis error with Gemini: {e}")
 
         return None
 
-    def _query_gemini_image_vision(self, image_bytes: bytes, model_name: str, lang: str = "en") -> Optional[FoodAnalysisResponse]:
-        url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={self.api_key}"
+    def _query_gemini_image_vision(
+        self,
+        image_bytes: bytes,
+        model_name: str,
+        lang: str = "en",
+        client_request_id: Optional[str] = None,
+        image_hash: Optional[str] = None,
+    ) -> Optional[FoodAnalysisResponse]:
+        clean_model = model_name.replace("models/", "").strip()
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:generateContent?key={self.api_key}"
         b64_img = base64.b64encode(image_bytes).decode("utf-8")
         norm_lang = normalize_lang(lang)
         lang_name = LANGUAGE_NAMES.get(norm_lang, "English")
 
         prompt = f"""
         You are DiaSense AI Clinical Nutritionist. Identify the exact food dish and ingredients in this image.
-        CRITICAL: All user-facing text (dish_name, identified_items, suggested_portion, diabetic_suitability, clinical_recommendation) MUST be completely in {lang_name}.
-        Return JSON ONLY matching this exact structure:
+        CRITICAL: All user-facing text (dish_name, identified_items, suggested_portion, diabetic_suitability, clinical_recommendation) MUST be in {lang_name}.
+        Return JSON ONLY matching this structure:
         {{
           "dish_name": "Accurate Name of the Dish in {lang_name}",
           "identified_items": ["item 1 in {lang_name}", "item 2 in {lang_name}"],
@@ -322,12 +549,13 @@ class FoodAnalyzerService:
           "total_fiber_g": 4.0,
           "total_fats_g": 15.0,
           "average_glycemic_index": 30,
-          "overall_suitability": "Diabetic Friendly or localized text",
+          "overall_suitability": "Diabetic Friendly",
           "suitability_color": "emerald",
-          "suggested_portion": "1 plate / 1 bowl (250g)",
+          "suggested_portion": "1 plate (250g)",
+          "confidence_score": 0.88,
           "nutritional_details": [
              {{
-                "food_name": "Main Identified Item in {lang_name}",
+                "food_name": "Main Item in {lang_name}",
                 "calories_kcal": 380.0,
                 "carbohydrates_g": 22.0,
                 "net_carbs_g": 18.0,
@@ -341,7 +569,7 @@ class FoodAnalyzerService:
                 "suitability_color": "emerald"
              }}
           ],
-          "clinical_recommendation": "Accurate clinical recommendation regarding blood glucose, carbohydrates, and insulin sensitivity in {lang_name}."
+          "clinical_recommendation": "Nutritional assessment based on visual food breakdown."
         }}
         """
 
@@ -356,21 +584,60 @@ class FoodAnalyzerService:
                     }
                 ]
             }
-            res = httpx.post(url, json=payload, timeout=30.0)
+            res = httpx.post(url, json=payload, timeout=25.0)
             if res.status_code == 200:
                 data = res.json()
                 text = data["candidates"][0]["content"]["parts"][0]["text"]
                 clean_json = text.replace("```json", "").replace("```", "").strip()
                 parsed = json.loads(clean_json)
-                return FoodAnalysisResponse(**parsed)
+
+                dish_name = parsed.get("dish_name", "Identified Meal")
+                verified_match = self._lookup_verified_knowledge_base(dish_name)
+
+                details = []
+                for d in parsed.get("nutritional_details", []):
+                    details.append(FoodItemNutritionalDetail(**d))
+
+                provenance = "verified_database" if verified_match else "ai_vision"
+                nutri_status = "verified" if verified_match else "estimated"
+
+                return FoodAnalysisResponse(
+                    dish_name=dish_name,
+                    identified_items=parsed.get("identified_items", [dish_name]),
+                    total_calories_kcal=parsed.get("total_calories_kcal"),
+                    total_carbohydrates_g=parsed.get("total_carbohydrates_g"),
+                    total_net_carbs_g=parsed.get("total_net_carbs_g"),
+                    total_protein_g=parsed.get("total_protein_g"),
+                    total_fiber_g=parsed.get("total_fiber_g"),
+                    total_fats_g=parsed.get("total_fats_g"),
+                    average_glycemic_index=parsed.get("average_glycemic_index"),
+                    overall_suitability=parsed.get("overall_suitability", "Moderate"),
+                    suitability_color=parsed.get("suitability_color", "emerald"),
+                    suggested_portion=parsed.get("suggested_portion", "Standard Serving"),
+                    nutritional_details=details,
+                    clinical_recommendation=parsed.get("clinical_recommendation", ""),
+                    request_id=client_request_id,
+                    image_hash=image_hash,
+                    confidence_score=parsed.get("confidence_score"),
+                    identification_status="identified",
+                    provenance=provenance,
+                    nutrition_status=nutri_status,
+                )
             else:
-                logger.warning(f"AI vision returned status {res.status_code}: {res.text[:200]}")
+                logger.warning(f"AI vision returned HTTP {res.status_code}: {res.text[:200]}")
         except Exception as e:
             logger.warning(f"AI vision analysis error with {model_name}: {e}")
 
         return None
 
-    def _build_combined_food_response(self, query: str, matched_items: List[tuple], lang: str = "en") -> FoodAnalysisResponse:
+    def _build_combined_food_response(
+        self,
+        query: str,
+        matched_items: List[tuple],
+        lang: str = "en",
+        client_request_id: Optional[str] = None,
+        image_hash: Optional[str] = None,
+    ) -> FoodAnalysisResponse:
         total_cal = sum(d["calories"] for _, d in matched_items)
         total_carbs = sum(d["carbs"] for _, d in matched_items)
         total_protein = sum(d["protein"] for _, d in matched_items)
@@ -401,7 +668,7 @@ class FoodAnalyzerService:
                 "hi": "मध्यम ग्लाइसेमिक इंडेक्स। ग्लाइसेमिक प्रभाव को कम करने के लिए उच्च फाइबर सलाद और प्रोटीन के साथ लें।",
                 "ta": "மிதமான கிளைசெமிக் குறியீடு. பாதிப்பைக் குறைக்க அதிக நார்ச்சத்துள்ள சாலட் மற்றும் புரதத்துடன் சேர்த்து உண்ணுங்கள்.",
                 "te": "మితమైన గ్లైసెమిక్ సూచిక. ప్రభావాన్ని తగ్గించడానికి అధిక ఫైబర్ సలాడ్ మరియు ప్రోటీన్‌తో కలపండి.",
-                "ml": "മിതമായ ഗ്ലൈസെമിക് സൂചിക. ഗ്ലൈസെമിക് ആഘാതം കുറയ്ക്കാൻ ഉയർന്ന ഫൈബർ സാലഡും പ്രോട്ടീനും ചേർത്ത് കഴിക്കുക.",
+                "ml": "മിതമായ ഗ്ലൈസെമിക് സൂചിക. ഗ്ലൈസെമിക് ആഘാതം കുറയ്ക്കാൻ ഉയർന്ന ഫൈബർ സാലഡും ಪ್ರോട്ടീനും ചേർത്ത് കഴിക്കുക.",
             }
             recommendation = recommendations.get(norm_lang, recommendations["en"])
         else:
@@ -452,46 +719,10 @@ class FoodAnalyzerService:
             suggested_portion=matched_items[0][1]["portion"],
             nutritional_details=details,
             clinical_recommendation=recommendation,
-        )
-
-    def _generate_generic_food_analysis(self, query: str, lang: str = "en") -> FoodAnalysisResponse:
-        norm_lang = normalize_lang(lang)
-        recs = {
-            "en": "Healthy balanced meal choice with low glycemic impact. Promotes steady glycemic response.",
-            "kn": "ಕಡಿಮೆ ಗ್ಲೈಸೆಮಿಕ್ ಪರಿಣಾಮವನ್ನು ಹೊಂದಿರುವ ಆರೋಗ್ಯಕರ ಸಮತೋಲಿತ ಊಟದ ಆಯ್ಕೆ.",
-            "hi": "कम ग्लाइसेमिक प्रभाव वाला स्वस्थ संतुलित भोजन विकल्प। स्थिर शर्करा स्तर बनाए रखता है।",
-            "ta": "குறைந்த கிளைசெமிக் தாக்கத்துடன் கூடிய ஆரோக்கியமான சீரான உணவுத் தேர்வு.",
-            "te": "తక్కువ గ్లైసెమిక్ ప్రభావంతో ఆరోగ్యకరమైన సమతుల్య భోజన ఎంపిక.",
-            "ml": "കുറഞ്ഞ ഗ്ലൈസെമിക് ആഘാതമുള്ള ആരോഗ്യകരമായ സമീകൃതാഹാര തിരഞ്ഞെടുപ്പ്.",
-        }
-        return FoodAnalysisResponse(
-            dish_name=query.title(),
-            identified_items=[query.title()],
-            total_calories_kcal=310.0,
-            total_carbohydrates_g=28.0,
-            total_net_carbs_g=18.5,
-            total_protein_g=14.0,
-            total_fiber_g=9.5,
-            total_fats_g=16.0,
-            average_glycemic_index=22,
-            overall_suitability="Diabetic Friendly",
-            suitability_color="emerald",
-            suggested_portion="1 healthy bowl (250g)",
-            nutritional_details=[
-                FoodItemNutritionalDetail(
-                    food_name=query.title(),
-                    calories_kcal=310.0,
-                    carbohydrates_g=28.0,
-                    net_carbs_g=18.5,
-                    protein_g=14.0,
-                    fiber_g=9.5,
-                    fats_g=16.0,
-                    glycemic_index=22,
-                    glycemic_load=4.1,
-                    portion_size="1 bowl (250g)",
-                    diabetic_suitability="Diabetic Friendly",
-                    suitability_color="emerald",
-                )
-            ],
-            clinical_recommendation=recs.get(norm_lang, recs["en"]),
+            request_id=client_request_id,
+            image_hash=image_hash,
+            confidence_score=1.0,
+            identification_status="identified",
+            provenance="verified_database",
+            nutrition_status="verified",
         )

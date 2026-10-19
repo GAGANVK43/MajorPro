@@ -454,3 +454,70 @@
   color: #cbd5e1;
   line-height: 1.6;
 }
+
+/* Provenance Badge & Disclaimer */
+.dish-header-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.food-provenance-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  width: fit-content;
+  margin-top: 6px;
+}
+
+.food-provenance-tag.verified {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.food-provenance-tag.ai {
+  background: rgba(14, 165, 233, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.3);
+}
+
+.food-provenance-tag.unverified {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.food-warning-box {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+  color: #fde68a;
+}
+
+.food-error-card {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+  color: #fca5a5;
+}
+
+.food-disclaimer-note {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  line-height: 1.4;
+  text-align: center;
+}

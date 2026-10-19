@@ -652,7 +652,13 @@
     "selectImageToast": "Please select a food image to upload.",
     "imageSuccess": "Food Image Analysis Completed!",
     "enterMealToast": "Please enter a meal or dish description.",
-    "textSuccess": "Meal Nutritional Analysis Completed!"
+    "textSuccess": "Meal Nutritional Analysis Completed!",
+    "identifiedDish": "Identified Dish",
+    "calories": "Calories",
+    "totalCarbs": "Total Carbs",
+    "healthyFats": "Healthy Fats",
+    "portionSize": "Portion Size",
+    "clinicalAdviceTitle": "Clinical Nutrition Guidance"
   },
   "findCare": {
     "headerBadge": "Real-Time Care Locator",
