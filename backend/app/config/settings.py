@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # Database Settings (Defaults to Supabase PostgreSQL)
-    DATABASE_URL: str = "postgresql://postgres.zswrgozetsvgblsigqpb:DiaSense%40AI12@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres"
+    DATABASE_URL: str = "postgresql://postgres:Gaganvk%405556@db.durulifwvhkafmbldxfp.supabase.co:5432/postgres"
 
     # Security & JWT Settings
     SECRET_KEY: str = "diasense_super_secret_jwt_key_change_in_production_2026_x99!"

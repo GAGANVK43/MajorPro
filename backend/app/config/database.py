@@ -15,11 +15,16 @@ def _fix_database_url(url: str) -> str:
     """
     Supabase provides 'postgres://' or 'postgresql://' URLs.
     SQLAlchemy requires 'postgresql+psycopg2://' for psycopg2 driver.
+    Ensures sslmode=require is appended for secure remote Supabase connections.
     """
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+psycopg2://", 1)
     elif url.startswith("postgresql://") and "+psycopg2" not in url:
         url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+    if ("supabase.co" in url or "supabase.com" in url) and "sslmode=" not in url:
+        delimiter = "&" if "?" in url else "?"
+        url = f"{url}{delimiter}sslmode=require"
     return url
 
 

@@ -6,28 +6,41 @@
 
 ---
 
-## 1. Supabase Connectivity Diagnostics
+## 1. Active Supabase PostgreSQL Integration (VERIFIED LIVE)
 
-The configured connection string in `backend/.env` is:
+The application is now connected directly to active Supabase PostgreSQL:
 ```env
-DATABASE_URL=postgresql://postgres.zswrgozetsvgblsigqpb:DiaSense%40AI12@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
+DATABASE_URL=postgresql://postgres:Gaganvk%405556@db.durulifwvhkafmbldxfp.supabase.co:5432/postgres
 ```
 
-Direct diagnostics were executed using `psycopg2` and Python network socket probes across multiple connection modes.
+### Live Connection Verification
+- **Host:** `db.durulifwvhkafmbldxfp.supabase.co`
+- **Port:** `5432`
+- **Database Engine:** `PostgreSQL 17.6 on x86_64-pc-linux-gnu`
+- **Active Backend:** `postgresql+psycopg2` (SSL mode: `require`)
+- **Status:** **CONNECTED & PERSISTING**
 
-### Diagnostic Results
+### Confirmed Tables in Supabase
+All SQLAlchemy models were successfully initialized in the live Supabase PostgreSQL instance:
+- `users` (with `id`, `full_name`, `email`, `password`, `age`, `gender`, `reset_token`, `reset_token_expiry`, `created_at`, `updated_at`)
+- `assessments`
+- `predictions`
+- `diet_plans`
+- `contact_messages`
+
+---
+
+## 2. Historical Diagnostics (Previous Paused Project)
+
+Prior to receiving the active database URI, socket and psycopg2 probes diagnosed the legacy database URL (`postgres.zswrgozetsvgblsigqpb`):
 
 | Connection Target | Port | User | Result | Evidence / Log Output |
 | :--- | :--- | :--- | :--- | :--- |
 | `aws-0-ap-northeast-1.pooler.supabase.com` | `5432` | `postgres.zswrgozetsvgblsigqpb` | **FAIL** | `FATAL: (ENOTFOUND) tenant/user postgres.zswrgozetsvgblsigqpb not found` |
 | `aws-0-ap-northeast-1.pooler.supabase.com` | `6543` | `postgres.zswrgozetsvgblsigqpb` | **FAIL** | `FATAL: (ENOTFOUND) tenant/user postgres.zswrgozetsvgblsigqpb not found` |
 | `db.zswrgozetsvgblsigqpb.supabase.co` | `5432` | `postgres` | **FAIL** | `[Errno 11001] getaddrinfo failed (DNS name not found)` |
-| `db.zswrgozetsvgblsigqpb.supabase.co` | `6543` | `postgres.zswrgozetsvgblsigqpb` | **FAIL** | `[Errno 11001] getaddrinfo failed (DNS name not found)` |
 
-### Root Cause of Supabase Inaccessibility
-1. **Paused / Inactive Free-Tier Project:** On Supabase's free tier, projects with no traffic for 7 consecutive days are automatically paused. When a project is paused, its direct DNS record (`db.<project-ref>.supabase.co`) is unmapped and the AWS connection pooler rejects requests with `(ENOTFOUND) tenant/user not found`.
-2. **Impact on Application:** Because the Supabase project is unmapped, any attempt to connect to PostgreSQL fails at startup.
-3. **Previous Defect:** Previously, this failure led to silent fallback to relative `./diasense.db`, creating split-brain databases across different folder locations.
+The old project had been paused due to inactivity, triggering the fallback. With the updated credentials, Supabase PostgreSQL is active and confirmed.
 
 ---
 
