@@ -24,7 +24,8 @@
     "or": "OR",
     "disclaimerTitle": "Important Healthcare Notice & Medical Disclaimer",
     "disclaimerText": "DiaSense AI provides AI-assisted health screening and educational recommendations for informational purposes only. It is not a substitute for professional clinical diagnosis or emergency medical care. Consult a certified medical practitioner for definitive clinical evaluation.",
-    "allRightsReserved": "All rights reserved. Final Year Engineering AI Project."
+    "allRightsReserved": "All rights reserved. Final Year Engineering AI Project.",
+    "backToSignIn": "Back to Sign In"
   },
   "languages": {
     "selectLanguage": "Select Language",
@@ -157,7 +158,11 @@
     "newPasswordLabel": "New Password",
     "newPasswordPlaceholder": "Enter at least 6 characters",
     "updatePasswordBtn": "Update Password",
-    "backToSignIn": "Back to Sign In"
+    "backToSignIn": "Back to Sign In",
+    "betaCellsActive": "Beta Cells Active",
+    "healthcareIntelPlatform": "Healthcare Intelligence Platform",
+    "normalRhythm": "Normal Rhythm",
+    "passwordRequirements": "Password must be at least 6 characters"
   },
   "dashboard": {
     "heroBadge": "Healthcare Analytics Dashboard",
@@ -201,7 +206,12 @@
     "noHistoryTitle": "No Assessment Records Found",
     "noHistoryDesc": "You haven't completed any AI diabetes risk assessments yet. Take your first 2-minute screening to generate clinical health insights.",
     "dailyTipTitle": "Daily Metabolic Health Insight",
-    "dailyTipDesc": "Maintaining regular physical activity for at least 30 minutes daily combined with low-glycemic high-fiber meals improves insulin sensitivity and glycemic stability."
+    "dailyTipDesc": "Maintaining regular physical activity for at least 30 minutes daily combined with low-glycemic high-fiber meals improves insulin sensitivity and glycemic stability.",
+    "highRisk": "High Risk",
+    "lowRisk": "Low Risk",
+    "moderateRisk": "Moderate Risk",
+    "pendingAssessment": "Pending Assessment",
+    "today": "Today"
   },
   "assessment": {
     "headerBadge": "Clinical ML Screening Wizard",
@@ -502,7 +512,12 @@
       "listeningFor": "🎙️ Listening for {field}…",
       "heardField": "✅ Heard: {val}",
       "couldNotUnderstand": "Could not understand \"{transcript}\". Please type your answer."
-    }
+    },
+    "srcComputed": "Computed",
+    "srcConfirmed": "Confirmed",
+    "srcManual": "Manual",
+    "srcReport": "Report",
+    "srcVoice": "Voice"
   },
   "result": {
     "headerBadge": "Official Clinical AI Assessment Report",
@@ -541,7 +556,14 @@
     "assess1": "Assess 1",
     "assess2": "Assess 2",
     "assess3": "Assess 3",
-    "currentAssess": "Current"
+    "currentAssess": "Current",
+    "dietPlanBannerTitle": "Assessment Complete — View Your Personalized Diet Plan",
+    "dietPlanBannerDesc": "DiaSense AI has synthesized your metabolic markers into a tailored 7-day nutritional guidance and glycemic roadmap.",
+    "viewDietPlanBtn": "View Personalized Diet Plan",
+    "assessmentCompletePill": "Assessment Complete",
+    "viewFullWeeklyDietPlan": "Explore Full 7-Day Personalized Diet & Routine Plan",
+    "descGlucoseHigh": "Your blood glucose and metabolic markers reflect elevated levels. Clinical evaluation and dietary intervention are advised.",
+    "descGlucoseOpt": "Your blood glucose and metabolic markers are within the healthy reference range. Continue your balanced lifestyle."
   },
   "dietPlan": {
     "headerBadge": "AI Medical Diet Planner",
@@ -606,7 +628,9 @@
     "taskAlreadyCompletedToast": "You have already completed today's daily tasks! New targets unlock tomorrow.",
     "streakAlreadyClaimedToast": "You have already claimed today's streak! Come back tomorrow for the next day's tasks.",
     "streakUpgradedToast": "Streak Upgraded to {count} Days! You have completed today's daily tasks! 🎉",
-    "goalsCompletedRatio": "{completed} of {total} Completed"
+    "goalsCompletedRatio": "{completed} of {total} Completed",
+    "backToResult": "Back to Assessment Result",
+    "streakDesc": "Build long-term glycemic control through consistent healthy daily habits"
   },
   "foodAnalyzer": {
     "headerBadge": "AI Medical Vision Engine",
@@ -699,7 +723,8 @@
     "foundCount": "Found {count} {type}",
     "sortedByDistance": "Sorted by nearest distance within {radius} km",
     "hospitalsOrClinics": "hospitals or clinics",
-    "diagnosticLabs": "diagnostic laboratories"
+    "diagnosticLabs": "diagnostic laboratories",
+    "locationNotice": "Showing medical centers near your current location"
   },
   "profile": {
     "headerTitle": "User Account & Health Profile",
@@ -736,7 +761,8 @@
     "quickHealthDesc": "Direct shortcuts to all DiaSense AI diagnostic and nutritional tools.",
     "passwordUpdated": "Password updated successfully!",
     "defaultPatient": "DiaSense Patient",
-    "recent": "Recent"
+    "recent": "Recent",
+    "profileUpdated": "Profile updated successfully"
   },
   "about": {
     "badge": "Academic & Engineering Documentation",
@@ -792,7 +818,9 @@
     "fastResponseDesc": "Submissions are sent directly to gagankamati643@gmail.com.",
     "academicSupportTitle": "Academic & Project Support",
     "academicSupportDesc": "Designed for CSE viva demonstrations and research reviews.",
-    "failedToast": "Failed to submit contact request. Please try again."
+    "failedToast": "Failed to submit contact request. Please try again.",
+    "submitBtn": "Send Message",
+    "submittingBtn": "Sending Message..."
   },
   "chatbot": {
     "headerTitle": "DiaSense AI Assistant",

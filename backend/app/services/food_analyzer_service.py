@@ -240,6 +240,33 @@ class FoodAnalyzerService:
     def api_key(self, value: Optional[str]):
         self._api_key = value
 
+    def get_provider_status(self) -> Dict[str, Any]:
+        """
+        Returns the operational configuration status of the Food Intelligence Provider.
+        Never reveals secret API keys.
+        """
+        is_configured = bool(self.api_key)
+        vision_model = settings.GEMINI_VISION_MODEL or "gemini-3.5-flash"
+        text_model = settings.GEMINI_TEXT_MODEL or "gemini-3.5-flash"
+        status_str = "configured" if is_configured else "unconfigured"
+
+        return {
+            "is_configured": is_configured,
+            "provider": "google_gemini",
+            "vision_model": vision_model,
+            "text_model": text_model,
+            "status": status_str,
+            "capabilities": {
+                "nutrition_search": True,
+                "image_vision": is_configured,
+            },
+            "message": (
+                "AI Vision Provider is configured and operational."
+                if is_configured
+                else "AI Vision Provider is not configured (GEMINI_API_KEY required in backend/.env). Verified nutrition search remains fully operational."
+            ),
+        }
+
     def _lookup_verified_knowledge_base(self, dish_query: str) -> Optional[Tuple[str, Dict[str, Any]]]:
         """
         Looks up a dish query against canonical items and aliases using exact and word-boundary matching.
@@ -362,7 +389,7 @@ class FoodAnalyzerService:
 
         # 3. Call Vision Model if API key is configured
         if self.api_key:
-            vision_model = settings.GEMINI_VISION_MODEL or "gemini-1.5-flash"
+            vision_model = settings.GEMINI_VISION_MODEL or "gemini-3.5-flash"
             ai_vision_res = self._query_gemini_image_vision(
                 image_bytes=compressed_bytes,
                 model_name=vision_model,
@@ -371,7 +398,7 @@ class FoodAnalyzerService:
                 image_hash=img_hash,
             )
             if ai_vision_res:
-                logger.info(f"[AI_VISION_SUCCESS] Identified: '{ai_vision_res.dish_name}' (req: {req_id})")
+                logger.info(f"[AI_VISION] Completed with status '{ai_vision_res.identification_status}' (req: {req_id})")
                 return ai_vision_res
             else:
                 logger.warning(f"[AI_VISION_FAIL] Vision provider failed to analyze image {img_hash}")
@@ -430,7 +457,7 @@ class FoodAnalyzerService:
             identification_status="provider_unconfigured",
             provenance="unavailable",
             nutrition_status="unavailable",
-            warning_message="GEMINI_API_KEY is not set in backend/.env. AI Vision photo recognition cannot run.",
+            warning_message="AI Vision Provider is not configured (GEMINI_API_KEY required in backend/.env).",
         )
 
     def _query_gemini_food_nutrition(
@@ -439,7 +466,7 @@ class FoodAnalyzerService:
         lang: str = "en",
         client_request_id: Optional[str] = None,
     ) -> Optional[FoodAnalysisResponse]:
-        model_name = getattr(settings, "GEMINI_TEXT_MODEL", "gemini-1.5-flash").replace("models/", "").strip()
+        model_name = getattr(settings, "GEMINI_TEXT_MODEL", "gemini-3.5-flash").replace("models/", "").strip()
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
         norm_lang = normalize_lang(lang)
         lang_name = LANGUAGE_NAMES.get(norm_lang, "English")
@@ -587,9 +614,38 @@ class FoodAnalyzerService:
             res = httpx.post(url, json=payload, timeout=25.0)
             if res.status_code == 200:
                 data = res.json()
-                text = data["candidates"][0]["content"]["parts"][0]["text"]
+                candidates = data.get("candidates", [])
+                if not candidates:
+                    return FoodAnalysisResponse(
+                        dish_name="Unable to Identify Food Image",
+                        identified_items=[],
+                        overall_suitability="Uncertain / Unverified",
+                        suitability_color="amber",
+                        request_id=client_request_id,
+                        image_hash=image_hash,
+                        identification_status="unrecognized",
+                        provenance="unavailable",
+                        nutrition_status="unavailable",
+                        warning_message="The vision model returned an empty candidates list.",
+                    )
+                text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
                 clean_json = text.replace("```json", "").replace("```", "").strip()
-                parsed = json.loads(clean_json)
+                try:
+                    parsed = json.loads(clean_json)
+                except Exception as json_err:
+                    logger.warning(f"Failed to parse model JSON: {json_err}")
+                    return FoodAnalysisResponse(
+                        dish_name="Unable to Parse Vision Response",
+                        identified_items=[],
+                        overall_suitability="Uncertain / Unverified",
+                        suitability_color="amber",
+                        request_id=client_request_id,
+                        image_hash=image_hash,
+                        identification_status="unrecognized",
+                        provenance="unavailable",
+                        nutrition_status="unavailable",
+                        warning_message="Could not parse structured food items from vision model.",
+                    )
 
                 dish_name = parsed.get("dish_name", "Identified Meal")
                 verified_match = self._lookup_verified_knowledge_base(dish_name)
@@ -623,12 +679,65 @@ class FoodAnalyzerService:
                     provenance=provenance,
                     nutrition_status=nutri_status,
                 )
+            elif res.status_code in (400, 401, 403):
+                logger.warning(f"AI vision HTTP {res.status_code} rejection: {res.text[:200]}")
+                return FoodAnalysisResponse(
+                    dish_name="AI Vision Access Rejected",
+                    identified_items=[],
+                    overall_suitability="Vision Provider Rejected",
+                    suitability_color="amber",
+                    request_id=client_request_id,
+                    image_hash=image_hash,
+                    identification_status="provider_rejected",
+                    provenance="unavailable",
+                    nutrition_status="unavailable",
+                    warning_message="AI Vision provider rejected the API request. Please verify GEMINI_API_KEY credentials and model permissions in backend/.env.",
+                )
+            elif res.status_code == 429:
+                logger.warning(f"AI vision HTTP 429 rate limit exceeded: {res.text[:200]}")
+                return FoodAnalysisResponse(
+                    dish_name="AI Vision Quota Exceeded",
+                    identified_items=[],
+                    overall_suitability="Vision Quota Exceeded",
+                    suitability_color="amber",
+                    request_id=client_request_id,
+                    image_hash=image_hash,
+                    identification_status="provider_quota_exceeded",
+                    provenance="unavailable",
+                    nutrition_status="unavailable",
+                    warning_message="AI Vision API quota or rate limit exceeded. Please try again later or use the verified nutrition search tab.",
+                )
             else:
                 logger.warning(f"AI vision returned HTTP {res.status_code}: {res.text[:200]}")
+                return FoodAnalysisResponse(
+                    dish_name="AI Vision Service Unavailable",
+                    identified_items=[],
+                    overall_suitability="Vision Provider Unavailable",
+                    suitability_color="amber",
+                    request_id=client_request_id,
+                    image_hash=image_hash,
+                    identification_status="provider_unavailable",
+                    provenance="unavailable",
+                    nutrition_status="unavailable",
+                    warning_message=f"AI Vision service temporarily unavailable (HTTP {res.status_code}). Please use the nutrition search tab.",
+                )
+        except httpx.TimeoutException:
+            logger.warning("AI vision timeout connecting to Gemini API")
+            return FoodAnalysisResponse(
+                dish_name="AI Vision Service Timed Out",
+                identified_items=[],
+                overall_suitability="Vision Timeout",
+                suitability_color="amber",
+                request_id=client_request_id,
+                image_hash=image_hash,
+                identification_status="provider_unavailable",
+                provenance="unavailable",
+                nutrition_status="unavailable",
+                warning_message="AI Vision service timed out during image analysis. Please use the nutrition search tab.",
+            )
         except Exception as e:
             logger.warning(f"AI vision analysis error with {model_name}: {e}")
-
-        return None
+            return None
 
     def _build_combined_food_response(
         self,

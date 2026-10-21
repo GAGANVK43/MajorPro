@@ -251,6 +251,45 @@ class PredictionService:
         """Retrieve a specific prediction entity by ID."""
         return self.prediction_repo.get_by_id(prediction_id)
 
+    def get_prediction_by_id_for_user(self, user: User, prediction_id: int, lang: str = "en") -> PredictionResponse:
+        """
+        Retrieve a specific prediction by ID for an authenticated user with IDOR authorization check.
+        Returns the exact persisted prediction and localized factors.
+        """
+        prediction = self.prediction_repo.get_by_id(prediction_id)
+        if not prediction:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Prediction with ID {prediction_id} not found",
+            )
+
+        # IDOR protection: Verify that prediction belongs to this user
+        if not prediction.assessment or prediction.assessment.user_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied to requested prediction record",
+            )
+
+        assessment_dict = {}
+        if prediction.assessment:
+            assessment_dict = self._extract_assessment_dict(prediction.assessment)
+
+        # Generate contributing factors based on this prediction's assessment data
+        _, _, _, _, contributing_factors = predict_diabetes_risk(assessment_dict, lang=lang)
+        recommendation = localize_recommendation(prediction.prediction, lang=lang)
+        contributing_factors = localize_contributing_factors(contributing_factors, lang=lang)
+
+        return PredictionResponse(
+            id=prediction.id,
+            assessment_id=prediction.assessment_id,
+            prediction=prediction.prediction,
+            risk_percentage=prediction.risk_percentage,
+            confidence=prediction.confidence,
+            recommendation=recommendation,
+            contributing_factors=contributing_factors,
+            created_at=prediction.created_at,
+        )
+
     def get_prediction_history(self, user: User, lang: str = "en") -> PredictionListResponse:
         predictions = self.prediction_repo.get_history_by_user_id(user.id)
         items = []

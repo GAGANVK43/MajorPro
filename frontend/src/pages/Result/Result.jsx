@@ -48,6 +48,8 @@ function Result() {
   });
 
   const [dietPlan, setDietPlan] = useState(null);
+  const [loadingReport, setLoadingReport] = useState(!!predictionIdParam);
+  const [reportError, setReportError] = useState(null);
 
   useEffect(() => {
     // 1. Fetch user profile
@@ -64,30 +66,60 @@ function Result() {
         .catch(() => {});
     }
 
-    // 2. Read stored prediction or fetch latest from API
-    const stored = localStorage.getItem("latest_prediction");
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (parsed.prediction) {
-          setPredictionData({
-            id: parsed.id || null,
-            prediction: parsed.prediction,
-            risk_percentage: parsed.risk_percentage || 25.0,
-            confidence: parsed.confidence || 95.0,
-            health_score: Math.max(20, Math.round(100 - (parsed.risk_percentage || 25))),
-            recommendation: parsed.recommendation || "",
-            contributing_factors: parsed.contributing_factors || []
-          });
-        }
-      } catch (e) {}
+    // 2. Read stored prediction only when viewing current without explicit historical predictionIdParam
+    if (!predictionIdParam) {
+      const stored = localStorage.getItem("latest_prediction");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed.prediction) {
+            setPredictionData({
+              id: parsed.id || null,
+              assessment_id: parsed.assessment_id || null,
+              prediction: parsed.prediction,
+              risk_percentage: parsed.risk_percentage || 25.0,
+              confidence: parsed.confidence || 95.0,
+              health_score: Math.max(20, Math.round(100 - (parsed.risk_percentage || 25))),
+              recommendation: parsed.recommendation || "",
+              contributing_factors: parsed.contributing_factors || []
+            });
+          }
+        } catch (e) {}
+      }
     }
 
-    // 3. Fetch latest prediction & diet plan from API with current language
-    async function fetchLatestData() {
+    // 3. Fetch exact data from API with current language
+    async function fetchData() {
       try {
-        let predictionFound = false;
+        setReportError(null);
         if (predictionIdParam) {
+          setLoadingReport(true);
+          try {
+            const res = await predictionService.getById(predictionIdParam);
+            if (res.data) {
+              const d = res.data;
+              setPredictionData({
+                id: d.id || null,
+                assessment_id: d.assessment_id || null,
+                prediction: d.prediction,
+                risk_percentage: d.risk_percentage,
+                confidence: d.confidence,
+                health_score: Math.max(20, Math.round(100 - d.risk_percentage)),
+                recommendation: d.recommendation,
+                contributing_factors: d.contributing_factors || []
+              });
+            }
+          } catch (err) {
+            console.error("Failed to fetch historical prediction:", err);
+            setReportError(
+              err.response?.data?.detail ||
+              "Unable to load the requested assessment report. It may not exist or belongs to another account."
+            );
+            setLoadingReport(false);
+            return;
+          }
+        } else {
+          // No ID param -> fetch latest prediction
           try {
             const res = await predictionService.getLatest();
             if (res.data) {
@@ -102,29 +134,30 @@ function Result() {
                 recommendation: d.recommendation,
                 contributing_factors: d.contributing_factors || []
               });
-              predictionFound = true;
+            }
+          } catch (e) {
+            // Guest or new user
+          }
+        }
+
+        // Fetch corresponding diet plan
+        let loadedDiet = false;
+        if (predictionIdParam) {
+          try {
+            const predDietRes = await dietService.getByPredictionId(predictionIdParam);
+            if (predDietRes?.data) {
+              setDietPlan({
+                breakfast: predDietRes.data.breakfast,
+                lunch: predDietRes.data.lunch,
+                dinner: predDietRes.data.dinner,
+                exercise: predDietRes.data.exercise,
+              });
+              loadedDiet = true;
             }
           } catch (e) {}
         }
 
-        if (!predictionFound) {
-          const res = await predictionService.getLatest();
-          if (res.data) {
-            const d = res.data;
-            setPredictionData({
-              id: d.id || null,
-              assessment_id: d.assessment_id || null,
-              prediction: d.prediction,
-              risk_percentage: d.risk_percentage,
-              confidence: d.confidence,
-              health_score: Math.max(20, Math.round(100 - d.risk_percentage)),
-              recommendation: d.recommendation,
-              contributing_factors: d.contributing_factors || []
-            });
-          }
-        }
-
-        if (assessmentIdParam) {
+        if (!loadedDiet && assessmentIdParam) {
           try {
             const assessmentDietRes = await dietService.getByAssessmentId(assessmentIdParam);
             if (assessmentDietRes?.data) {
@@ -134,27 +167,30 @@ function Result() {
                 dinner: assessmentDietRes.data.dinner,
                 exercise: assessmentDietRes.data.exercise,
               });
-              return;
+              loadedDiet = true;
             }
-          } catch (e) {
-            console.warn("Could not load diet by assessment ID, falling back to latest:", e);
-          }
+          } catch (e) {}
         }
 
-        const dietRes = await dietService.getLatestDiet();
-        if (dietRes.data) {
-          setDietPlan({
-            breakfast: dietRes.data.breakfast,
-            lunch: dietRes.data.lunch,
-            dinner: dietRes.data.dinner,
-            exercise: dietRes.data.exercise,
-          });
+        if (!loadedDiet) {
+          try {
+            const dietRes = await dietService.getLatestDiet();
+            if (dietRes?.data) {
+              setDietPlan({
+                breakfast: dietRes.data.breakfast,
+                lunch: dietRes.data.lunch,
+                dinner: dietRes.data.dinner,
+                exercise: dietRes.data.exercise,
+              });
+            }
+          } catch (e) {}
         }
-      } catch (e) {
-        // Fallback to local state
+      } finally {
+        setLoadingReport(false);
       }
     }
-    fetchLatestData();
+
+    fetchData();
   }, [currentLanguage, assessmentIdParam, predictionIdParam]);
 
   const handleNavigateToDietPlan = async () => {
@@ -249,6 +285,33 @@ function Result() {
         <div className="result-container">
           <BackButton />
 
+          {reportError ? (
+            <div className="report-error-card" style={{
+              background: "rgba(30, 41, 59, 0.7)",
+              border: "1px solid rgba(244, 63, 94, 0.3)",
+              borderRadius: "16px",
+              padding: "48px 24px",
+              textAlign: "center",
+              margin: "32px 0",
+              backdropFilter: "blur(12px)"
+            }}>
+              <FaExclamationTriangle style={{ fontSize: "48px", color: "#f43f5e", marginBottom: "16px" }} />
+              <h2 style={{ fontSize: "1.4rem", fontWeight: "600", marginBottom: "8px", color: "#f8fafc" }}>
+                Assessment Report Unavailable
+              </h2>
+              <p style={{ color: "#94a3b8", maxWidth: "480px", margin: "0 auto 24px auto", lineHeight: "1.6" }}>
+                {reportError}
+              </p>
+              <button
+                className="btn-action primary"
+                onClick={() => navigate("/dashboard")}
+                style={{ margin: "0 auto" }}
+              >
+                Return to Dashboard
+              </button>
+            </div>
+          ) : (
+            <>
           {/* Clinical Report Header */}
           <header className="report-header-card">
             <div className="header-left">
@@ -404,6 +467,8 @@ function Result() {
               </button>
             </div>
           </div>
+            </>
+          )}
         </div>
       </div>
 

@@ -71,6 +71,7 @@ export const predictionService = {
   createPrediction: (data) => api.post("/api/prediction", data),
   getLatest: () => api.get("/api/prediction/latest"),
   getHistory: () => api.get("/api/prediction/history"),
+  getById: (id) => api.get(`/api/prediction/${id}`),
 };
 
 export const dashboardService = {
@@ -139,10 +140,11 @@ export const reportService = {
 };
 
 export const chatbotService = {
-  query: (message, context) => api.post("/api/chatbot/query", { message, context }),
+  query: (message, context, history) => api.post("/api/chatbot/query", { message, context, history }),
 };
 
 export const foodService = {
+  getProviderStatus: () => api.get("/api/food/provider-status"),
   analyzeText: (query) => api.post("/api/food/analyze-text", { query }),
   analyzeImage: (formData) =>
     api.post("/api/food/analyze-image", formData, {

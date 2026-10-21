@@ -76,3 +76,22 @@ def get_prediction_history(
         data=result,
         message="Prediction history retrieved successfully",
     )
+
+
+@router.get("/{id}", status_code=status.HTTP_200_OK)
+def get_prediction_by_id(
+    id: int,
+    current_user: User = Depends(get_current_user),
+    accept_language: str = Header(default="en", alias="Accept-Language"),
+    db: Session = Depends(get_db),
+):
+    """
+    Retrieve specific prediction record by ID for authenticated user in requested language.
+    Validates ownership of the underlying assessment.
+    """
+    service = PredictionService(db)
+    result = service.get_prediction_by_id_for_user(current_user, id, lang=accept_language)
+    return success_response(
+        data=result,
+        message="Prediction retrieved successfully",
+    )

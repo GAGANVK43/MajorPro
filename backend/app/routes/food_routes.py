@@ -8,6 +8,19 @@ router = APIRouter(prefix="/api/food", tags=["Food Analyzer"])
 food_service = FoodAnalyzerService()
 
 
+@router.get("/provider-status", status_code=status.HTTP_200_OK)
+def get_food_provider_status():
+    """
+    Get the operational status of the food vision and nutrition intelligence provider.
+    Never exposes raw API keys.
+    """
+    prov_status = food_service.get_provider_status()
+    return success_response(
+        data=prov_status,
+        message="Food provider status retrieved successfully.",
+    )
+
+
 @router.post("/analyze-text", status_code=status.HTTP_200_OK)
 def analyze_meal_text(
     request: FoodAnalysisRequest,

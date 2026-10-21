@@ -1,5 +1,5 @@
 import "./FoodAnalyzer.css";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { toast } from "react-toastify";
 import Navbar from "../../components/Navbar/Navbar";
 import BackButton from "../../components/BackButton/BackButton";
@@ -42,6 +42,24 @@ function FoodAnalyzer() {
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [analysisError, setAnalysisError] = useState(null);
+  const [providerStatus, setProviderStatus] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    foodService
+      .getProviderStatus()
+      .then((res) => {
+        if (isMounted && res.data) {
+          setProviderStatus(res.data);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not retrieve food provider status:", err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Concurrency guard: track current in-flight request ID
   const activeRequestId = useRef(null);
@@ -99,8 +117,14 @@ function FoodAnalyzer() {
       if (res && res.data) {
         setAnalysisResult(res.data);
         if (res.data.identification_status === "provider_unconfigured") {
-          toast.info("AI Vision Provider is not configured (GEMINI_API_KEY required).");
-        } else if (res.data.identification_status === "provider_error" || res.data.identification_status === "unrecognized") {
+          toast.info("AI Vision Provider is not configured (GEMINI_API_KEY required in backend/.env).");
+        } else if (res.data.identification_status === "provider_rejected") {
+          toast.error("AI Vision credentials rejected. Please verify GEMINI_API_KEY in backend/.env.");
+        } else if (res.data.identification_status === "provider_quota_exceeded") {
+          toast.warn("AI Vision quota or rate limit exceeded. Please try again later or use nutrition search.");
+        } else if (res.data.identification_status === "provider_unavailable") {
+          toast.warn("AI Vision service temporarily unavailable. Please use Calorie & Nutrition Search.");
+        } else if (res.data.identification_status === "unrecognized") {
           toast.warn("Could not recognize food in photo. Please check lighting or search by dish name.");
         } else {
           toast.success(`✅ ${t("foodAnalyzer.imageSuccess") || "Food Image Analysis Completed!"}`);
@@ -229,6 +253,17 @@ function FoodAnalyzer() {
           {/* Mode 1: AI Food Image Upload */}
           {activeTab === "image" && (
             <div className="analyzer-card">
+              {providerStatus && !providerStatus.is_configured && (
+                <div style={{ background: "rgba(245, 158, 11, 0.12)", border: "1px solid rgba(245, 158, 11, 0.35)", borderRadius: "8px", padding: "10px 14px", marginBottom: "1.2rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", fontSize: "0.86rem", color: "#fef3c7" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <FaLightbulb color="#f59e0b" size={16} />
+                    <span>AI Vision provider is currently unconfigured (requires <code>GEMINI_API_KEY</code> in backend/.env). Verified nutrition search is 100% active.</span>
+                  </div>
+                  <button type="button" onClick={() => setActiveTab("text")} style={{ background: "none", border: "none", color: "#38bdf8", cursor: "pointer", textDecoration: "underline", fontSize: "0.82rem", whiteSpace: "nowrap", fontWeight: "600" }}>
+                    Switch to Search →
+                  </button>
+                </div>
+              )}
               <h2>📸 {t("foodAnalyzer.uploadTitle") || "Upload Food Photo for AI Vision Scanning"}</h2>
               <p className="card-subtext">{t("foodAnalyzer.uploadSubtext") || "Supported formats: JPG, PNG, WEBP. Maximum file size: 10MB."}</p>
 
@@ -362,12 +397,20 @@ function FoodAnalyzer() {
                     🔍 Switch to Calorie & Nutrition Search →
                   </button>
                 </div>
-              ) : analysisResult.identification_status === "provider_error" || analysisResult.identification_status === "unrecognized" ? (
-                /* Unrecognized / Uncertain Result Notice */
+              ) : ["provider_rejected", "provider_quota_exceeded", "provider_unavailable", "provider_error", "unrecognized"].includes(analysisResult.identification_status) ? (
+                /* Provider Error or Unrecognized Result Notice */
                 <div className="food-warning-box">
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", fontWeight: "bold", fontSize: "1.1rem", marginBottom: "0.5rem" }}>
                     <FaExclamationTriangle size={22} color="#f59e0b" />
-                    <span>Food Recognition Uncertain</span>
+                    <span>
+                      {analysisResult.identification_status === "provider_rejected"
+                        ? "AI Vision Access Rejected"
+                        : analysisResult.identification_status === "provider_quota_exceeded"
+                        ? "AI Vision Quota Exceeded"
+                        : analysisResult.identification_status === "provider_unavailable"
+                        ? "AI Vision Service Unavailable"
+                        : "Food Recognition Uncertain"}
+                    </span>
                   </div>
                   <p style={{ color: "#e2e8f0", fontSize: "0.92rem", lineHeight: "1.5", margin: "0 0 0.5rem 0" }}>
                     {analysisResult.warning_message || "The vision system was unable to identify a verified meal in this image."}

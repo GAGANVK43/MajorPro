@@ -219,7 +219,7 @@ function Dashboard() {
                         <td><strong>{item.risk_percentage}%</strong></td>
                         <td>{item.confidence}%</td>
                         <td>
-                          <button className="tbl-btn" onClick={() => navigate("/result")}>
+                          <button className="tbl-btn" onClick={() => navigate(`/result?prediction_id=${item.id}&assessment_id=${item.assessment_id || ""}`)}>
                             {t("common.viewReport")}
                           </button>
                         </td>

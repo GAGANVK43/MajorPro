@@ -11,14 +11,18 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <LanguageProvider>
     <App />
     <ToastContainer
-      position="top-right"
-      autoClose={2500}
+      position="top-center"
+      autoClose={3000}
       hideProgressBar={false}
       newestOnTop
       closeOnClick
       pauseOnHover
-      draggable
+      draggable={false}
       theme="dark"
+      toastClassName="diasense-centered-toast"
+      bodyClassName="diasense-toast-body"
+      progressClassName="diasense-toast-progress"
+      limit={3}
     />
   </LanguageProvider>
 );

@@ -127,9 +127,17 @@ export function LanguageProvider({ children }) {
         value = getNested(TRANSLATIONS["en"], keys);
       }
 
-      // If still missing, return the raw key
+      // If still missing, check for default value in params or return empty string
+      // so that components with `{t("key") || "Fallback"}` display the fallback text instead of the raw key.
       if (value === undefined) {
-        return key;
+        if (typeof params === "string") {
+          return params;
+        }
+        if (params && typeof params === "object") {
+          if (params.defaultValue !== undefined) return String(params.defaultValue);
+          if (params.default !== undefined) return String(params.default);
+        }
+        return "";
       }
 
       // If not a string (e.g. array or object), return directly

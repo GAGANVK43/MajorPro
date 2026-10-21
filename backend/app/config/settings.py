@@ -41,8 +41,8 @@ class Settings(BaseSettings):
 
     # Generative AI Key & Models
     GEMINI_API_KEY: str = ""
-    GEMINI_VISION_MODEL: str = "gemini-1.5-flash"
-    GEMINI_TEXT_MODEL: str = "gemini-1.5-flash"
+    GEMINI_VISION_MODEL: str = "gemini-3.1-flash-lite"
+    GEMINI_TEXT_MODEL: str = "gemini-3.1-flash-lite"
 
     # Google Places API Key (Optional; defaults to OpenStreetMap Overpass & Nominatim)
     GOOGLE_PLACES_API_KEY: str = ""

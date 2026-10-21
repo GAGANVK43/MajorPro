@@ -103,12 +103,30 @@ function Chatbot() {
 
     try {
       const langCode = currentLangConfig?.code || "en";
-      const response = await chatbotService.query(text, {
-        language: langCode,
-        lang: langCode,
-        code: langCode,
-        name: currentLangConfig?.name || "English",
-      });
+
+      let userName = "";
+      try {
+        const u = JSON.parse(localStorage.getItem("user") || "{}");
+        userName = u.full_name || u.name || "";
+      } catch (e) {}
+
+      const historyPayload = messages.slice(-10).map((m) => ({
+        role: m.sender === "user" ? "user" : "assistant",
+        text: m.text,
+      }));
+
+      const response = await chatbotService.query(
+        text,
+        {
+          language: langCode,
+          lang: langCode,
+          code: langCode,
+          name: currentLangConfig?.name || "English",
+          user_name: userName,
+          current_path: window.location.pathname,
+        },
+        historyPayload
+      );
       const botReply = response.data.reply;
       const source = response.data.source;
 
