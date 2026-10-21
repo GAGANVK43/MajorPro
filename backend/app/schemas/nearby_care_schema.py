@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pydantic import BaseModel, Field
 
 
@@ -18,6 +18,7 @@ class NearbyFacilityItem(BaseModel):
     phone: Optional[str] = Field(None, description="Contact phone number if available")
     website: Optional[str] = Field(None, description="Official website URL if available")
     maps_url: str = Field(..., description="Google Maps navigation destination URL")
+    source: Optional[str] = Field("live_provider", description="Provider source (osm_overpass, google_places, verified_directory)")
 
 
 class NearbyCareListResponse(BaseModel):
@@ -32,6 +33,10 @@ class NearbyCareListResponse(BaseModel):
     location_name: Optional[str] = Field(None, description="Geocoded location name if resolved from query")
     origin_type: Optional[str] = Field("gps", description="Search origin type ('gps' or 'manual')")
     origin_label: Optional[str] = Field(None, description="Display label for the search origin")
+    providers_queried: List[str] = Field(default_factory=list, description="List of providers queried")
+    provider_status: Dict[str, str] = Field(default_factory=dict, description="Status of each queried provider")
+    has_live_results: bool = Field(False, description="Whether live providers returned results")
+    search_warning: Optional[str] = Field(None, description="Diagnostic warning message if external providers were throttled or unavailable")
 
 
 class GeocodeResult(BaseModel):

@@ -808,3 +808,88 @@
     justify-content: space-between;
   }
 }
+
+
+/* ==========================================================================
+   Find Care Accuracy & Diagnostic Enhancements
+   ========================================================================== */
+
+.accuracy-pill {
+  font-size: 0.75rem;
+  color: #38bdf8;
+  background: rgba(14, 165, 233, 0.15);
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  margin-left: 0.35rem;
+  font-weight: 600;
+}
+
+.fac-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.fac-source-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 0.15rem 0.45rem;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.search-warning-banner {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 12px;
+  padding: 0.85rem 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.88rem;
+  color: #fde68a;
+  line-height: 1.5;
+}
+
+.search-warning-banner .warn-icon {
+  color: #f59e0b;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.empty-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-top: 1.25rem;
+}
+
+.btn-retry-search {
+  padding: 0.65rem 1.25rem;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f8fafc;
+  font-weight: 600;
+  font-size: 0.88rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.btn-retry-search:hover {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: #38bdf8;
+  color: #38bdf8;
+}

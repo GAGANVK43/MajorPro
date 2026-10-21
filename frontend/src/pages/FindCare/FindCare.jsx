@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import Navbar from "../../components/Navbar/Navbar";
 import BackButton from "../../components/BackButton/BackButton";
 import Footer from "../../components/Footer/Footer";
+import FacilityMap from "./FacilityMap";
 import {
   FaHospital,
   FaVial,
@@ -21,6 +22,8 @@ import {
   FaClock,
   FaCompass,
   FaInfoCircle,
+  FaShieldAlt,
+  FaRedoAlt,
 } from "react-icons/fa";
 import { nearbyCareService } from "../../services/api";
 import { useTranslation } from "../../context/LanguageContext";
@@ -39,7 +42,7 @@ function FindCare() {
   const [viewMode, setViewMode] = useState("list"); // 'list' | 'map'
 
   // Location state
-  const [location, setLocation] = useState(null); // { lat, lng, name }
+  const [location, setLocation] = useState(null); // { lat, lng, name, accuracy }
   const [locationStatus, setLocationStatus] = useState("idle"); // 'idle' | 'locating' | 'success' | 'error'
   const [locationError, setLocationError] = useState("");
   const [manualQuery, setManualQuery] = useState("");
@@ -49,9 +52,11 @@ function FindCare() {
   const [loading, setLoading] = useState(false);
   const [searchedOnce, setSearchedOnce] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState(null);
+  const [searchWarning, setSearchWarning] = useState(null);
+  const [providerStatus, setProviderStatus] = useState(null);
   const requestIdRef = useRef(0);
 
-  // Request user's current GPS location
+  // Request user's current GPS location with high precision and accuracy tracking
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
       const err = "Geolocation is not supported by your browser.";
@@ -66,31 +71,46 @@ function FindCare() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const accuracyMeters = position.coords.accuracy ? Math.round(position.coords.accuracy) : null;
+
+        // Validate finite numbers
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+          const invalidErr = "Received invalid geographical coordinates from device.";
+          setLocationStatus("error");
+          setLocationError(invalidErr);
+          toast.error(invalidErr);
+          return;
+        }
+
         const coords = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          name: "Current GPS Location",
+          lat,
+          lng,
+          name: accuracyMeters ? `Current GPS (±${accuracyMeters}m)` : "Current GPS Location",
+          accuracy: accuracyMeters,
         };
+
         setLocation(coords);
         setLocationStatus("success");
         setLocationError("");
-        toast.success("📍 Location detected successfully!");
-        fetchFacilities(coords.lat, coords.lng, activeTab, radius, "Current Location");
+        toast.success(`📍 GPS location acquired (${lat.toFixed(4)}°, ${lng.toFixed(4)}°)`);
+        fetchFacilities(coords.lat, coords.lng, activeTab, radius, "Current GPS Location");
       },
       (err) => {
         setLocationStatus("error");
         let msg = "We couldn't determine your current location. Please try again or search manually.";
         if (err.code === 1) {
-          msg = t("findCare.permissionDenied");
+          msg = t("findCare.permissionDenied") || "Location permission was denied. Please allow location access or type your locality/PIN code.";
         } else if (err.code === 2) {
-          msg = t("findCare.locationUnavailable");
+          msg = t("findCare.locationUnavailable") || "Location position unavailable. Please type your city, area, or PIN code.";
         } else if (err.code === 3) {
-          msg = t("findCare.locationTimeout");
+          msg = t("findCare.locationTimeout") || "Location request timed out. Please retry or enter your area name manually.";
         }
         setLocationError(msg);
         toast.warn(msg);
       },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
     );
   };
 
@@ -113,6 +133,7 @@ function FindCare() {
           lat: res.data.latitude,
           lng: res.data.longitude,
           name: res.data.display_name,
+          accuracy: null,
         };
         setLocation(coords);
         setLocationStatus("success");
@@ -120,21 +141,25 @@ function FindCare() {
         const locLabel = res.data.city || res.data.display_name.split(",")[0];
         toast.success(t("findCare.foundLocation", { location: locLabel }) || `📍 Found location: ${locLabel}`);
         fetchFacilities(coords.lat, coords.lng, activeTab, radius, res.data.display_name);
+      } else {
+        throw new Error(`Unable to resolve location for "${manualQuery.trim()}".`);
       }
     } catch (err) {
       setLocationStatus("error");
-      const msg = err.message || t("findCare.locateError", { query: manualQuery }) || `Unable to locate "${manualQuery}". Please try another city or PIN code.`;
+      const msg = err.message || t("findCare.locateError", { query: manualQuery }) || `Unable to locate "${manualQuery}". Please verify your city or PIN code.`;
       setLocationError(msg);
       toast.error(msg);
       setLoading(false);
     }
   };
 
-  // Fetch facilities from backend
+  // Fetch facilities from backend with strict radius filtering & diagnostic capture
   const fetchFacilities = async (lat, lng, type, rad, locName) => {
     const currentRequestId = ++requestIdRef.current;
     setLoading(true);
     setSearchedOnce(true);
+    setSearchWarning(null);
+
     try {
       const response = await nearbyCareService.getNearbyCare({
         latitude: lat,
@@ -148,17 +173,22 @@ function FindCare() {
         return;
       }
 
-      if (response && response.data && response.data.facilities) {
-        // Enforce strict client-side boundary contract: distance <= (radius / 1000) + 5m tolerance
-        const maxAllowedKm = (rad / 1000.0) + 0.005;
-        const validFacilities = response.data.facilities.filter((fac) => {
-          return fac.distance <= maxAllowedKm;
-        });
+      if (response && response.data) {
+        const data = response.data;
+        setSearchWarning(data.search_warning || null);
+        setProviderStatus(data.provider_status || null);
 
-        setFacilities(validFacilities);
-        if (validFacilities.length > 0) {
-          setSelectedFacility(validFacilities[0]);
+        if (data.facilities && data.facilities.length > 0) {
+          // Enforce strict client-side boundary contract: distance <= (radius / 1000) + 5m tolerance
+          const maxAllowedKm = (rad / 1000.0) + 0.005;
+          const validFacilities = data.facilities.filter((fac) => {
+            return fac.distance <= maxAllowedKm;
+          });
+
+          setFacilities(validFacilities);
+          setSelectedFacility(validFacilities.length > 0 ? validFacilities[0] : null);
         } else {
+          setFacilities([]);
           setSelectedFacility(null);
         }
       } else {
@@ -167,7 +197,8 @@ function FindCare() {
       }
     } catch (err) {
       if (currentRequestId === requestIdRef.current) {
-        toast.error(err.message || t("findCare.facilitiesFetchError") || "Unable to find nearby healthcare facilities right now. Please try again.");
+        const errorMsg = err.message || t("findCare.facilitiesFetchError") || "Unable to find nearby healthcare facilities right now. Please try again.";
+        toast.error(errorMsg);
         setFacilities([]);
         setSelectedFacility(null);
       }
@@ -208,6 +239,14 @@ function FindCare() {
     }
   };
 
+  const handleRetrySearch = () => {
+    if (location) {
+      fetchFacilities(location.lat, location.lng, activeTab, radius, location.name);
+    } else {
+      handleUseCurrentLocation();
+    }
+  };
+
   return (
     <>
       <Navbar />
@@ -219,10 +258,13 @@ function FindCare() {
           {/* Hero Header */}
           <div className="find-care-header text-center">
             <span className="badge-pill">
-              <FaMapMarkerAlt /> {t("findCare.headerBadge")}
+              <FaMapMarkerAlt /> {t("findCare.headerBadge") || "Medical Care Network"}
             </span>
-            <h1>{t("findCare.headerTitle")}</h1>
-            <p>{t("findCare.headerDesc")}</p>
+            <h1>{t("findCare.headerTitle") || "Find Nearby Hospitals & Diagnostic Centers"}</h1>
+            <p>
+              {t("findCare.headerDesc") ||
+                "Locate authentic healthcare facilities, multi-specialty hospitals, and diabetes pathology testing labs near your exact coordinates or postal zone."}
+            </p>
           </div>
 
           {/* Location Action Card */}
@@ -233,19 +275,24 @@ function FindCare() {
                   <FaCompass />
                 </div>
                 <div>
-                  <h2>{t("findCare.yourLocation")}</h2>
-                  <p className="card-subtext">{t("findCare.locationSubtext")}</p>
+                  <h2>{t("findCare.yourLocation") || "Your Location"}</h2>
+                  <p className="card-subtext">
+                    {t("findCare.locationSubtext") || "Use high-accuracy GPS or enter an Indian PIN code / city area"}
+                  </p>
                 </div>
               </div>
 
-              {locationStatus === "success" && (
+              {locationStatus === "success" && location && (
                 <div className="location-status-badge success">
-                  <FaCheckCircle /> {t("findCare.locationDetected")}:{" "}
+                  <FaCheckCircle /> {t("findCare.locationDetected") || "Active Search Origin"}:{" "}
                   <strong>
-                    {location?.name?.length > 35
-                      ? location.name.slice(0, 35) + "..."
-                      : location?.name}
+                    {location.name?.length > 40 ? location.name.slice(0, 40) + "..." : location.name}
                   </strong>
+                  {location.accuracy && (
+                    <span className="accuracy-pill" title="GPS reported horizontal accuracy">
+                      (±{location.accuracy}m)
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -260,11 +307,11 @@ function FindCare() {
               >
                 {locationStatus === "locating" ? (
                   <>
-                    <FaSpinner className="spin-icon" /> {t("findCare.obtainingGps")}
+                    <FaSpinner className="spin-icon" /> {t("findCare.obtainingGps") || "Acquiring GPS Fix..."}
                   </>
                 ) : (
                   <>
-                    <FaLocationArrow /> {t("findCare.useGpsBtn")}
+                    <FaLocationArrow /> {t("findCare.useGpsBtn") || "Use My GPS Location"}
                   </>
                 )}
               </button>
@@ -276,7 +323,7 @@ function FindCare() {
                 <div className="input-with-button">
                   <input
                     type="text"
-                    placeholder={t("findCare.searchPlaceholder")}
+                    placeholder={t("findCare.searchPlaceholder") || "Enter Area, PIN code (e.g. 560049, 560001) or City..."}
                     value={manualQuery}
                     onChange={(e) => setManualQuery(e.target.value)}
                   />
@@ -285,7 +332,7 @@ function FindCare() {
                       <FaSpinner className="spin-icon" />
                     ) : (
                       <>
-                        <FaSearch /> {t("findCare.searchBtn")}
+                        <FaSearch /> {t("findCare.searchBtn") || "Search"}
                       </>
                     )}
                   </button>
@@ -298,7 +345,7 @@ function FindCare() {
               <div className="location-error-banner">
                 <FaExclamationTriangle className="err-icon" />
                 <div>
-                  <strong>{t("findCare.locationNotice")}: </strong>
+                  <strong>{t("findCare.locationNotice") || "Location Notice"}: </strong>
                   <span>{locationError}</span>
                 </div>
               </div>
@@ -313,20 +360,20 @@ function FindCare() {
                 className={`tab-item ${activeTab === "hospital" ? "active" : ""}`}
                 onClick={() => handleTabChange("hospital")}
               >
-                <FaHospital /> 🏥 {t("findCare.hospitalsTab")}
+                <FaHospital /> 🏥 {t("findCare.hospitalsTab") || "Hospitals & Clinics"}
               </button>
               <button
                 className={`tab-item ${activeTab === "laboratory" ? "active" : ""}`}
                 onClick={() => handleTabChange("laboratory")}
               >
-                <FaVial /> 🧪 {t("findCare.labsTab")}
+                <FaVial /> 🧪 {t("findCare.labsTab") || "Diagnostic Laboratories"}
               </button>
             </div>
 
             {/* Radius & View Selector */}
             <div className="controls-right">
               <div className="radius-selector">
-                <span className="ctrl-label">{t("findCare.radiusLabel")}</span>
+                <span className="ctrl-label">{t("findCare.radiusLabel") || "Search Radius:"}</span>
                 <div className="radius-chips">
                   {RADIUS_OPTIONS.map((opt) => (
                     <button
@@ -346,25 +393,37 @@ function FindCare() {
                   onClick={() => setViewMode("list")}
                   title="List View"
                 >
-                  <FaList /> {t("findCare.listView")}
+                  <FaList /> {t("findCare.listView") || "List"}
                 </button>
                 <button
                   className={`view-btn ${viewMode === "map" ? "active" : ""}`}
                   onClick={() => setViewMode("map")}
-                  title="Map View"
+                  title="Interactive Map View"
                 >
-                  <FaMapMarkedAlt /> {t("findCare.mapView")}
+                  <FaMapMarkedAlt /> {t("findCare.mapView") || "Interactive Map"}
                 </button>
               </div>
             </div>
           </div>
+
+          {/* Diagnostic Warning Banner if live provider was slow / throttled */}
+          {searchWarning && (
+            <div className="search-warning-banner">
+              <FaShieldAlt className="warn-icon" />
+              <div>
+                <strong>Information:</strong> {searchWarning}
+              </div>
+            </div>
+          )}
 
           {/* Diagnostic Labs Informational Note */}
           {activeTab === "laboratory" && (
             <div className="lab-info-banner">
               <FaInfoCircle className="info-icon" />
               <div>
-                <strong>{t("findCare.labNoteTitle")}</strong> {t("findCare.labNoteDesc")}
+                <strong>{t("findCare.labNoteTitle") || "Diagnostic Testing Note:"}</strong>{" "}
+                {t("findCare.labNoteDesc") ||
+                  "Showing certified pathology and blood testing laboratories for HbA1c, Fasting Blood Sugar (FBS), and lipid profile screenings."}
               </div>
             </div>
           )}
@@ -375,8 +434,8 @@ function FindCare() {
             {loading && (
               <div className="loading-state-card">
                 <FaSpinner className="spin-icon-large" />
-                <h3>{t("findCare.findingCare")}</h3>
-                <p>Querying real medical facilities within {radius / 1000} km radius.</p>
+                <h3>{t("findCare.findingCare") || "Searching Healthcare Facilities..."}</h3>
+                <p>Querying verified medical providers strictly within {radius / 1000} km radius.</p>
               </div>
             )}
 
@@ -386,8 +445,11 @@ function FindCare() {
                 <div className="prompt-icon">
                   <FaCompass />
                 </div>
-                <h3>{t("findCare.readyPrompt")}</h3>
-                <p>{t("findCare.readyDesc")}</p>
+                <h3>{t("findCare.readyPrompt") || "Discover Healthcare Facilities Near You"}</h3>
+                <p>
+                  {t("findCare.readyDesc") ||
+                    "Click 'Use My GPS Location' or enter your area name/PIN code above to find nearby hospitals, clinics, and diabetes testing laboratories."}
+                </p>
               </div>
             )}
 
@@ -397,15 +459,21 @@ function FindCare() {
                 <div className="empty-icon">
                   <FaExclamationTriangle />
                 </div>
-                <h3>{t("findCare.noResults")} {radius / 1000} km</h3>
+                <h3>
+                  {t("findCare.noResults") || "No healthcare facilities found within"} {radius / 1000} km
+                </h3>
                 <p>
-                  {t("findCare.noResultsDesc", {
-                    type: activeTab === "hospital" ? t("findCare.hospitalsOrClinics") : t("findCare.diagnosticLabs"),
-                  })}
+                  No matching {activeTab === "hospital" ? "hospitals or medical clinics" : "diagnostic laboratories"}{" "}
+                  were identified strictly within {radius / 1000} km of your active origin ({location.name}).
                 </p>
-                <button className="btn-increase-radius" onClick={handleIncreaseRadius}>
-                  <FaSearch /> {t("findCare.expandRadius")} to {radius < 10000 ? "10 km" : "20 km"}
-                </button>
+                <div className="empty-actions">
+                  <button className="btn-increase-radius" onClick={handleIncreaseRadius}>
+                    <FaSearch /> Expand search radius to {radius < 10000 ? "10 km" : "20 km"}
+                  </button>
+                  <button className="btn-retry-search" onClick={handleRetrySearch}>
+                    <FaRedoAlt /> Retry Search
+                  </button>
+                </div>
               </div>
             )}
 
@@ -413,13 +481,11 @@ function FindCare() {
             {!loading && facilities.length > 0 && (
               <div className="results-summary-bar">
                 <span className="count-badge">
-                  {t("findCare.foundCount", {
-                    count: facilities.length,
-                    type: activeTab === "hospital" ? t("findCare.hospitalsTab") : t("findCare.labsTab")
-                  })}
+                  Found <strong>{facilities.length}</strong>{" "}
+                  {activeTab === "hospital" ? "Hospitals & Clinics" : "Diagnostic Laboratories"}
                 </span>
                 <span className="radius-indicator">
-                  {t("findCare.sortedByDistance", { radius: radius / 1000 })}
+                  Strictly within {radius / 1000} km • Sorted by Distance
                 </span>
               </div>
             )}
@@ -434,7 +500,14 @@ function FindCare() {
                         {fac.category === "laboratory" ? <FaVial /> : <FaHospital />}
                       </div>
                       <div className="fac-title-area">
-                        <span className="fac-type-pill">{fac.type}</span>
+                        <div className="fac-badge-row">
+                          <span className="fac-type-pill">{fac.type}</span>
+                          {fac.source === "verified_directory" && (
+                            <span className="fac-source-pill" title="Verified Hospital Directory">
+                              <FaShieldAlt /> Verified
+                            </span>
+                          )}
+                        </div>
                         <h3>{fac.name}</h3>
                       </div>
                     </div>
@@ -448,13 +521,13 @@ function FindCare() {
                       <div className="fac-meta-row">
                         <div className="meta-item distance">
                           <FaLocationArrow />
-                          <strong>{fac.distance} km</strong> {t("findCare.distanceAway")}
+                          <strong>{fac.distance} km</strong> {t("findCare.distanceAway") || "away"}
                         </div>
 
                         {fac.open_now !== null && fac.open_now !== undefined && (
                           <div className={`meta-item status ${fac.open_now ? "open" : "closed"}`}>
                             <FaClock />
-                            <span>{fac.open_now ? t("findCare.openNow") : t("findCare.closed")}</span>
+                            <span>{fac.open_now ? "Open Now (24/7)" : "Regular Hours"}</span>
                           </div>
                         )}
 
@@ -476,12 +549,16 @@ function FindCare() {
 
                     <div className="card-actions">
                       <a
-                        href={fac.mapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${fac.latitude},${fac.longitude}`}
+                        href={
+                          fac.maps_url ||
+                          fac.mapsUrl ||
+                          `https://www.google.com/maps/dir/?api=1&destination=${fac.latitude},${fac.longitude}`
+                        }
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn-directions"
                       >
-                        <FaDirections /> {t("common.getDirections")}
+                        <FaDirections /> {t("common.getDirections") || "Get Directions"}
                       </a>
                     </div>
                   </div>
@@ -494,7 +571,7 @@ function FindCare() {
               <div className="map-view-layout">
                 {/* Facilities Sidebar on Desktop */}
                 <div className="map-sidebar">
-                  <h3>{t("findCare.facilitiesList")} ({facilities.length})</h3>
+                  <h3>Discovered Facilities ({facilities.length})</h3>
                   <div className="map-sidebar-list">
                     {facilities.map((fac) => (
                       <div
@@ -508,13 +585,17 @@ function FindCare() {
                         </div>
                         <p className="sidebar-address">{fac.address}</p>
                         <a
-                          href={fac.mapsUrl}
+                          href={
+                            fac.maps_url ||
+                            fac.mapsUrl ||
+                            `https://www.google.com/maps/dir/?api=1&destination=${fac.latitude},${fac.longitude}`
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
                           className="sidebar-dir-link"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <FaDirections /> {t("common.getDirections")}
+                          <FaDirections /> {t("common.getDirections") || "Directions"}
                         </a>
                       </div>
                     ))}
@@ -537,32 +618,30 @@ function FindCare() {
                       </div>
                       <div className="preview-action-row">
                         <a
-                          href={selectedFacility.mapsUrl}
+                          href={
+                            selectedFacility.maps_url ||
+                            selectedFacility.mapsUrl ||
+                            `https://www.google.com/maps/dir/?api=1&destination=${selectedFacility.latitude},${selectedFacility.longitude}`
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
                           className="btn-directions-sm"
                         >
-                          <FaDirections /> {t("common.openGoogleMaps")}
+                          <FaDirections /> {t("common.openGoogleMaps") || "Open Directions"}
                         </a>
                       </div>
                     </div>
                   )}
 
-                  {/* OpenStreetMap Interactive Embed */}
-                  <div className="map-iframe-wrapper">
-                    {location && (
-                      <iframe
-                        title="Healthcare Facilities Map"
-                        width="100%"
-                        height="480"
-                        frameBorder="0"
-                        scrolling="no"
-                        marginHeight="0"
-                        marginWidth="0"
-                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${(selectedFacility?.longitude || location.lng) - 0.03}%2C${(selectedFacility?.latitude || location.lat) - 0.02}%2C${(selectedFacility?.longitude || location.lng) + 0.03}%2C${(selectedFacility?.latitude || location.lat) + 0.02}&layer=mapnik&marker=${selectedFacility?.latitude || location.lat}%2C${selectedFacility?.longitude || location.lng}`}
-                      ></iframe>
-                    )}
-                  </div>
+                  {/* Enhanced Multi-Facility Interactive Map Canvas */}
+                  <FacilityMap
+                    facilities={facilities}
+                    location={location}
+                    radius={radius}
+                    selectedFacility={selectedFacility}
+                    onSelectFacility={setSelectedFacility}
+                    activeTab={activeTab}
+                  />
                 </div>
               </div>
             )}
@@ -571,9 +650,12 @@ function FindCare() {
           {/* Medical Legal Disclaimer */}
           <div className="find-care-disclaimer">
             <h4>
-              <FaInfoCircle /> {t("common.disclaimerTitle")}
+              <FaInfoCircle /> {t("common.disclaimerTitle") || "Clinical Directory Disclaimer"}
             </h4>
-            <p>{t("common.disclaimerText")}</p>
+            <p>
+              {t("common.disclaimerText") ||
+                "DiaSense AI provides facility locations and contact information for healthcare accessibility and emergency guidance. Always verify emergency availability and bed status directly with the hospital before transit in life-threatening scenarios."}
+            </p>
           </div>
         </div>
       </div>

@@ -120,8 +120,7 @@ def test_strict_radius_boundary_synthetic_dataset():
 
     # Patch candidate fetch to return our synthetic pool
     try:
-        with patch.object(service, "_fetch_from_overpass", return_value=synthetic_candidates), \
-             patch.object(service, "_fetch_from_nominatim_poi", return_value=[]), \
+        with patch.object(service, "_fetch_from_overpass", return_value=(synthetic_candidates, "success")), \
              patch.object(service, "_fetch_from_google_places", return_value=[]), \
              patch.object(service, "_get_verified_hub_fallbacks", return_value=[]):
 
@@ -267,8 +266,7 @@ def test_invalid_coordinates_exclusion_in_service():
     ]
 
     try:
-        with patch.object(service, "_fetch_from_overpass", return_value=corrupt_candidates), \
-             patch.object(service, "_fetch_from_nominatim_poi", return_value=[]), \
+        with patch.object(service, "_fetch_from_overpass", return_value=(corrupt_candidates, "success")), \
              patch.object(service, "_fetch_from_google_places", return_value=[]), \
              patch.object(service, "_get_verified_hub_fallbacks", return_value=[]):
 
