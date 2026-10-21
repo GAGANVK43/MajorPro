@@ -222,18 +222,21 @@ FOOD_ALIASES: Dict[str, str] = {
 }
 
 
+_USE_ENV_KEY = object()
+
+
 class FoodAnalyzerService:
     """
     AI-powered Food Image Analyzer and Meal Calorie / Nutrition Analyzer with multilingual support.
     Strictly ties analysis to image bytes and request IDs. Never fabricates fake food identifications.
     """
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Any = _USE_ENV_KEY):
         self._api_key = api_key
 
     @property
     def api_key(self) -> str:
-        if self._api_key is not None:
-            return self._api_key
+        if self._api_key is not _USE_ENV_KEY:
+            return self._api_key or ""
         return settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
 
     @api_key.setter
