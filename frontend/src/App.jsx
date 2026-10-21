@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 // Components & Guard
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute";
 import Chatbot from "./components/Chatbot/Chatbot";
+import MedicalAmbientBackground from "./components/MedicalAmbientBackground/MedicalAmbientBackground";
 
 // Pages
 import Home from "./pages/Home/Home";
@@ -23,77 +24,82 @@ import FindCare from "./pages/FindCare/FindCare";
 function App() {
   return (
     <BrowserRouter>
+      {/* Website-Wide Medical Ambient Background Visual Layer */}
+      <MedicalAmbientBackground />
+
       {/* Website-Wide Floating DiaSense AI Assistant Chatbot */}
       <Chatbot />
 
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/contact" element={<Contact />} />
+      <div className="app-page-wrapper">
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
 
-        {/* Protected User Routes (Require Login) */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/assessment"
-          element={
-            <ProtectedRoute>
-              <Assessment />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/result"
-          element={
-            <ProtectedRoute>
-              <Result />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/diet-plan"
-          element={
-            <ProtectedRoute>
-              <DietPlan />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/food-analyzer"
-          element={
-            <ProtectedRoute>
-              <FoodAnalyzer />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/find-care"
-          element={
-            <ProtectedRoute>
-              <FindCare />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+          {/* Protected User Routes (Require Login) */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assessment"
+            element={
+              <ProtectedRoute>
+                <Assessment />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/result"
+            element={
+              <ProtectedRoute>
+                <Result />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/diet-plan"
+            element={
+              <ProtectedRoute>
+                <DietPlan />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/food-analyzer"
+            element={
+              <ProtectedRoute>
+                <FoodAnalyzer />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/find-care"
+            element={
+              <ProtectedRoute>
+                <FindCare />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </div>
     </BrowserRouter>
   );
 }
