@@ -67,6 +67,23 @@ def is_valid_coordinate(lat: Any, lon: Any) -> bool:
         return False
 
 
+def is_within_india(lat: Any, lon: Any) -> bool:
+    """
+    Validates whether coordinates fall within the geographical territory of India.
+    Bounding box: Lat 6.0° to 38.0° N, Lon 68.0° to 98.0° E.
+    """
+    if not is_valid_coordinate(lat, lon):
+        return False
+    f_lat = float(lat)
+    f_lon = float(lon)
+    return (6.0 <= f_lat <= 38.0) and (68.0 <= f_lon <= 98.0)
+
+
+# In-memory geocode cache keyed by lowercase query string: (GeocodeResult, timestamp)
+_GEOCODE_CACHE: Dict[str, Tuple[GeocodeResult, float]] = {}
+GEOCODE_CACHE_TTL = 86400.0  # 24 hours TTL for geocoded queries
+
+
 class CandidateCacheEntry:
     def __init__(self, candidates: List[NearbyFacilityItem], timestamp: float, max_radius: int):
         self.candidates = candidates
@@ -825,142 +842,281 @@ class NearbyCareService:
 
     def geocode_location(self, query: str) -> Optional[GeocodeResult]:
         """
-        Geocodes a user-entered location query (PIN code, City, Locality, Area)
-        into latitude and longitude coordinates.
-        Supports 6-digit Indian PIN codes, city names, and areas with multiple fallback tiers.
-        Never collapses distinct PIN codes to an unrelated city center.
+        Nationwide Indian Geocoding System.
+        Resolves ANY valid 6-digit Indian PIN code into verified postal jurisdiction
+        (Post Offices, District, State) and accurate geographical coordinates.
+        Also geocodes localities, cities, towns, and landmarks across India.
+        Enforces territory bounds and TTL in-memory caching.
         """
         if not query or not query.strip():
             return None
 
         clean_query = query.strip()
+        cache_key = clean_query.lower()
 
-        # 1. Check known PIN code cache for instant ultra-accurate match
-        if clean_query in self.KNOWN_INDIAN_PIN_CLUSTERS:
-            lat, lon, display = self.KNOWN_INDIAN_PIN_CLUSTERS[clean_query]
-            return GeocodeResult(
-                latitude=lat,
-                longitude=lon,
-                display_name=display,
-                city="Bengaluru" if clean_query.startswith("560") else "India",
-                state="Karnataka" if clean_query.startswith("560") or clean_query.startswith("570") or clean_query.startswith("575") else "India",
-                country="India",
-            )
+        # Check in-memory geocoding cache
+        now = time.time()
+        cached = _GEOCODE_CACHE.get(cache_key)
+        if cached and (now - cached[1] < GEOCODE_CACHE_TTL):
+            return cached[0]
+
+        is_pin = bool(re.match(r"^\d{6}$", clean_query))
+        result: Optional[GeocodeResult] = None
+
+        if is_pin:
+            result = self._resolve_indian_pincode(clean_query)
+        else:
+            result = self._resolve_general_query(clean_query)
+
+        if result:
+            _GEOCODE_CACHE[cache_key] = (result, now)
+
+        return result
+
+    def _resolve_indian_pincode(self, pincode: str) -> Optional[GeocodeResult]:
+        """
+        Resolves ANY valid 6-digit Indian PIN code.
+        Stage A: Validates 6-digit pattern (first digit 1-9).
+        Stage B: Fetches postal records from Department of Posts directory (api.postalpincode.in).
+        Stage C: Resolves geographical coordinates via Nominatim using full postal hierarchy.
+        Stage D: Verifies coordinates strictly fall within India boundaries.
+        Stage E: Returns rich structured response with multiple post offices & centroid notice.
+        """
+        if not re.match(r"^[1-9]\d{5}$", pincode):
+            logger.info(f"Invalid Indian PIN format: '{pincode}'")
+            return None
 
         headers = {"User-Agent": self.USER_AGENT}
-        is_pin = bool(re.match(r"^\d{6}$", clean_query))
+        po_names: List[str] = []
+        primary_po = ""
+        district = ""
+        state = ""
+        country = "India"
+        postal_success = False
 
-        # 2. If 6-digit PIN code, query Nominatim with structured postalcode + India
-        if is_pin:
-            try:
-                params = {
-                    "postalcode": clean_query,
-                    "country": "India",
-                    "format": "json",
-                    "addressdetails": 1,
-                    "limit": 1,
-                }
-                with httpx.Client(timeout=6.0) as client:
-                    res = client.get(f"{self.NOMINATIM_BASE}/search", params=params, headers=headers)
-                    if res.status_code == 200:
-                        data = res.json()
-                        if data and len(data) > 0:
-                            top = data[0]
-                            addr = top.get("address", {})
-                            city = (
-                                addr.get("city")
-                                or addr.get("town")
-                                or addr.get("village")
-                                or addr.get("city_district")
-                                or addr.get("county")
-                                or addr.get("state_district")
+        # Stage B: Indian Postal Directory lookup
+        try:
+            with httpx.Client(timeout=5.0) as client:
+                res = client.get(f"https://api.postalpincode.in/pincode/{pincode}")
+                if res.status_code == 200:
+                    data = res.json()
+                    if data and len(data) > 0 and data[0].get("Status") == "Success":
+                        post_offices = data[0].get("PostOffice", []) or []
+                        if post_offices:
+                            postal_success = True
+                            po_names = [
+                                po.get("Name", "").strip()
+                                for po in post_offices
+                                if po.get("Name")
+                            ]
+                            # Select primary post office (prefer Head Office or Sub Office with delivery)
+                            primary_obj = next(
+                                (
+                                    po
+                                    for po in post_offices
+                                    if "head" in po.get("BranchType", "").lower()
+                                    or "delivery" in po.get("DeliveryStatus", "").lower()
+                                ),
+                                post_offices[0],
                             )
-                            return GeocodeResult(
-                                latitude=float(top["lat"]),
-                                longitude=float(top["lon"]),
-                                display_name=top.get("display_name", f"{clean_query}, India"),
-                                city=city,
-                                state=addr.get("state"),
-                                country=addr.get("country", "India"),
+                            primary_po = primary_obj.get("Name", "").strip() or (
+                                po_names[0] if po_names else ""
                             )
-            except Exception as e:
-                logger.warning(f"Nominatim postal query error for '{clean_query}': {e}")
+                            district = (
+                                primary_obj.get("District", "").strip()
+                                or post_offices[0].get("District", "").strip()
+                            )
+                            state = (
+                                primary_obj.get("State", "").strip()
+                                or post_offices[0].get("State", "").strip()
+                            )
+                            country = (
+                                primary_obj.get("Country", "India").strip() or "India"
+                            )
+        except Exception as e:
+            logger.warning(f"Postal Directory lookup exception for PIN {pincode}: {e}")
 
-            # 2b. Indian Postal PIN API fallback (api.postalpincode.in)
+        # Stage C: Hierarchical coordinate resolution via Nominatim
+        search_candidates: List[str] = []
+        if postal_success and primary_po:
+            search_candidates.append(f"{primary_po}, {district}, {state}, {pincode}, India")
+            search_candidates.append(f"{primary_po}, {district}, {state}, India")
+            search_candidates.append(f"{pincode}, {district}, {state}, India")
+            search_candidates.append(f"{district}, {state}, India")
+        else:
+            search_candidates.append(f"{pincode}, India")
+
+        for cand in search_candidates:
             try:
-                with httpx.Client(timeout=5.0) as client:
-                    pin_res = client.get(f"https://api.postalpincode.in/pincode/{clean_query}")
-                    if pin_res.status_code == 200:
-                        pin_json = pin_res.json()
-                        if pin_json and len(pin_json) > 0 and pin_json[0].get("Status") == "Success":
-                            post_offices = pin_json[0].get("PostOffice", [])
-                            if post_offices:
-                                po = post_offices[0]
-                                po_name = po.get("Name", "")
-                                district = po.get("District", "")
-                                state = po.get("State", "")
-                                fallback_search = f"{po_name}, {district}, {state}, India" if po_name else f"{district}, {state}, India"
-
-                                # Geocode the resolved district / place name via Nominatim
-                                geo_res = client.get(
-                                    f"{self.NOMINATIM_BASE}/search",
-                                    params={"q": fallback_search, "format": "json", "limit": 1},
-                                    headers=headers,
+                with httpx.Client(timeout=4.5) as client:
+                    nres = client.get(
+                        f"{self.NOMINATIM_BASE}/search",
+                        params={"q": cand, "format": "json", "addressdetails": 1, "limit": 1},
+                        headers=headers,
+                    )
+                    if nres.status_code == 200:
+                        ndata = nres.json()
+                        if ndata and len(ndata) > 0:
+                            top = ndata[0]
+                            lat = float(top["lat"])
+                            lon = float(top["lon"])
+                            # Stage D: Verify coordinates are within India
+                            if is_within_india(lat, lon):
+                                addr = top.get("address", {})
+                                city = (
+                                    addr.get("city")
+                                    or addr.get("town")
+                                    or addr.get("village")
+                                    or addr.get("city_district")
+                                    or addr.get("county")
+                                    or district
+                                    or "India"
                                 )
-                                if geo_res.status_code == 200:
-                                    gdata = geo_res.json()
-                                    if gdata:
-                                        return GeocodeResult(
-                                            latitude=float(gdata[0]["lat"]),
-                                            longitude=float(gdata[0]["lon"]),
-                                            display_name=f"{clean_query} ({po_name}, {district}, {state})",
-                                            city=district,
-                                            state=state,
-                                            country="India",
-                                        )
-            except Exception as e:
-                logger.warning(f"India Postal API fallback error for '{clean_query}': {e}")
+                                res_state = addr.get("state") or state or "India"
+                                main_po = primary_po or (po_names[0] if po_names else city)
+                                display_name = f"{pincode} ({main_po}, {district or city}, {res_state})"
+                                formatted = f"{main_po}, {district or city}, {res_state} - {pincode}, India"
 
-        # 3. Standard City / Locality Geocoding via Nominatim
-        search_queries = [clean_query]
-        if "india" not in clean_query.lower() and not clean_query.lower().endswith("in"):
-            search_queries.append(f"{clean_query}, India")
+                                return GeocodeResult(
+                                    latitude=lat,
+                                    longitude=lon,
+                                    display_name=display_name,
+                                    formatted_address=formatted,
+                                    pincode=pincode,
+                                    post_office=main_po,
+                                    post_offices=po_names,
+                                    district=district or city,
+                                    city=city,
+                                    state=res_state,
+                                    country="India",
+                                    source="postal_directory" if postal_success else "nominatim",
+                                    confidence=0.95 if (postal_success and cand != f"{district}, {state}, India") else 0.82,
+                                    approximate_notice=(
+                                        "PIN-code searches identify an approximate postal area centroid, "
+                                        "not your exact home address. Use GPS for more precise nearby results."
+                                    ),
+                                )
+            except Exception as e:
+                logger.warning(f"Nominatim geocoding candidate '{cand}' failed: {e}")
+
+        # Stage C Fallback: Structured Nominatim search by postalcode
+        try:
+            with httpx.Client(timeout=4.0) as client:
+                sres = client.get(
+                    f"{self.NOMINATIM_BASE}/search",
+                    params={"postalcode": pincode, "country": "India", "format": "json", "addressdetails": 1, "limit": 1},
+                    headers=headers,
+                )
+                if sres.status_code == 200:
+                    sdata = sres.json()
+                    if sdata and len(sdata) > 0:
+                        top = sdata[0]
+                        lat = float(top["lat"])
+                        lon = float(top["lon"])
+                        if is_within_india(lat, lon):
+                            addr = top.get("address", {})
+                            city = addr.get("city") or addr.get("town") or district or "India"
+                            res_state = addr.get("state") or state or "India"
+                            main_po = primary_po or (po_names[0] if po_names else city)
+                            return GeocodeResult(
+                                latitude=lat,
+                                longitude=lon,
+                                display_name=top.get("display_name", f"{pincode}, India"),
+                                formatted_address=f"{main_po}, {district or city}, {res_state} - {pincode}, India",
+                                pincode=pincode,
+                                post_office=main_po,
+                                post_offices=po_names,
+                                district=district or city,
+                                city=city,
+                                state=res_state,
+                                country="India",
+                                source="nominatim_structured",
+                                confidence=0.90,
+                                approximate_notice=(
+                                    "PIN-code searches identify an approximate postal area, "
+                                    "not your exact home address. Use GPS for more precise nearby results."
+                                ),
+                            )
+        except Exception as e:
+            logger.warning(f"Structured Nominatim search failed for PIN {pincode}: {e}")
+
+        # Stage E Emergency Fallback: Verified local clusters if network/external APIs down
+        if pincode in self.KNOWN_INDIAN_PIN_CLUSTERS:
+            lat, lon, display = self.KNOWN_INDIAN_PIN_CLUSTERS[pincode]
+            if is_within_india(lat, lon):
+                logger.info(f"Resolved {pincode} via KNOWN_INDIAN_PIN_CLUSTERS fallback.")
+                return GeocodeResult(
+                    latitude=lat,
+                    longitude=lon,
+                    display_name=display,
+                    formatted_address=display,
+                    pincode=pincode,
+                    post_office=po_names[0] if po_names else None,
+                    post_offices=po_names,
+                    district=district or None,
+                    city="Bengaluru" if pincode.startswith("560") else None,
+                    state="Karnataka" if pincode.startswith("560") or pincode.startswith("57") else None,
+                    country="India",
+                    source="verified_cluster_fallback",
+                    confidence=0.88,
+                    approximate_notice=(
+                        "PIN-code searches identify an approximate postal area, "
+                        "not your exact home address. Use GPS for more precise nearby results."
+                    ),
+                )
+
+        return None
+
+    def _resolve_general_query(self, query: str) -> Optional[GeocodeResult]:
+        """
+        Geocodes a locality, city, town, or landmark within India via Nominatim.
+        """
+        headers = {"User-Agent": self.USER_AGENT}
+        search_queries = [query]
+        if "india" not in query.lower():
+            search_queries.append(f"{query}, India")
 
         for sq in search_queries:
             try:
-                params = {
-                    "q": sq,
-                    "format": "json",
-                    "addressdetails": 1,
-                    "limit": 1,
-                }
-                with httpx.Client(timeout=6.0) as client:
-                    res = client.get(f"{self.NOMINATIM_BASE}/search", params=params, headers=headers)
+                with httpx.Client(timeout=5.0) as client:
+                    res = client.get(
+                        f"{self.NOMINATIM_BASE}/search",
+                        params={"q": sq, "format": "json", "addressdetails": 1, "limit": 1},
+                        headers=headers,
+                    )
                     if res.status_code == 200:
                         data = res.json()
                         if data and len(data) > 0:
                             top = data[0]
-                            addr = top.get("address", {})
-                            city = (
-                                addr.get("city")
-                                or addr.get("town")
-                                or addr.get("village")
-                                or addr.get("county")
-                                or addr.get("state_district")
-                            )
-                            return GeocodeResult(
-                                latitude=float(top["lat"]),
-                                longitude=float(top["lon"]),
-                                display_name=top.get("display_name", clean_query),
-                                city=city,
-                                state=addr.get("state"),
-                                country=addr.get("country"),
-                            )
+                            lat = float(top["lat"])
+                            lon = float(top["lon"])
+                            if is_within_india(lat, lon):
+                                addr = top.get("address", {})
+                                city = (
+                                    addr.get("city")
+                                    or addr.get("town")
+                                    or addr.get("village")
+                                    or addr.get("county")
+                                    or addr.get("state_district")
+                                )
+                                return GeocodeResult(
+                                    latitude=lat,
+                                    longitude=lon,
+                                    display_name=top.get("display_name", query),
+                                    formatted_address=top.get("display_name", query),
+                                    city=city,
+                                    district=addr.get("state_district") or city,
+                                    state=addr.get("state"),
+                                    country=addr.get("country", "India"),
+                                    source="nominatim",
+                                    confidence=0.90,
+                                    approximate_notice=(
+                                        "Locality searches provide approximate central coordinates. "
+                                        "Use GPS for more precise nearby results."
+                                    ),
+                                )
             except Exception as e:
                 logger.warning(f"Nominatim search error for '{sq}': {e}")
-
-        # Note: We deliberately do NOT fall back to an arbitrary city center here.
-        # Returning None produces an honest 404 with helpful guidance rather than a false location.
         return None
 
     def get_nearby_facilities(
@@ -970,6 +1126,8 @@ class NearbyCareService:
         facility_type: str = "hospital",
         radius_meters: int = 5000,
         location_name: Optional[str] = None,
+        location_details: Optional[Dict[str, Any]] = None,
+        approximate_notice: Optional[str] = None,
     ) -> NearbyCareListResponse:
         """
         Fetch real healthcare facilities near (latitude, longitude) strictly within radius_meters.
@@ -1115,6 +1273,9 @@ class NearbyCareService:
             if not is_valid_coordinate(fac.latitude, fac.longitude):
                 continue
 
+            if fac.category and fac.category != norm_type:
+                continue
+
             # Compute exact distance from active search origin in meters
             exact_meters = calculate_haversine_distance_meters(
                 latitude, longitude, fac.latitude, fac.longitude
@@ -1159,6 +1320,8 @@ class NearbyCareService:
             provider_status=provider_status,
             has_live_results=has_live_results,
             search_warning=search_warning,
+            approximate_notice=approximate_notice,
+            location_details=location_details,
         )
 
     def _get_verified_hub_fallbacks(

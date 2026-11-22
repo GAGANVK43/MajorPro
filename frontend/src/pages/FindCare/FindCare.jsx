@@ -1,5 +1,6 @@
 import "./FindCare.css";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import Navbar from "../../components/Navbar/Navbar";
 import BackButton from "../../components/BackButton/BackButton";
@@ -24,6 +25,7 @@ import {
   FaInfoCircle,
   FaShieldAlt,
   FaRedoAlt,
+  FaSignInAlt,
 } from "react-icons/fa";
 import { nearbyCareService } from "../../services/api";
 import { useTranslation } from "../../context/LanguageContext";
@@ -37,15 +39,17 @@ const RADIUS_OPTIONS = [
 
 function FindCare() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("hospital"); // 'hospital' | 'laboratory'
   const [radius, setRadius] = useState(5000); // 5000 meters = 5 km default
   const [viewMode, setViewMode] = useState("list"); // 'list' | 'map'
 
-  // Location state
-  const [location, setLocation] = useState(null); // { lat, lng, name, accuracy }
+  // Location & Search state
+  const [location, setLocation] = useState(null); // { lat, lng, name, accuracy, details }
   const [locationStatus, setLocationStatus] = useState("idle"); // 'idle' | 'locating' | 'success' | 'error'
   const [locationError, setLocationError] = useState("");
   const [manualQuery, setManualQuery] = useState("");
+  const [searchStage, setSearchStage] = useState("idle"); // 'idle' | 'validating_pin' | 'finding_postal' | 'searching_facilities' | 'complete' | 'error'
 
   // Results state
   const [facilities, setFacilities] = useState([]);
@@ -54,10 +58,34 @@ function FindCare() {
   const [selectedFacility, setSelectedFacility] = useState(null);
   const [searchWarning, setSearchWarning] = useState(null);
   const [providerStatus, setProviderStatus] = useState(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const requestIdRef = useRef(0);
+
+  // Check authentication status on mount & listen for 401 events
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      setSessionExpired(true);
+    }
+
+    const handleUnauthorized = () => {
+      setSessionExpired(true);
+      setLoading(false);
+      setLocationStatus("error");
+    };
+
+    window.addEventListener("diasense:unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("diasense:unauthorized", handleUnauthorized);
+  }, []);
 
   // Request user's current GPS location with high precision and accuracy tracking
   const handleUseCurrentLocation = () => {
+    if (sessionExpired || !localStorage.getItem("access_token")) {
+      setSessionExpired(true);
+      toast.warn("🔐 Please log in to search healthcare facilities using GPS.");
+      return;
+    }
+
     if (!navigator.geolocation) {
       const err = "Geolocation is not supported by your browser.";
       setLocationStatus("error");
@@ -68,6 +96,7 @@ function FindCare() {
 
     setLocationStatus("locating");
     setLocationError("");
+    setSearchStage("searching_facilities");
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -75,12 +104,13 @@ function FindCare() {
         const lng = position.coords.longitude;
         const accuracyMeters = position.coords.accuracy ? Math.round(position.coords.accuracy) : null;
 
-        // Validate finite numbers
+        // Validate finite numbers within India bounds
         if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
           const invalidErr = "Received invalid geographical coordinates from device.";
           setLocationStatus("error");
           setLocationError(invalidErr);
           toast.error(invalidErr);
+          setSearchStage("error");
           return;
         }
 
@@ -89,6 +119,7 @@ function FindCare() {
           lng,
           name: accuracyMeters ? `Current GPS (±${accuracyMeters}m)` : "Current GPS Location",
           accuracy: accuracyMeters,
+          details: null,
         };
 
         setLocation(coords);
@@ -99,6 +130,7 @@ function FindCare() {
       },
       (err) => {
         setLocationStatus("error");
+        setSearchStage("error");
         let msg = "We couldn't determine your current location. Please try again or search manually.";
         if (err.code === 1) {
           msg = t("findCare.permissionDenied") || "Location permission was denied. Please allow location access or type your locality/PIN code.";
@@ -114,39 +146,86 @@ function FindCare() {
     );
   };
 
-  // Manual search by city / locality / pincode
+  // Manual search by PIN code / locality / city
   const handleManualSearch = async (e) => {
     if (e) e.preventDefault();
-    if (!manualQuery.trim()) {
-      toast.error(t("findCare.enterLocationPrompt") || "Please enter a city, area, or PIN code.");
+
+    if (sessionExpired || !localStorage.getItem("access_token")) {
+      setSessionExpired(true);
+      toast.warn("🔐 Please log in to search healthcare facilities.");
       return;
+    }
+
+    const cleanQuery = manualQuery.trim();
+    if (!cleanQuery) {
+      toast.error(t("findCare.enterLocationPrompt") || "Please enter a 6-digit Indian PIN code or city name.");
+      return;
+    }
+
+    const isSixDigitPin = /^[1-9]\d{5}$/.test(cleanQuery);
+    const isDigitsOnly = /^\d+$/.test(cleanQuery);
+
+    if (isDigitsOnly && !isSixDigitPin) {
+      toast.warn("Indian PIN codes must be exactly 6 digits (e.g. 560039, 110001). Searching with available postal index...");
     }
 
     setLocationStatus("locating");
     setLocationError("");
     setLoading(true);
 
+    if (isSixDigitPin) {
+      setSearchStage("validating_pin");
+    } else {
+      setSearchStage("finding_postal");
+    }
+
     try {
-      const res = await nearbyCareService.geocodeLocation(manualQuery.trim());
+      if (isSixDigitPin) {
+        setSearchStage("finding_postal");
+      }
+
+      const res = await nearbyCareService.geocodeLocation(cleanQuery);
       if (res && res.data) {
+        const data = res.data;
         const coords = {
-          lat: res.data.latitude,
-          lng: res.data.longitude,
-          name: res.data.display_name,
+          lat: data.latitude,
+          lng: data.longitude,
+          name: data.display_name,
           accuracy: null,
+          details: data,
         };
+
         setLocation(coords);
         setLocationStatus("success");
         setLocationError("");
-        const locLabel = res.data.city || res.data.display_name.split(",")[0];
-        toast.success(t("findCare.foundLocation", { location: locLabel }) || `📍 Found location: ${locLabel}`);
-        fetchFacilities(coords.lat, coords.lng, activeTab, radius, res.data.display_name);
+
+        const locLabel = data.post_office || data.city || data.display_name.split(",")[0];
+        toast.success(t("findCare.foundLocation", { location: locLabel }) || `📍 Resolved postal area: ${locLabel}`);
+
+        setSearchStage("searching_facilities");
+        fetchFacilities(coords.lat, coords.lng, activeTab, radius, data.display_name);
       } else {
-        throw new Error(`Unable to resolve location for "${manualQuery.trim()}".`);
+        throw new Error(`Unable to resolve location for "${cleanQuery}".`);
       }
     } catch (err) {
+      if (
+        err.isAuthError ||
+        err.status === 401 ||
+        (err.message && (err.message.toLowerCase().includes("credentials") || err.message.toLowerCase().includes("token")))
+      ) {
+        setSessionExpired(true);
+        setLocationStatus("error");
+        setSearchStage("error");
+        setLoading(false);
+        return;
+      }
+
       setLocationStatus("error");
-      const msg = err.message || t("findCare.locateError", { query: manualQuery }) || `Unable to locate "${manualQuery}". Please verify your city or PIN code.`;
+      setSearchStage("error");
+      const msg =
+        err.message ||
+        t("findCare.locateError", { query: cleanQuery }) ||
+        `Unable to locate "${cleanQuery}". Please verify your 6-digit Indian PIN code or city name.`;
       setLocationError(msg);
       toast.error(msg);
       setLoading(false);
@@ -179,11 +258,14 @@ function FindCare() {
         setProviderStatus(data.provider_status || null);
 
         if (data.facilities && data.facilities.length > 0) {
-          // Enforce strict client-side boundary contract: distance <= (radius / 1000) + 5m tolerance
-          const maxAllowedKm = (rad / 1000.0) + 0.005;
+          // Strict client-side boundary safeguard: distance <= (radius / 1000)
+          const maxAllowedKm = rad / 1000.0;
           const validFacilities = data.facilities.filter((fac) => {
             return fac.distance <= maxAllowedKm;
           });
+
+          // Sort nearest first
+          validFacilities.sort((a, b) => a.distance - b.distance);
 
           setFacilities(validFacilities);
           setSelectedFacility(validFacilities.length > 0 ? validFacilities[0] : null);
@@ -195,12 +277,28 @@ function FindCare() {
         setFacilities([]);
         setSelectedFacility(null);
       }
+      setSearchStage("complete");
     } catch (err) {
+      if (
+        err.isAuthError ||
+        err.status === 401 ||
+        (err.message && (err.message.toLowerCase().includes("credentials") || err.message.toLowerCase().includes("token")))
+      ) {
+        setSessionExpired(true);
+        setLoading(false);
+        setSearchStage("error");
+        return;
+      }
+
       if (currentRequestId === requestIdRef.current) {
-        const errorMsg = err.message || t("findCare.facilitiesFetchError") || "Unable to find nearby healthcare facilities right now. Please try again.";
+        const errorMsg =
+          err.message ||
+          t("findCare.facilitiesFetchError") ||
+          "Unable to find nearby healthcare facilities right now. Please try again.";
         toast.error(errorMsg);
         setFacilities([]);
         setSelectedFacility(null);
+        setSearchStage("error");
       }
     } finally {
       if (currentRequestId === requestIdRef.current) {
@@ -263,9 +361,33 @@ function FindCare() {
             <h1>{t("findCare.headerTitle") || "Find Nearby Hospitals & Diagnostic Centers"}</h1>
             <p>
               {t("findCare.headerDesc") ||
-                "Locate authentic healthcare facilities, multi-specialty hospitals, and diabetes pathology testing labs near your exact coordinates or postal zone."}
+                "Locate authentic healthcare facilities, multi-specialty hospitals, and diabetes pathology testing labs across India using any 6-digit PIN code or GPS coordinates."}
             </p>
           </div>
+
+          {/* Session Expired / Authentication Banner */}
+          {sessionExpired && (
+            <div className="session-expired-card">
+              <div className="session-alert-content">
+                <div className="session-alert-icon-box">
+                  <FaShieldAlt />
+                </div>
+                <div>
+                  <h3>Authentication Required</h3>
+                  <p>
+                    Your login session has expired or is unverified. Please sign in to search real healthcare facilities, access interactive mapping, and get Google Maps navigation.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-session-signin"
+                onClick={() => navigate("/login", { state: { from: "/find-care" } })}
+              >
+                <FaSignInAlt /> Sign In to Continue
+              </button>
+            </div>
+          )}
 
           {/* Location Action Card */}
           <div className="location-card">
@@ -277,16 +399,16 @@ function FindCare() {
                 <div>
                   <h2>{t("findCare.yourLocation") || "Your Location"}</h2>
                   <p className="card-subtext">
-                    {t("findCare.locationSubtext") || "Use high-accuracy GPS or enter an Indian PIN code / city area"}
+                    Enter any 6-digit Indian PIN code (e.g. 560039, 110001, 781001) or use GPS
                   </p>
                 </div>
               </div>
 
               {locationStatus === "success" && location && (
                 <div className="location-status-badge success">
-                  <FaCheckCircle /> {t("findCare.locationDetected") || "Active Search Origin"}:{" "}
+                  <FaCheckCircle /> {t("findCare.locationDetected") || "Active Origin"}:{" "}
                   <strong>
-                    {location.name?.length > 40 ? location.name.slice(0, 40) + "..." : location.name}
+                    {location.name?.length > 45 ? location.name.slice(0, 45) + "..." : location.name}
                   </strong>
                   {location.accuracy && (
                     <span className="accuracy-pill" title="GPS reported horizontal accuracy">
@@ -305,7 +427,7 @@ function FindCare() {
                 onClick={handleUseCurrentLocation}
                 disabled={locationStatus === "locating" || loading}
               >
-                {locationStatus === "locating" ? (
+                {locationStatus === "locating" && searchStage === "searching_facilities" && !manualQuery ? (
                   <>
                     <FaSpinner className="spin-icon" /> {t("findCare.obtainingGps") || "Acquiring GPS Fix..."}
                   </>
@@ -323,7 +445,7 @@ function FindCare() {
                 <div className="input-with-button">
                   <input
                     type="text"
-                    placeholder={t("findCare.searchPlaceholder") || "Enter Area, PIN code (e.g. 560049, 560001) or City..."}
+                    placeholder="Enter any 6-digit Indian PIN code (e.g. 560039, 110001) or City..."
                     value={manualQuery}
                     onChange={(e) => setManualQuery(e.target.value)}
                   />
@@ -340,8 +462,21 @@ function FindCare() {
               </form>
             </div>
 
+            {/* Search Stage Progress Indicator */}
+            {loading && searchStage && searchStage !== "idle" && (
+              <div className="search-stage-pill">
+                <FaSpinner className="spin-icon stage-spin" />
+                <span>
+                  {searchStage === "validating_pin" && "Validating 6-digit Indian PIN code..."}
+                  {searchStage === "finding_postal" && "Resolving postal jurisdiction from Department of Posts..."}
+                  {searchStage === "searching_facilities" && `Discovering real healthcare facilities within ${(radius / 1000).toFixed(0)} km...`}
+                  {searchStage === "loading_map" && "Loading interactive map..."}
+                </span>
+              </div>
+            )}
+
             {/* Error Message Box */}
-            {locationStatus === "error" && locationError && (
+            {locationStatus === "error" && locationError && !sessionExpired && (
               <div className="location-error-banner">
                 <FaExclamationTriangle className="err-icon" />
                 <div>
@@ -351,6 +486,52 @@ function FindCare() {
               </div>
             )}
           </div>
+
+          {/* Resolved Postal Details & Accuracy Card */}
+          {location && location.details && (
+            <div className="postal-details-card">
+              <div className="postal-header-row">
+                <div className="postal-main-meta">
+                  <span className="pincode-badge">
+                    📮 {location.details.pincode ? `PIN ${location.details.pincode}` : "Locality Search"}
+                  </span>
+                  <h3>{location.details.formatted_address || location.name}</h3>
+                </div>
+                {location.details.confidence && (
+                  <span className="confidence-pill" title="Geocoding Confidence">
+                    {Math.round(location.details.confidence * 100)}% Confidence
+                  </span>
+                )}
+              </div>
+
+              {location.details.post_offices && location.details.post_offices.length > 1 && (
+                <div className="covered-offices-box">
+                  <span className="offices-label">Covered Post Offices in Postal Area:</span>
+                  <div className="offices-tags">
+                    {location.details.post_offices.slice(0, 6).map((po, idx) => (
+                      <span key={idx} className="office-tag">
+                        {po}
+                      </span>
+                    ))}
+                    {location.details.post_offices.length > 6 && (
+                      <span className="office-tag more">
+                        +{location.details.post_offices.length - 6} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Required Location Accuracy Notice */}
+              <div className="approximate-notice-box">
+                <FaInfoCircle className="notice-icon" />
+                <p>
+                  {location.details.approximate_notice ||
+                    "PIN-code searches identify an approximate postal area centroid, not your exact home address. Use GPS for more precise nearby results."}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Facility Type Switcher & Controls */}
           <div className="care-controls-bar">
@@ -434,8 +615,10 @@ function FindCare() {
             {loading && (
               <div className="loading-state-card">
                 <FaSpinner className="spin-icon-large" />
-                <h3>{t("findCare.findingCare") || "Searching Healthcare Facilities..."}</h3>
-                <p>Querying verified medical providers strictly within {radius / 1000} km radius.</p>
+                <h3>{t("findCare.findingCare") || "Searching Real Healthcare Facilities..."}</h3>
+                <p>
+                  Querying verified medical providers strictly within {(radius / 1000).toFixed(0)} km radius.
+                </p>
               </div>
             )}
 
@@ -447,8 +630,7 @@ function FindCare() {
                 </div>
                 <h3>{t("findCare.readyPrompt") || "Discover Healthcare Facilities Near You"}</h3>
                 <p>
-                  {t("findCare.readyDesc") ||
-                    "Click 'Use My GPS Location' or enter your area name/PIN code above to find nearby hospitals, clinics, and diabetes testing laboratories."}
+                  Enter any 6-digit Indian PIN code (e.g. 560039, 110001, 781001) or click 'Use My GPS Location' above to find nearby hospitals, clinics, and diabetes testing laboratories.
                 </p>
               </div>
             )}
@@ -460,11 +642,11 @@ function FindCare() {
                   <FaExclamationTriangle />
                 </div>
                 <h3>
-                  {t("findCare.noResults") || "No healthcare facilities found within"} {radius / 1000} km
+                  {t("findCare.noResults") || "No healthcare facilities found within"} {(radius / 1000).toFixed(0)} km
                 </h3>
                 <p>
                   No matching {activeTab === "hospital" ? "hospitals or medical clinics" : "diagnostic laboratories"}{" "}
-                  were identified strictly within {radius / 1000} km of your active origin ({location.name}).
+                  were identified strictly within {(radius / 1000).toFixed(0)} km of your active origin ({location.name}).
                 </p>
                 <div className="empty-actions">
                   <button className="btn-increase-radius" onClick={handleIncreaseRadius}>
@@ -477,7 +659,7 @@ function FindCare() {
               </div>
             )}
 
-            {/* Results Header */}
+            {/* Results Summary Bar */}
             {!loading && facilities.length > 0 && (
               <div className="results-summary-bar">
                 <span className="count-badge">
@@ -485,7 +667,7 @@ function FindCare() {
                   {activeTab === "hospital" ? "Hospitals & Clinics" : "Diagnostic Laboratories"}
                 </span>
                 <span className="radius-indicator">
-                  Strictly within {radius / 1000} km • Sorted by Distance
+                  Strictly within {(radius / 1000).toFixed(0)} km • Sorted by Distance
                 </span>
               </div>
             )}
@@ -566,10 +748,10 @@ function FindCare() {
               </div>
             )}
 
-            {/* View Mode 2: Interactive Map View */}
+            {/* View Mode 2: Real Interactive Geographic Map View */}
             {!loading && facilities.length > 0 && viewMode === "map" && (
               <div className="map-view-layout">
-                {/* Facilities Sidebar on Desktop */}
+                {/* Facilities Sidebar */}
                 <div className="map-sidebar">
                   <h3>Discovered Facilities ({facilities.length})</h3>
                   <div className="map-sidebar-list">
@@ -595,7 +777,7 @@ function FindCare() {
                           className="sidebar-dir-link"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <FaDirections /> {t("common.getDirections") || "Directions"}
+                          <FaDirections /> Directions
                         </a>
                       </div>
                     ))}
@@ -627,13 +809,13 @@ function FindCare() {
                           rel="noopener noreferrer"
                           className="btn-directions-sm"
                         >
-                          <FaDirections /> {t("common.openGoogleMaps") || "Open Directions"}
+                          <FaDirections /> {t("common.openGoogleMaps") || "Open Google Maps"}
                         </a>
                       </div>
                     </div>
                   )}
 
-                  {/* Enhanced Multi-Facility Interactive Map Canvas */}
+                  {/* Leaflet Multi-Marker Interactive Map */}
                   <FacilityMap
                     facilities={facilities}
                     location={location}
@@ -654,7 +836,7 @@ function FindCare() {
             </h4>
             <p>
               {t("common.disclaimerText") ||
-                "DiaSense AI provides facility locations and contact information for healthcare accessibility and emergency guidance. Always verify emergency availability and bed status directly with the hospital before transit in life-threatening scenarios."}
+                "DiaSense AI provides healthcare facility locations and contact information for emergency accessibility and preventive diabetes care. Always verify bed and emergency department availability directly with the hospital before transit in life-threatening scenarios."}
             </p>
           </div>
         </div>

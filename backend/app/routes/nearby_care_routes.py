@@ -29,18 +29,30 @@ def get_nearby_care_facilities(
     resolved_lat = latitude
     resolved_lon = longitude
     location_name = None
+    location_details = None
+    approximate_notice = None
 
     # If manual location search query is provided, geocode it
     if query and query.strip():
-        geocode_res = care_service.geocode_location(query.strip())
+        clean_q = query.strip()
+        geocode_res = care_service.geocode_location(clean_q)
         if not geocode_res:
+            is_digit_query = clean_q.isdigit()
+            if is_digit_query and len(clean_q) != 6:
+                err_msg = f"'{clean_q}' is not a valid Indian PIN code. Indian PIN codes must be 6 digits (e.g. 560039, 110001)."
+            elif is_digit_query:
+                err_msg = f"Could not find postal records for PIN code '{clean_q}'. Please check the 6-digit code or try your city/district name."
+            else:
+                err_msg = f"Unable to locate '{clean_q}'. Please verify the city or area name."
             return error_response(
-                message=f"Unable to locate '{query.strip()}'. Please verify the city or area name.",
+                message=err_msg,
                 status_code=status.HTTP_404_NOT_FOUND,
             )
         resolved_lat = geocode_res.latitude
         resolved_lon = geocode_res.longitude
         location_name = geocode_res.display_name
+        location_details = geocode_res.model_dump()
+        approximate_notice = geocode_res.approximate_notice
 
     if resolved_lat is None or resolved_lon is None:
         return error_response(
@@ -84,6 +96,8 @@ def get_nearby_care_facilities(
         facility_type=clean_type,
         radius_meters=clean_radius,
         location_name=location_name,
+        location_details=location_details,
+        approximate_notice=approximate_notice,
     )
 
     return success_response(
@@ -98,12 +112,20 @@ def geocode_manual_location(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Geocode manual location text to latitude and longitude coordinates.
+    Geocode manual location text or 6-digit Indian PIN code to latitude and longitude coordinates.
     """
-    res = care_service.geocode_location(query.strip())
+    clean_q = query.strip()
+    res = care_service.geocode_location(clean_q)
     if not res:
+        is_digit_query = clean_q.isdigit()
+        if is_digit_query and len(clean_q) != 6:
+            err_msg = f"'{clean_q}' is not a valid Indian PIN code. Indian PIN codes must be exactly 6 digits (e.g. 560039, 110001)."
+        elif is_digit_query:
+            err_msg = f"Could not find postal records for PIN code '{clean_q}'. Please check the 6-digit code or search by city/district."
+        else:
+            err_msg = f"Could not find coordinates for '{clean_q}'. Please try a nearby city or area."
         return error_response(
-            message=f"Could not find coordinates for '{query.strip()}'. Please try a nearby city or area.",
+            message=err_msg,
             status_code=status.HTTP_404_NOT_FOUND,
         )
 

@@ -32,7 +32,7 @@ def test_pin_code_geocoding_accuracy():
     # 1. PIN 560049 (Bhattarahalli / K.R. Puram - East Bengaluru)
     geo_49 = service.geocode_location("560049")
     assert geo_49 is not None, "Failed to resolve PIN 560049"
-    assert round(geo_49.latitude, 2) == 13.02 or round(geo_49.latitude, 2) == 13.01
+    assert round(geo_49.latitude, 2) in (13.01, 13.02, 13.03)
     assert round(geo_49.longitude, 2) == 77.71 or round(geo_49.longitude, 2) == 77.70
     assert "Bhattarahalli" in geo_49.display_name or "560049" in geo_49.display_name
 

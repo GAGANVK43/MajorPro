@@ -1,26 +1,27 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import "./FacilityMap.css";
 import {
   FaHospital,
   FaVial,
-  FaLocationArrow,
-  FaCrosshairs,
-  FaMapMarkedAlt,
-  FaLayerGroup,
+  FaMapMarkerAlt,
   FaDirections,
+  FaCrosshairs,
   FaExternalLinkAlt,
-  FaCheckCircle,
+  FaInfoCircle,
 } from "react-icons/fa";
 
 /**
- * FacilityMap
- * 
- * Interactive Multi-Facility Map & Spatial Radar:
- * - Plots the active user origin coordinate with GPS accuracy radius
- * - Draws the strict search radius boundary (2km, 5km, 10km, 20km)
- * - Renders interactive marker pins for EVERY discovered facility
- * - Synchronizes selection between map and list
- * - Toggleable between Interactive Vector Plot and OpenStreetMap Street View
+ * FacilityMap Component
+ *
+ * Production-quality interactive geographic map powered by Leaflet & OpenStreetMap:
+ * - Real geographic projection with drag, pan, zoom, and touch controls
+ * - Search origin marker with pulsating GPS beacon
+ * - Search radius boundary circle (2km, 5km, 10km, 20km)
+ * - Custom pins for hospitals, clinics, and diagnostic laboratories with distance tags
+ * - Synchronized marker popups with Google Maps navigation links
+ * - Full list <-> map selection bidirectional synchronization
  */
 export default function FacilityMap({
   facilities = [],
@@ -30,249 +31,261 @@ export default function FacilityMap({
   onSelectFacility,
   activeTab = "hospital",
 }) {
-  const [mapType, setMapType] = useState("interactive"); // 'interactive' | 'osm'
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markersLayerRef = useRef(null);
+  const markerMapRef = useRef({});
+
+  // 1. Initialize Leaflet Map once
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    if (!mapInstanceRef.current) {
+      const initialLat = location ? location.lat : 20.5937; // India centroid default
+      const initialLng = location ? location.lng : 78.9629;
+      const initialZoom = location ? 13 : 5;
+
+      const map = L.map(mapContainerRef.current, {
+        center: [initialLat, initialLng],
+        zoom: initialZoom,
+        zoomControl: true,
+        scrollWheelZoom: true,
+      });
+
+      // Standard OSM Tile Layer with attribution
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors | DiaSense AI',
+        maxZoom: 19,
+        minZoom: 3,
+      }).addTo(map);
+
+      mapInstanceRef.current = map;
+      markersLayerRef.current = L.layerGroup().addTo(map);
+
+      // Invalidate size once DOM stabilizes
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 200);
+    }
+
+    return () => {
+      // Cleanup on unmount
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markersLayerRef.current = null;
+        markerMapRef.current = {};
+      }
+    };
+  }, []);
+
+  // 2. Update Markers, Radius Circle, and View whenever location, facilities, or radius change
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const markersLayer = markersLayerRef.current;
+    if (!map || !markersLayer || !location) return;
+
+    // Invalidate map size in case container dimensions changed
+    map.invalidateSize();
+
+    // Clear previous markers & circles
+    markersLayer.clearLayers();
+    markerMapRef.current = {};
+
+    const originLat = location.lat;
+    const originLng = location.lng;
+
+    // Draw strict Search Radius Circle Boundary
+    const radiusCircle = L.circle([originLat, originLng], {
+      radius: radius,
+      color: "#38bdf8",
+      fillColor: "#0284c7",
+      fillOpacity: 0.08,
+      weight: 2,
+      dashArray: "6, 8",
+    }).addTo(markersLayer);
+
+    // Origin GPS Beacon Pin
+    const originIcon = L.divIcon({
+      className: "diasense-origin-marker",
+      html: `
+        <div class="origin-beacon-pin">
+          <div class="beacon-wave"></div>
+          <div class="beacon-dot">📍</div>
+        </div>
+      `,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+    });
+
+    const originMarker = L.marker([originLat, originLng], {
+      icon: originIcon,
+      zIndexOffset: 1000,
+    }).addTo(markersLayer);
+
+    originMarker.bindPopup(`
+      <div class="diasense-popup-content origin-popup">
+        <h4>📍 Search Origin</h4>
+        <p class="origin-name">${location.name || "Selected Location"}</p>
+        <p class="origin-coords">${originLat.toFixed(4)}° N, ${originLng.toFixed(4)}° E</p>
+        <div class="origin-radius-tag">Search Boundary: ${(radius / 1000).toFixed(0)} km</div>
+      </div>
+    `);
+
+    // Plot Facility Markers
+    facilities.forEach((fac) => {
+      if (
+        !Number.isFinite(fac.latitude) ||
+        !Number.isFinite(fac.longitude)
+      ) {
+        return;
+      }
+
+      const isLab = fac.category === "laboratory";
+      const isSelected = selectedFacility && selectedFacility.id === fac.id;
+      const symbol = isLab ? "🧪" : "🏥";
+      const pinClass = `diasense-fac-pin ${isLab ? "lab-pin" : "hospital-pin"} ${isSelected ? "selected" : ""}`;
+
+      const facIcon = L.divIcon({
+        className: "custom-leaflet-pin-wrapper",
+        html: `
+          <div class="${pinClass}">
+            <span class="pin-icon">${symbol}</span>
+            <span class="pin-tag">${fac.distance}km</span>
+          </div>
+        `,
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
+      });
+
+      const marker = L.marker([fac.latitude, fac.longitude], {
+        icon: facIcon,
+        zIndexOffset: isSelected ? 800 : 200,
+      }).addTo(markersLayer);
+
+      markerMapRef.current[fac.id] = marker;
+
+      // Popup card HTML
+      const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${fac.latitude},${fac.longitude}`;
+      const popupHtml = `
+        <div class="diasense-popup-content">
+          <div class="popup-type-bar">
+            <span class="popup-badge ${isLab ? "lab-badge" : "hosp-badge"}">${fac.type || (isLab ? "Diagnostic Lab" : "Hospital")}</span>
+            <span class="popup-dist">${fac.distance} km</span>
+          </div>
+          <h4 class="popup-title">${fac.name}</h4>
+          <p class="popup-address">${fac.address || "Address available via Google Maps"}</p>
+          <div class="popup-meta-row">
+            ${fac.rating ? `<span class="popup-pill rating">★ ${fac.rating}</span>` : ""}
+            ${fac.open_now === true ? `<span class="popup-pill open">Verified 24/7</span>` : ""}
+            ${fac.phone ? `<span class="popup-pill phone">📞 ${fac.phone}</span>` : ""}
+          </div>
+          <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" class="popup-nav-button">
+            🧭 Navigate on Google Maps
+          </a>
+        </div>
+      `;
+
+      marker.bindPopup(popupHtml, {
+        maxWidth: 320,
+        className: "diasense-leaflet-popup-card",
+      });
+
+      marker.on("click", () => {
+        if (onSelectFacility) {
+          onSelectFacility(fac);
+        }
+      });
+    });
+
+    // Auto-fit bounds so the origin circle & pins are nicely visible
+    map.fitBounds(radiusCircle.getBounds(), {
+      padding: [25, 25],
+      maxZoom: 15,
+      animate: true,
+    });
+  }, [location, facilities, radius]);
+
+  // 3. Focus and open popup when selectedFacility changes from outside (e.g. list click)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !selectedFacility) return;
+
+    const marker = markerMapRef.current[selectedFacility.id];
+    if (marker) {
+      marker.openPopup();
+      map.setView(
+        [selectedFacility.latitude, selectedFacility.longitude],
+        Math.max(map.getZoom(), 14),
+        { animate: true }
+      );
+    }
+  }, [selectedFacility]);
+
+  const handleRecenter = () => {
+    const map = mapInstanceRef.current;
+    if (map && location) {
+      map.setView([location.lat, location.lng], 13, { animate: true });
+    }
+  };
 
   if (!location) {
     return (
       <div className="facility-map-empty">
-        <p>Set a location to view nearby facilities on the map.</p>
+        <FaMapMarkerAlt className="empty-map-icon" />
+        <p>Enter an Indian PIN code or use GPS to display nearby facilities on the map.</p>
       </div>
     );
   }
 
-  const originLat = location.lat;
-  const originLng = location.lng;
-
-  // Viewport projection: Center = (250, 250) on 500x500 SVG
-  const SVG_SIZE = 500;
-  const CENTER = SVG_SIZE / 2;
-  const MAX_PLOT_RADIUS = 210; // Pixels corresponding to radius meters
-
-  // Convert (lat, lng) to (x, y) relative to origin using equirectangular projection
-  // Delta meters: dy = dLat * 111,195 m; dx = dLng * 111,195 * cos(lat) m
-  const latFactor = 111195.0;
-  const lngFactor = 111195.0 * Math.cos((originLat * Math.PI) / 180.0);
-
-  const projectToSvg = (lat, lng) => {
-    const dLatMeters = (lat - originLat) * latFactor;
-    const dLngMeters = (lng - originLng) * lngFactor;
-
-    // SVG coordinates: +x is East, +y is South (so North is -dy)
-    const scale = MAX_PLOT_RADIUS / radius;
-    const x = CENTER + dLngMeters * scale;
-    const y = CENTER - dLatMeters * scale;
-
-    return { x, y, dLngMeters, dLatMeters };
-  };
-
-  const radiusKm = radius / 1000;
-
   return (
-    <div className="facility-map-container">
-      {/* Map Control Bar */}
-      <div className="facility-map-controls">
-        <div className="map-type-toggles">
-          <button
-            type="button"
-            className={`map-toggle-btn ${mapType === "interactive" ? "active" : ""}`}
-            onClick={() => setMapType("interactive")}
-            title="Interactive Multi-Marker Radar View"
-          >
-            <FaLayerGroup /> Interactive Radar Map ({facilities.length} Pins)
-          </button>
-          <button
-            type="button"
-            className={`map-toggle-btn ${mapType === "osm" ? "active" : ""}`}
-            onClick={() => setMapType("osm")}
-            title="OpenStreetMap Street View"
-          >
-            <FaMapMarkedAlt /> OpenStreetMap View
-          </button>
+    <div className="facility-map-wrapper">
+      {/* Map Header Toolbar */}
+      <div className="map-toolbar">
+        <div className="map-stats-pill">
+          <span className="live-pulse" />
+          <span>
+            {facilities.length > 0
+              ? `Found ${facilities.length} ${activeTab === "laboratory" ? "diagnostic labs" : "hospitals"} within ${(radius / 1000).toFixed(0)} km`
+              : `No ${activeTab === "laboratory" ? "labs" : "hospitals"} within ${(radius / 1000).toFixed(0)} km`}
+          </span>
         </div>
 
-        <div className="map-legend">
-          <span className="legend-item origin">
-            <span className="legend-dot origin-dot" /> Search Origin
-          </span>
-          <span className="legend-item hospital">
-            <span className="legend-dot hospital-dot" /> Hospital
-          </span>
-          <span className="legend-item lab">
-            <span className="legend-dot lab-dot" /> Diagnostic Lab
-          </span>
+        <div className="map-toolbar-actions">
+          <button
+            type="button"
+            className="recenter-btn"
+            onClick={handleRecenter}
+            title="Recenter Map to Search Origin"
+          >
+            <FaCrosshairs /> Recenter
+          </button>
         </div>
       </div>
 
-      {mapType === "interactive" ? (
-        <div className="interactive-svg-wrapper">
-          <svg
-            viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
-            className="facility-svg-canvas"
-            preserveAspectRatio="xMidYMid meet"
-          >
-            <defs>
-              {/* Radial gradient for origin radar pulse */}
-              <radialGradient id="radarPulseGrad" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.35" />
-                <stop offset="70%" stopColor="#0ea5e9" stopOpacity="0.08" />
-                <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
-              </radialGradient>
+      {/* Leaflet Map DOM Container */}
+      <div
+        ref={mapContainerRef}
+        id="leaflet-facility-map"
+        className="leaflet-map-element"
+      />
 
-              {/* Boundary ring gradient */}
-              <linearGradient id="boundaryRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.8" />
-                <stop offset="50%" stopColor="#818cf8" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.8" />
-              </linearGradient>
-
-              {/* Filter glow for active selection */}
-              <filter id="markerActiveGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="3.5" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
-
-            {/* Radar Background & Grid Circles */}
-            <circle
-              cx={CENTER}
-              cy={CENTER}
-              r={MAX_PLOT_RADIUS}
-              className="map-boundary-circle"
-              fill="url(#radarPulseGrad)"
-            />
-
-            {/* Concentric Distance Rings: 25%, 50%, 75%, 100% */}
-            {[0.25, 0.5, 0.75, 1.0].map((frac) => {
-              const r = MAX_PLOT_RADIUS * frac;
-              const distLabel = `${(radiusKm * frac).toFixed(frac === 1 ? 0 : 1)} km`;
-              return (
-                <g key={frac} className="distance-ring-group">
-                  <circle
-                    cx={CENTER}
-                    cy={CENTER}
-                    r={r}
-                    className={`distance-ring ${frac === 1.0 ? "boundary-edge" : ""}`}
-                  />
-                  <text
-                    x={CENTER + 6}
-                    y={CENTER - r + 13}
-                    className="distance-ring-label"
-                  >
-                    {distLabel}
-                  </text>
-                </g>
-              );
-            })}
-
-            {/* Crosshair Cardinal Axes (N-S, E-W) */}
-            <line
-              x1={CENTER}
-              y1={CENTER - MAX_PLOT_RADIUS - 10}
-              x2={CENTER}
-              y2={CENTER + MAX_PLOT_RADIUS + 10}
-              className="crosshair-axis"
-            />
-            <line
-              x1={CENTER - MAX_PLOT_RADIUS - 10}
-              y1={CENTER}
-              x2={CENTER + MAX_PLOT_RADIUS + 10}
-              y2={CENTER}
-              className="crosshair-axis"
-            />
-
-            {/* Cardinal Direction Indicators */}
-            <text x={CENTER} y={CENTER - MAX_PLOT_RADIUS - 16} className="cardinal-label">N</text>
-            <text x={CENTER + MAX_PLOT_RADIUS + 16} y={CENTER + 4} className="cardinal-label">E</text>
-            <text x={CENTER} y={CENTER + MAX_PLOT_RADIUS + 22} className="cardinal-label">S</text>
-            <text x={CENTER - MAX_PLOT_RADIUS - 20} y={CENTER + 4} className="cardinal-label">W</text>
-
-            {/* Center Origin: User Location */}
-            <g className="origin-marker-group">
-              <circle cx={CENTER} cy={CENTER} r="18" className="origin-radar-ping" />
-              <circle cx={CENTER} cy={CENTER} r="7" className="origin-center-dot" />
-              <circle cx={CENTER} cy={CENTER} r="3" fill="#ffffff" />
-            </g>
-
-            {/* Facility Marker Pins */}
-            {facilities.map((fac, idx) => {
-              const { x, y } = projectToSvg(fac.latitude, fac.longitude);
-              const isSelected = selectedFacility?.id === fac.id;
-              const isLab = fac.category === "laboratory";
-
-              return (
-                <g
-                  key={fac.id || idx}
-                  className={`map-facility-pin ${isSelected ? "selected" : ""} ${isLab ? "lab-pin" : "hospital-pin"}`}
-                  transform={`translate(${x}, ${y})`}
-                  onClick={() => onSelectFacility && onSelectFacility(fac)}
-                  cursor="pointer"
-                >
-                  {/* Highlight ring if selected */}
-                  {isSelected && (
-                    <circle
-                      cx="0"
-                      cy="0"
-                      r="16"
-                      className="selected-highlight-ring"
-                      filter="url(#markerActiveGlow)"
-                    />
-                  )}
-
-                  {/* Marker Pin Base */}
-                  <circle
-                    cx="0"
-                    cy="0"
-                    r={isSelected ? "9" : "7.5"}
-                    className="pin-circle"
-                  />
-
-                  {/* Center Dot */}
-                  <circle cx="0" cy="0" r="3" fill="#ffffff" />
-
-                  {/* Micro Distance Badge */}
-                  <text
-                    x="0"
-                    y={isSelected ? "-14" : "-11"}
-                    className="pin-dist-text"
-                  >
-                    {fac.distance}km
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-
-          {/* Map Overlay Badge */}
-          <div className="map-overlay-info">
-            <span className="origin-badge">
-              <FaLocationArrow /> Origin: <strong>{location.name || "GPS"}</strong>
-            </span>
-            <span className="radius-badge">
-              <FaCrosshairs /> Boundary: <strong>{radiusKm} km Strict</strong>
-            </span>
-            <span className="count-badge">
-              <FaCheckCircle /> <strong>{facilities.length}</strong> facilities plotted
-            </span>
-          </div>
+      {/* Map Legend */}
+      <div className="map-footer-legend">
+        <div className="legend-entry">
+          <span className="legend-indicator origin-ind">📍</span>
+          <span>Search Origin ({(radius / 1000).toFixed(0)} km radius)</span>
         </div>
-      ) : (
-        /* OpenStreetMap Embed View */
-        <div className="osm-embed-wrapper">
-          <iframe
-            title="OpenStreetMap Street View"
-            width="100%"
-            height="500"
-            frameBorder="0"
-            scrolling="no"
-            marginHeight="0"
-            marginWidth="0"
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=${(selectedFacility?.longitude || originLng) - 0.035}%2C${(selectedFacility?.latitude || originLat) - 0.025}%2C${(selectedFacility?.longitude || originLng) + 0.035}%2C${(selectedFacility?.latitude || originLat) + 0.025}&layer=mapnik&marker=${selectedFacility?.latitude || originLat}%2C${selectedFacility?.longitude || originLng}`}
-          />
+        <div className="legend-entry">
+          <span className="legend-indicator hosp-ind">🏥</span>
+          <span>Hospital / Clinic</span>
         </div>
-      )}
+        <div className="legend-entry">
+          <span className="legend-indicator lab-ind">🧪</span>
+          <span>Diagnostic Laboratory</span>
+        </div>
+      </div>
     </div>
   );
 }

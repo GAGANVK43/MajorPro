@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 
@@ -27,7 +27,7 @@ class NearbyCareListResponse(BaseModel):
     facility_type: str = Field(..., description="Requested facility category (hospital or laboratory)")
     radius_meters: int = Field(..., description="Search radius in meters")
     radius_km: Optional[float] = Field(None, description="Search radius in kilometers")
-    tolerance_meters: float = Field(5.0, description="Strict boundary tolerance in meters")
+    tolerance_meters: float = Field(0.0, description="Strict boundary tolerance in meters")
     center_lat: float = Field(..., description="Center latitude of the search")
     center_lng: float = Field(..., description="Center longitude of the search")
     location_name: Optional[str] = Field(None, description="Geocoded location name if resolved from query")
@@ -37,12 +37,25 @@ class NearbyCareListResponse(BaseModel):
     provider_status: Dict[str, str] = Field(default_factory=dict, description="Status of each queried provider")
     has_live_results: bool = Field(False, description="Whether live providers returned results")
     search_warning: Optional[str] = Field(None, description="Diagnostic warning message if external providers were throttled or unavailable")
+    approximate_notice: Optional[str] = Field(None, description="Notice regarding location precision")
+    location_details: Optional[Dict[str, Any]] = Field(None, description="Structured postal or locality metadata")
 
 
 class GeocodeResult(BaseModel):
     latitude: float = Field(..., description="Resolved latitude")
     longitude: float = Field(..., description="Resolved longitude")
     display_name: str = Field(..., description="Full descriptive location name")
+    formatted_address: Optional[str] = Field(None, description="Clean formatted address")
+    pincode: Optional[str] = Field(None, description="6-digit Indian PIN code if applicable")
+    post_office: Optional[str] = Field(None, description="Primary post office or locality name")
+    post_offices: List[str] = Field(default_factory=list, description="List of all post offices associated with this PIN code")
+    district: Optional[str] = Field(None, description="District name")
     city: Optional[str] = Field(None, description="City name if available")
     state: Optional[str] = Field(None, description="State or province name if available")
-    country: Optional[str] = Field(None, description="Country name if available")
+    country: Optional[str] = Field("India", description="Country name if available")
+    source: str = Field("postal_directory", description="Geocoding source (postal_directory, nominatim, cluster_cache)")
+    confidence: Optional[float] = Field(None, description="Geocoding confidence or precision score (0.0 to 1.0)")
+    approximate_notice: Optional[str] = Field(
+        "PIN-code searches identify an approximate postal area, not your exact home address. Use GPS for more precise nearby results.",
+        description="Location accuracy guidance note",
+    )

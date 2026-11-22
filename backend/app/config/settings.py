@@ -22,7 +22,6 @@ class Settings(BaseSettings):
     # Security & JWT Settings
     SECRET_KEY: str = "diasense_super_secret_jwt_key_change_in_production_2026_x99!"
     ALGORITHM: str = "HS256"
-    # FIX H4: Was 60 minutes — mobile users were kicked out after 1 hour.
     # Extended to 1440 minutes (24 hours) for mobile-friendly sessions.
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -47,7 +46,7 @@ class Settings(BaseSettings):
     # Google Places API Key (Optional; defaults to OpenStreetMap Overpass & Nominatim)
     GOOGLE_PLACES_API_KEY: str = ""
 
-    # CORS Settings (Allow local Vite ports & wildcards in development)
+    # CORS Settings (Allow local Vite ports, Vercel deployments & wildcards)
     CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:5173",
         "http://localhost:5174",
@@ -56,6 +55,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
         "http://127.0.0.1:5175",
+        "https://diasense-ai-star.vercel.app",
+        "https://diasense-ai.vercel.app",
     ]
 
     @field_validator("CORS_ORIGINS", mode="before")
